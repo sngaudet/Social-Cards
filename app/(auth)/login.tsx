@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../firebaseConfig";
+import { auth } from "../../firebaseConfig";
 
 export default function Login() {
   const router = useRouter();
@@ -60,9 +60,9 @@ export default function Login() {
 
       <TouchableOpacity
         style={styles.primaryButton}
-        onPress={() => router.push("/create_account")}
+        onPress={() => router.replace("/(auth)/signup")}
       >
-        <Text style={styles.primaryText}>Create Account</Text>
+        <Text style={styles.primaryText}>Sign Up</Text>
       </TouchableOpacity>
 
     </View>
