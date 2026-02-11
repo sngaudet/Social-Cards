@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useEffect } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from "../firebaseConfig";
 
 export default function Home() {
@@ -19,7 +19,6 @@ export default function Home() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    Alert.alert("Logged out");
   };
 
   return (

@@ -28,14 +28,14 @@ export default function CreateAccount() {
     }
 
     try {
-      // 1️⃣ Create Firebase Auth user
+      // Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(
         auth,
         email.trim(),
         password,
       );
 
-      // 2️⃣ Create Firestore user document
+      // Create Firestore user document
       await setDoc(doc(db, "users", cred.user.uid), {
         email: cred.user.email,
         createdAt: serverTimestamp(),
@@ -54,6 +54,7 @@ export default function CreateAccount() {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor="#4f4f4f"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -63,6 +64,7 @@ export default function CreateAccount() {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#4f4f4f"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
