@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import {
   Alert,
@@ -29,11 +29,6 @@ export default function Login() {
     } catch (e: any) {
       Alert.alert("Login failed", e.message);
     }
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    Alert.alert("Logged out");
   };
 
   return (
@@ -70,9 +65,6 @@ export default function Login() {
         <Text style={styles.primaryText}>Create Account</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
-        <Text style={styles.secondaryText}>Log Out</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -106,13 +98,5 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "white",
     fontWeight: "600",
-  },
-  secondaryButton: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  secondaryText: {
-    color: "#666",
   },
 });
