@@ -24,7 +24,6 @@ export default function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      Alert.alert("Success", "Logged in!");
       router.replace("/");
     } catch (e: any) {
       Alert.alert("Login failed", e.message);
