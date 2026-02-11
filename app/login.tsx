@@ -42,6 +42,7 @@ export default function Login() {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor="#4f4f4f"
         style={styles.input}
         autoCapitalize="none"
         keyboardType="email-address"
@@ -51,6 +52,7 @@ export default function Login() {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#4f4f4f"
         style={styles.input}
         secureTextEntry
         value={password}
