@@ -1,26 +1,65 @@
 import { useRouter } from "expo-router";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import React, { useState } from "react";
 import {
+  Alert,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { auth } from "../firebaseConfig";
 
 export default function Home() {
   const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      return Alert.alert("Missing fields", "Enter email and password.");
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      Alert.alert("Success", "Logged in!");
+      // router.replace("/(tabs)") later when you build main app
+    } catch (e: any) {
+      Alert.alert("Login failed", e.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    Alert.alert("Logged out");
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome</Text>
 
       <TextInput
-        placeholder="Username"
+        placeholder="Email"
         style={styles.input}
         autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
       />
 
-      <TextInput placeholder="Password" style={styles.input} secureTextEntry />
+      <TextInput
+        placeholder="Password"
+        style={styles.input}
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
+      <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
+        <Text style={styles.primaryText}>Log In</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.primaryButton}
@@ -29,7 +68,7 @@ export default function Home() {
         <Text style={styles.primaryText}>Create Account</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => {}}>
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
         <Text style={styles.secondaryText}>Log Out</Text>
       </TouchableOpacity>
     </View>
