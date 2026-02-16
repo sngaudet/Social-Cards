@@ -1,7 +1,5 @@
-import { useRouter } from "expo-router";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
+import { useRouter } from "expo-router";
 import {
   Alert,
   StyleSheet,
@@ -10,42 +8,40 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import { useSignup } from "../../../src/signup/context";
 
-export default function Signup() {
+export default function SignupAccountStep() {
   const router = useRouter();
+  const { draft, updateDraft } = useSignup();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Prefill from draft so Back keeps values
+  const [email, setEmail] = useState(draft.email ?? "");
+  const [password, setPassword] = useState(draft.password ?? "");
 
-  const handleCreate = async () => {
-    if (!email || !password) {
-      return Alert.alert("Missing fields", "Enter email and password.");
+  const onNext = () => {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail || !password) {
+      Alert.alert("Missing fields", "Enter email and password.");
+      return;
     }
 
+    if (!cleanEmail.includes("@")) {
+      Alert.alert("Invalid email", "Enter a valid email address.");
+      return;
+    }
+
+    // Firebase requires 6+ for email/password accounts
     if (password.length < 6) {
-      return Alert.alert("Weak password", "Use at least 6 characters.");
+      Alert.alert("Weak password", "Use at least 6 characters.");
+      return;
     }
 
-    try {
-      // Create Firebase Auth user
-      const cred = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password,
-      );
+    // Save this step into the shared draft
+    updateDraft({ email: cleanEmail, password });
 
-      // Create Firestore user document
-      await setDoc(doc(db, "users", cred.user.uid), {
-        email: cred.user.email,
-        createdAt: serverTimestamp(),
-      });
-
-      Alert.alert("Account created!");
-      router.replace("/(prof)/prof_pg_1");
-    } catch (e: any) {
-      Alert.alert("Error", e.message);
-    }
+    // Go to the next signup screen
+    router.push("/(auth)/signup/profile");
   };
 
   return (
@@ -71,8 +67,8 @@ export default function Signup() {
         style={styles.input}
       />
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleCreate}>
-        <Text style={styles.primaryText}>Sign Up</Text>
+      <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
+        <Text style={styles.primaryText}>Next</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
