@@ -42,7 +42,7 @@ export default function Signup() {
       });
 
       Alert.alert("Account created!");
-      router.replace("/");
+      router.replace("/(prof)/prof_pg_1");
     } catch (e: any) {
       Alert.alert("Error", e.message);
     }
