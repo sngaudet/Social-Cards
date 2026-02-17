@@ -1,11 +1,18 @@
-import React, { useState } from "react";
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import React, { useMemo, useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { useSignup } from "../../../src/signup/context";
 import { auth, db } from "../../../firebaseConfig";
+import { useSignup } from "../../../src/signup/context";
 
 export default function SignupReview() {
   const router = useRouter();
@@ -13,25 +20,29 @@ export default function SignupReview() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const missing: string[] = [];
-  if (!draft.email?.trim()) missing.push("email");
-  if (!draft.password) missing.push("password");
-  if (!draft.firstName?.trim()) missing.push("first name");
-  if (!draft.lastName?.trim()) missing.push("last name");
-  if (!draft.Gender?.trim()) missing.push("gender");
-  if (!draft.age?.trim()) missing.push("age");
-  if (!draft.gradYear?.trim()) missing.push("grad year");
-  if (!draft.major?.trim()) missing.push("major");
-  if (!draft.iceBreakerOne?.trim()) missing.push("ice breaker 1");
-  if (!draft.iceBreakerTwo?.trim()) missing.push("ice breaker 2");
-  if (!draft.iceBreakerThree?.trim()) missing.push("ice breaker 3");
-  if (!draft.hobbies?.trim()) missing.push("hobbies");
+  // Compute missing fields (memoized so it doesn't rebuild every render unnecessarily)
+  const missing = useMemo(() => {
+    const m: string[] = [];
+    if (!draft.email?.trim()) m.push("email");
+    if (!draft.password) m.push("password");
+    if (!draft.firstName?.trim()) m.push("first name");
+    if (!draft.lastName?.trim()) m.push("last name");
+    if (!draft.Gender?.trim()) m.push("gender");
+    if (draft.age == null) m.push("age"); // catches null or undefined
+    if (draft.gradYear == null) m.push("grad year");
+    if (!draft.major?.trim()) m.push("major");
+    if (!draft.iceBreakerOne?.trim()) m.push("ice breaker 1");
+    if (!draft.iceBreakerTwo?.trim()) m.push("ice breaker 2");
+    if (!draft.iceBreakerThree?.trim()) m.push("ice breaker 3");
+    if (!draft.hobbies?.trim()) m.push("hobbies");
+    return m;
+  }, [draft]);
 
   const handleSubmit = async () => {
     if (missing.length > 0) {
       Alert.alert(
         "Missing info",
-        `Please go back and fill: ${missing.join(", ")}.`
+        `Please go back and fill: ${missing.join(", ")}.`,
       );
       return;
     }
@@ -39,7 +50,6 @@ export default function SignupReview() {
     const email = draft.email.trim();
     const password = draft.password;
 
-    // Basic client-side checks (Firebase will also validate)
     if (!email.includes("@")) {
       Alert.alert("Invalid email", "Enter a valid email address.");
       return;
@@ -71,12 +81,10 @@ export default function SignupReview() {
         createdAt: serverTimestamp(),
       });
 
-      // 3) Clear local draft + navigate
       resetDraft();
       Alert.alert("Account created!");
       router.replace("/");
     } catch (e: any) {
-      // Friendly Firebase error mapping
       const code = e?.code as string | undefined;
 
       if (code === "auth/email-already-in-use") {
@@ -94,7 +102,11 @@ export default function SignupReview() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll} // ScrollView container styling
+      contentContainerStyle={styles.content} // CHILD layout styling goes here (RN-web requirement)
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Review</Text>
 
       <View style={styles.card}>
@@ -112,8 +124,9 @@ export default function SignupReview() {
         <Text style={styles.label}>Age</Text>
         <Text style={styles.value}>{draft.age || "-"}</Text>
 
-        <Text style={styles.label}>Grad Year</Text>
-        <Text style={styles.value}>{draft.gradYear || "-"}</Text>
+        <Text style={styles.value}>
+          {draft.gradYear != null ? String(draft.gradYear) : "-"}
+        </Text>
 
         <Text style={styles.label}>Major</Text>
         <Text style={styles.value}>{draft.major || "-"}</Text>
@@ -148,18 +161,36 @@ export default function SignupReview() {
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
+  // ScrollView style: applies to the outer scroll view itself
+  scroll: {
+    flex: 1,
+  },
+
+  // contentContainerStyle: applies to the inner content layout
+  content: {
+    padding: 24,
+    paddingBottom: 48, // extra room at bottom
+    // IMPORTANT: flexGrow lets the content stretch on tall screens
+    // but still scroll on small screens.
+    flexGrow: 1,
+
+    // If you DO NOT want vertical centering, leave this OFF.
+    // If you want "center when short, scroll when long", uncomment:
+    // justifyContent: "center",
+  },
+
   title: {
     fontSize: 28,
     fontWeight: "600",
     marginBottom: 18,
     textAlign: "center",
   },
+
   card: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -168,6 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     gap: 8,
   },
+
   label: { fontSize: 12, color: "#666" },
   value: { fontSize: 16, marginBottom: 6 },
 
