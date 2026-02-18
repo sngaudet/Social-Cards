@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { deleteUser, onAuthStateChanged, signOut } from "firebase/auth";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   Alert,
   Platform,
@@ -13,10 +13,11 @@ import { auth } from "../../firebaseConfig";
 
 export default function EditProfile() {
   const router = useRouter();
+  const isDeletingRef = useRef(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) {
+      if (!user && !isDeletingRef.current) {
         router.replace("/(auth)/login");
       }
     });
@@ -66,9 +67,21 @@ export default function EditProfile() {
       return;
     }
     try {
+      isDeletingRef.current = true;
       await deleteUser(user);
-      router.replace("/(auth)/login");
+      if (Platform.OS === "web") {
+        (globalThis as any).alert?.("Account deleted. Your account has been deleted.");
+        router.replace("/(auth)/login");
+      } else {
+        Alert.alert("Account deleted", "Your account has been deleted.", [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+        ]);
+      }
     } catch (err) {
+      isDeletingRef.current = false;
       Alert.alert(
         "Delete failed",
         "Please log in again and try deleting your account."
