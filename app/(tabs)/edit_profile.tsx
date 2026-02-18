@@ -2,9 +2,9 @@ import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { auth } from "../firebaseConfig";
+import { auth } from "../../firebaseConfig";
 
-export default function Home() {
+export default function EditProfile() {
   const router = useRouter();
 
   useEffect(() => {
@@ -21,11 +21,28 @@ export default function Home() {
     await signOut(auth);
   };
 
+    const handleHome = () => {
+     router.replace("/(tabs)");
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Home Page</Text>
-      <TouchableOpacity style={styles.button} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Log Out</Text>
+      <Text style={styles.text}>Edit Profile Page</Text>
+
+      {/* <View style={styles.navbar}>
+        <Link href="/">
+            <Text style={styles.linkText}>Home</Text>
+        </Link>
+
+        <Link href="/edit_profile">
+            <Text style={styles.linkText}>Edit Profile</Text>
+        </Link>
+      </View> */}
+
+      
+
+      <TouchableOpacity style={styles.button} onPress={handleHome}>
+        <Text style={styles.buttonText}>Home</Text>
       </TouchableOpacity>
     </View>
   );
@@ -51,5 +68,18 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontWeight: "600",
+  },
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    padding: 10,
+    backgroundColor: 'Dark-Green'
+  },
+    linkText: {
+    color: "#3b82f6",
+    textAlign: "center",
+    textDecorationLine: "underline",
+    fontWeight: "500",
   },
 });
