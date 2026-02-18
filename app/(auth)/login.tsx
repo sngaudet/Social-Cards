@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import {
@@ -57,13 +57,9 @@ export default function Login() {
         <Text style={styles.primaryText}>Log In</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={() => router.replace("/(auth)/signup")}
-      >
-        <Text style={styles.primaryText}>Sign Up</Text>
-      </TouchableOpacity>
-
+      <Link href="/(auth)/signup" asChild>
+        <Text style={styles.linkText}>Need an account? Sign Up Here</Text>
+      </Link>
     </View>
   );
 }
@@ -97,5 +93,11 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "white",
     fontWeight: "600",
+  },
+  linkText: {
+    color: "#3b82f6",
+    textAlign: "center",
+    textDecorationLine: "underline",
+    fontWeight: "500",
   },
 });

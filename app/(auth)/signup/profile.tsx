@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -13,12 +14,15 @@ import { useSignup } from "../../../src/signup/context";
 export default function SignupProfileStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
-
   const [firstName, setFirstName] = useState(draft.firstName ?? "");
   const [lastName, setLastName] = useState(draft.lastName ?? "");
   const [gender, setGender] = useState(draft.Gender ?? "");
-  const [age, setAge] = useState(draft.age ?? "");
-  const [gradYear, setGradYear] = useState(draft.gradYear ?? "");
+  const [age, setAge] = useState<number | null>(
+    draft.age ? Number(draft.age) : null,
+  );
+  const [gradYear, setGradYear] = useState<number | null>(
+    draft.gradYear ?? null,
+  );
   const [major, setMajor] = useState(draft.major ?? "");
 
   const onNext = () => {
@@ -26,8 +30,8 @@ export default function SignupProfileStep() {
       !firstName.trim() ||
       !lastName.trim() ||
       !gender.trim() ||
-      !age.trim() ||
-      !gradYear.trim() ||
+      !age ||
+      !gradYear ||
       !major.trim()
     ) {
       Alert.alert("Missing fields", "Please complete all profile fields.");
@@ -38,8 +42,8 @@ export default function SignupProfileStep() {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       Gender: gender.trim(),
-      age: age.trim(),
-      gradYear: gradYear.trim(),
+      age: age,
+      gradYear: gradYear,
       major: major.trim(),
     });
 
@@ -66,31 +70,51 @@ export default function SignupProfileStep() {
         style={styles.input}
       />
 
-      <TextInput
-        placeholder="Gender"
-        placeholderTextColor="#4f4f4f"
-        value={gender}
-        onChangeText={setGender}
-        style={styles.input}
-      />
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={gender}
+          onValueChange={(value) => setGender(value)}
+        >
+          <Picker.Item label="Select gender..." value="" />
+          <Picker.Item label="Male" value="male" />
+          <Picker.Item label="Female" value="female" />
+          <Picker.Item label="MTF (Trans Woman)" value="mtf" />
+          <Picker.Item label="FTM (Trans Man)" value="ftm" />
+          <Picker.Item label="Androgynous" value="androgynous" />
+          <Picker.Item label="Non-binary" value="nonbinary" />
+          <Picker.Item label="Genderfluid" value="genderfluid" />
+          <Picker.Item label="Agender" value="agender" />
+          <Picker.Item label="Other" value="other" />
+          <Picker.Item label="Prefer not to say" value="prefer_not_to_say" />
+        </Picker>
+      </View>
 
-      <TextInput
-        placeholder="Age"
-        placeholderTextColor="#4f4f4f"
-        keyboardType="numeric"
-        value={age}
-        onChangeText={setAge}
-        style={styles.input}
-      />
+      <Text style={styles.label}>Age</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={age}
+          onValueChange={(itemValue) => setAge(itemValue)}
+        >
+          <Picker.Item label="Select age..." value={null} />
+          {Array.from({ length: 63 }, (_, i) => 18 + i).map((num) => (
+            <Picker.Item key={num} label={num.toString()} value={num} />
+          ))}
+        </Picker>
+      </View>
 
-      <TextInput
-        placeholder="Grad Year"
-        placeholderTextColor="#4f4f4f"
-        keyboardType="numeric"
-        value={gradYear}
-        onChangeText={setGradYear}
-        style={styles.input}
-      />
+      <Text style={styles.label}>Graduation Year</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={gradYear}
+          onValueChange={(value) => setGradYear(value)}
+        >
+          <Picker.Item label="Select graduation year..." value={null} />
+          {Array.from({ length: 25 }, (_, i) => 2026 + i).map((year) => (
+            <Picker.Item key={year} label={year.toString()} value={year} />
+          ))}
+        </Picker>
+      </View>
 
       <TextInput
         placeholder="Major"
@@ -104,7 +128,10 @@ export default function SignupProfileStep() {
         <Text style={styles.primaryText}>Next</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.back()}
+      >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
     </View>
@@ -136,4 +163,15 @@ const styles = StyleSheet.create({
   primaryText: { color: "white", fontWeight: "600" },
   secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },
   secondaryText: { color: "#666" },
+  label: {
+    fontSize: 14,
+    marginBottom: 6,
+    color: "#444",
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    marginBottom: 16,
+  },
 });

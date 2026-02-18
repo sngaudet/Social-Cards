@@ -5,8 +5,8 @@ export type SignupDraft = {
   firstName: string;
   lastName: string;
   Gender: string;
-  age: string;
-  gradYear: string;
+  age: number | null;
+  gradYear: number | null;
   major: string;
   iceBreakerOne: string;
   iceBreakerTwo: string;
@@ -21,8 +21,8 @@ export const emptySignupDraft: SignupDraft = {
   firstName: "",
   lastName: "",
   Gender: "",
-  age: "",
-  gradYear: "",
+  age: null,
+  gradYear: null,
   major: "",
   iceBreakerOne: "",
   iceBreakerTwo: "",
