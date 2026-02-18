@@ -32,6 +32,7 @@ export default function EditProfile() {
     router.replace("/(tabs)");
   };
 
+  // Delete Logic with confirmation
   const confirmDeleteProfile = () => {
     if (Platform.OS === "web") {
       const first = (globalThis as any).confirm?.(
@@ -67,7 +68,12 @@ export default function EditProfile() {
     }
     try {
       await deleteUser(user);
-      router.replace("/(auth)/login");
+      Alert.alert("Account deleted", "Your account has been deleted.", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(auth)/login"),
+        },
+      ]);
     } catch (err) {
       Alert.alert(
         "Delete failed",
