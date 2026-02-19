@@ -4,7 +4,7 @@ export default function TabDisplay() {
   return (
     <Tabs>
       <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="edit_profile" options={{title: "Edit Profile"}}/>
+      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>
   );
 }

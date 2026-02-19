@@ -83,7 +83,7 @@ export default function SignupReview() {
 
       resetDraft();
       Alert.alert("Account created!");
-      router.replace("/");
+      router.replace("/(tabs)");
     } catch (e: any) {
       const code = e?.code as string | undefined;
 
