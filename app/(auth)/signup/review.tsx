@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
 import { auth, db } from "../../../firebaseConfig";
 import { useSignup } from "../../../src/signup/context";
 
@@ -64,6 +65,20 @@ export default function SignupReview() {
 
       // 1) Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+      // 2) Store the photo in Firebase storage
+      const photoUrls: string[] = [];
+      for (const uri of draft.photoUris ?? []) {
+        const url = await uploadProfilePhotoAsync(uri);
+        photoUrls.push(url);
+      }
+
+      // Save your user profile (include photoUrls)
+      await setDoc(doc(db, "users", cred.user.uid), {
+        // ...other profile fields from draft
+        photoUrls,
+        createdAt: serverTimestamp(),
+      });
 
       // 2) Create Firestore user document
       await setDoc(doc(db, "users", cred.user.uid), {

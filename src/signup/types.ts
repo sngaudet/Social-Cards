@@ -12,6 +12,8 @@ export type SignupDraft = {
   iceBreakerTwo: string;
   iceBreakerThree: string;
   hobbies: string;
+
+  photoUris: string[];
 };
 
 export const emptySignupDraft: SignupDraft = {
@@ -28,4 +30,6 @@ export const emptySignupDraft: SignupDraft = {
   iceBreakerTwo: "",
   iceBreakerThree: "",
   hobbies: "",
+
+  photoUris: [],
 };
