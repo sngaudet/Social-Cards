@@ -246,10 +246,8 @@ export default function EditProfile() {
     try {
       setDeleting(true);
 
-      //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
-      //   await deleteFirestoreProfile(uid);
-
-      // 2) Delete Auth user
+      // Delete account
+      await deleteFirestoreProfile(uid);
       await deleteUser(user);
 
       Alert.alert("Account deleted", "Your account has been deleted.", [
