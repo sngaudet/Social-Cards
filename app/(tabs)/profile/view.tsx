@@ -1,15 +1,16 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 
@@ -26,6 +27,8 @@ type UserDoc = {
   iceBreakerThree?: string;
   hobbies?: string;
   createdAt?: any; // Firestore Timestamp (or serverTimestamp placeholder)
+  photoURL?: string;
+  photoUrls?: string[];
 };
 
 const pretty = (v: unknown) => {
@@ -76,6 +79,15 @@ export default function ViewProfile() {
     return unsub;
   }, [router, loadProfile]);
 
+  useFocusEffect(
+    useCallback(() => {
+      // Runs every time this tab/screen becomes active
+      loadProfile().catch((e: any) =>
+        Alert.alert("Could not load profile", e?.message ?? "Unknown error"),
+      );
+    }, [loadProfile]),
+  );
+
   const onRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -105,6 +117,18 @@ export default function ViewProfile() {
       }
     >
       <Text style={styles.title}>Your Profile</Text>
+
+      {data?.photoURL ? (
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+        </View>
+      ) : (
+        <View style={styles.imageContainer}>
+          <View style={styles.placeholderImage}>
+            <Text style={{ color: "#999" }}>No Profile Photo</Text>
+          </View>
+        </View>
+      )}
 
       {!data ? (
         <View style={styles.card}>
@@ -209,5 +233,30 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#e5e7eb",
     marginVertical: 10,
+  },
+  imageContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  profileImage: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    borderWidth: 2,
+    borderColor: "#ddd",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  placeholderImage: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

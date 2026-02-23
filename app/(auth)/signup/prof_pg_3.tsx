@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -23,7 +23,7 @@ export default function SignupHobbiesStep() {
     }
 
     updateDraft({ hobbies: hobbies.trim() });
-    router.replace("/(auth)/signup/review");
+    router.replace("/(auth)/signup/pictures");
   };
 
   return (
@@ -44,7 +44,10 @@ export default function SignupHobbiesStep() {
         <Text style={styles.primaryText}>Next</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.back()}
+      >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
     </View>

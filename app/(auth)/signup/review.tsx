@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
 import { auth, db } from "../../../firebaseConfig";
 import { useSignup } from "../../../src/signup/context";
 
@@ -65,7 +66,17 @@ export default function SignupReview() {
       // 1) Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 2) Create Firestore user document
+      // 2) Upload photos to Storage -> get download URLs
+      const photoUrls: string[] = [];
+      for (const uri of draft.photoUris ?? []) {
+        const url = await uploadProfilePhotoAsync(uri);
+        photoUrls.push(url);
+      }
+
+      // main profile photo (first one)
+      const photoURL = photoUrls[0] ?? "";
+
+      // 3) ONE Firestore write that includes everything
       await setDoc(doc(db, "users", cred.user.uid), {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
@@ -78,6 +89,11 @@ export default function SignupReview() {
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies: draft.hobbies ?? "",
+
+        // photos
+        photoURL, // single main photo (easy for UI)
+        photoUrls, // full list (future gallery)
+
         createdAt: serverTimestamp(),
       });
 
