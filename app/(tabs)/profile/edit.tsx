@@ -1,24 +1,26 @@
+import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
 import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { deleteUser, onAuthStateChanged, signOut, User } from "firebase/auth";
 import {
-    deleteDoc,
-    doc,
-    getDoc,
-    serverTimestamp,
-    updateDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 
@@ -34,6 +36,8 @@ type UserDoc = {
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
   hobbies?: string;
+  photoURL?: string;
+  photoUrls?: string[];
 };
 
 const toIntOrNull = (v: any): number | null => {
@@ -67,6 +71,9 @@ export default function EditProfile() {
   const [ice3, setIce3] = useState("");
   const [hobbies, setHobbies] = useState("");
 
+  const [photoURL, setPhotoURL] = useState<string>("");
+  const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
+
   const years = useMemo(() => {
     const start = 2026;
     return Array.from({ length: 25 }, (_, i) => start + i);
@@ -92,6 +99,9 @@ export default function EditProfile() {
     }
 
     const d = snap.data() as UserDoc;
+
+    setPhotoURL(d.photoURL ?? "");
+    setNewPhotoUri(null); // reset local selection when reloading
 
     setEmail(d.email ?? auth.currentUser?.email ?? "");
 
@@ -129,6 +139,39 @@ export default function EditProfile() {
 
     return unsub;
   }, [router, loadProfile]);
+
+  const pickNewPhoto = async () => {
+    try {
+      // Ask permission (mobile). On web, this is typically handled by the browser.
+      if (Platform.OS !== "web") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission needed",
+            "Please allow photo library access.",
+          );
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled) return;
+
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) return;
+
+      setNewPhotoUri(uri);
+    } catch (e: any) {
+      Alert.alert("Photo pick failed", e?.message ?? "Unknown error");
+    }
+  };
 
   const validate = () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -169,6 +212,13 @@ export default function EditProfile() {
     try {
       setSaving(true);
 
+      let updatedPhotoURL = photoURL;
+
+      // If user picked a new photo, upload it now and store the download URL
+      if (newPhotoUri) {
+        updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri);
+      }
+
       await updateDoc(doc(db, "users", uid), {
         email: auth.currentUser?.email ?? email,
 
@@ -184,8 +234,15 @@ export default function EditProfile() {
         iceBreakerThree: ice3.trim(),
         hobbies: hobbies.trim(),
 
+        // ✅ profile photo
+        photoURL: updatedPhotoURL,
+
         updatedAt: serverTimestamp(),
       });
+
+      // Update local UI state after successful save
+      setPhotoURL(updatedPhotoURL);
+      setNewPhotoUri(null);
 
       Alert.alert("Saved", "Your profile has been updated.");
     } catch (e: any) {
@@ -226,10 +283,10 @@ export default function EditProfile() {
     });
   };
 
-  const deleteFirestoreProfile = async (userId: string) => {
-    // If you later store more collections (matches/chats/photos), you’ll delete those here too.
-    await deleteDoc(doc(db, "users", userId));
-  };
+  // const deleteFirestoreProfile = async (userId: string) => {
+  //   // If you later store more collections (matches/chats/photos), you’ll delete those here too.
+  //   await deleteDoc(doc(db, "users", userId));
+  // };
 
   const onDeleteAccount = async () => {
     if (!uid) return;
@@ -291,6 +348,48 @@ export default function EditProfile() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Edit Profile</Text>
+
+      <Text style={styles.sectionTitle}>Profile Photo</Text>
+
+      <View style={styles.photoRow}>
+        {newPhotoUri || photoURL ? (
+          <Image
+            source={{ uri: newPhotoUri ?? photoURL }}
+            style={styles.profileImage}
+          />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Text style={{ color: "#999" }}>No Photo</Text>
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={[
+              styles.secondaryOutlineButton,
+              (saving || deleting) && styles.disabledButton,
+            ]}
+            onPress={pickNewPhoto}
+            disabled={saving || deleting}
+          >
+            <Text style={styles.secondaryOutlineText}>
+              {newPhotoUri ? "Change Selected Photo" : "Choose Photo"}
+            </Text>
+          </TouchableOpacity>
+
+          {newPhotoUri ? (
+            <Text style={styles.helperText}>
+              New photo selected. Tap “Save Changes” to upload.
+            </Text>
+          ) : (
+            <Text style={styles.helperText}>
+              Tap “Choose Photo” to update your profile picture.
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.divider} />
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Account</Text>
@@ -520,4 +619,51 @@ const styles = StyleSheet.create({
   dangerText: { color: "white", fontWeight: "800" },
 
   disabledButton: { opacity: 0.6 },
+
+  photoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+
+  profileImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#f3f4f6",
+  },
+
+  placeholderImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+
+  secondaryOutlineButton: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+
+  secondaryOutlineText: {
+    color: "#111",
+    fontWeight: "600",
+  },
+
+  helperText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#666",
+  },
 });

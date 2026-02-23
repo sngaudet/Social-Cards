@@ -66,21 +66,17 @@ export default function SignupReview() {
       // 1) Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 2) Store the photo in Firebase storage
+      // 2) Upload photos to Storage -> get download URLs
       const photoUrls: string[] = [];
       for (const uri of draft.photoUris ?? []) {
         const url = await uploadProfilePhotoAsync(uri);
         photoUrls.push(url);
       }
 
-      // Save your user profile (include photoUrls)
-      await setDoc(doc(db, "users", cred.user.uid), {
-        // ...other profile fields from draft
-        photoUrls,
-        createdAt: serverTimestamp(),
-      });
+      // main profile photo (first one)
+      const photoURL = photoUrls[0] ?? "";
 
-      // 2) Create Firestore user document
+      // 3) ONE Firestore write that includes everything
       await setDoc(doc(db, "users", cred.user.uid), {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
@@ -93,6 +89,11 @@ export default function SignupReview() {
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies: draft.hobbies ?? "",
+
+        // photos
+        photoURL, // single main photo (easy for UI)
+        photoUrls, // full list (future gallery)
+
         createdAt: serverTimestamp(),
       });
 
