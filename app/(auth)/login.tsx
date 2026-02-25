@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -11,22 +12,40 @@ import {
 } from "react-native";
 import { auth } from "../../firebaseConfig";
 
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 export default function Login() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      return Alert.alert("Missing fields", "Enter email and password.");
+    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+      showAlert(
+        "Missing fields",
+        "Enter email, password, and confirm password.",
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showAlert("Passwords do not match");
+      return;
     }
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       router.replace("/(tabs)");
     } catch (e: any) {
-      Alert.alert("Login failed", e.message);
+      showAlert("Login failed", e?.message ?? "Unknown error");
     }
   };
 
@@ -53,12 +72,23 @@ export default function Login() {
         onChangeText={setPassword}
       />
 
+      <TextInput
+        placeholder="Confirm Password"
+        placeholderTextColor="#4f4f4f"
+        style={styles.input}
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+
       <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
         <Text style={styles.primaryText}>Log In</Text>
       </TouchableOpacity>
 
       <Link href="/(auth)/signup" asChild>
-        <Text style={styles.linkText}>Need an account? Sign Up Here</Text>
+        <TouchableOpacity>
+          <Text style={styles.linkText}>Need an account? Sign Up Here</Text>
+        </TouchableOpacity>
       </Link>
     </View>
   );
