@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +12,14 @@ import {
   View,
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
+
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 type IceKey = "one" | "two" | "three";
 
@@ -60,7 +69,7 @@ export default function SignupIceBreakersStep() {
       !iceBreakerTwo.trim() ||
       !iceBreakerThree.trim()
     ) {
-      Alert.alert("Missing fields", "Please answer all ice breaker questions.");
+      showAlert("Missing fields", "Please answer all ice breaker questions.");
       return;
     }
 
@@ -104,7 +113,7 @@ export default function SignupIceBreakersStep() {
   const saveAndClose = () => {
     // optional: enforce non-empty per question when saving
     if (activeKey && !activeValue.trim()) {
-      Alert.alert("Missing answer", "Please type an answer or press Cancel.");
+      showAlert("Missing answer", "Please type an answer or press Cancel.");
       return;
     }
     closeModal();
