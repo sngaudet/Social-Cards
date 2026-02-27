@@ -25,6 +25,7 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+firebase-debug*.log
 
 # macOS
 .DS_Store
@@ -36,6 +37,10 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# local repair backups
+.local-backups/
+node_modules_broken_*/
 
 app-example
 
