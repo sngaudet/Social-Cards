@@ -1,7 +1,8 @@
-import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,14 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
+
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function SignupAccountStep() {
   const router = useRouter();
@@ -22,12 +31,17 @@ export default function SignupAccountStep() {
     const cleanEmail = email.trim();
 
     if (!cleanEmail || !password) {
-      Alert.alert("Missing fields", "Enter email and password.");
+      showAlert("Missing fields", "Enter email and password.");
       return;
     }
 
     if (!cleanEmail.includes("@")) {
-      Alert.alert("Invalid email", "Enter a valid email address.");
+      showAlert("Invalid email", "Enter a valid email address.");
+      return;
+    }
+
+    if (!cleanEmail.includes("edu")) {
+      showAlert("Invalid email - Use a student email");
       return;
     }
 
