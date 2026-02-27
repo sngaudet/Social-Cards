@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
 
@@ -45,7 +45,11 @@ export default function SignupAccountStep() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Sign Up</Text>
 
       <TextInput
@@ -77,12 +81,13 @@ export default function SignupAccountStep() {
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
   title: {
     fontSize: 28,
     fontWeight: "600",

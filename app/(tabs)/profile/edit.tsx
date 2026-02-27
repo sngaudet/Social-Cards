@@ -1,4 +1,9 @@
 import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
+import {
+  getLocationControlStatus,
+  LocationControlStatus,
+  setLocationSharingEnabled,
+} from "@/src/location/service";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -17,6 +22,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -38,6 +44,15 @@ type UserDoc = {
   hobbies?: string;
   photoURL?: string;
   photoUrls?: string[];
+  locationControl?: {
+    sharingEnabled?: boolean;
+    permissionStatus?: string;
+  };
+  locationStatus?: {
+    lastLocationAt?: { toDate?: () => Date } | null;
+    lastAccuracyM?: number | null;
+    lastSource?: "foreground" | "background" | null;
+  };
 };
 
 const toIntOrNull = (v: any): number | null => {
@@ -73,10 +88,18 @@ export default function EditProfile() {
 
   const [photoURL, setPhotoURL] = useState<string>("");
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
+  const [locationControl, setLocationControl] =
+    useState<LocationControlStatus | null>(null);
+  const [locationBusy, setLocationBusy] = useState(false);
 
   const years = useMemo(() => {
     const start = 2026;
     return Array.from({ length: 25 }, (_, i) => start + i);
+  }, []);
+
+  const refreshLocationControl = useCallback(async () => {
+    const status = await getLocationControlStatus();
+    setLocationControl(status);
   }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
@@ -130,6 +153,7 @@ export default function EditProfile() {
         setUid(user.uid);
         setEmail(user.email ?? "");
         await loadProfile(user.uid);
+        await refreshLocationControl();
       } catch (e: any) {
         Alert.alert("Could not load profile", e?.message ?? "Unknown error");
       } finally {
@@ -138,7 +162,7 @@ export default function EditProfile() {
     });
 
     return unsub;
-  }, [router, loadProfile]);
+  }, [router, loadProfile, refreshLocationControl]);
 
   const pickNewPhoto = async () => {
     try {
@@ -336,6 +360,36 @@ export default function EditProfile() {
     }
   };
 
+  const onToggleLocationSharing = async (nextValue: boolean) => {
+    try {
+      setLocationBusy(true);
+      const updated = await setLocationSharingEnabled(nextValue);
+      setLocationControl(updated);
+    } catch (e: any) {
+      Alert.alert(
+        "Location update failed",
+        e?.message ?? "Could not update location sharing right now.",
+      );
+    } finally {
+      setLocationBusy(false);
+    }
+  };
+
+  const prettyPermission = (value?: string) => {
+    if (!value) return "unknown";
+    if (value === "always") return "Always";
+    if (value === "while_in_use") return "While in use";
+    if (value === "denied") return "Denied";
+    return "Unknown";
+  };
+
+  const prettyLastSeen = (value?: string | null) => {
+    if (!value) return "No location update yet";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "No location update yet";
+    return date.toLocaleString();
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -396,6 +450,42 @@ export default function EditProfile() {
 
         <Text style={styles.label}>Email (read-only)</Text>
         <Text style={styles.readonlyValue}>{email || "-"}</Text>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.sectionTitle}>Location Control</Text>
+
+        <View style={styles.locationRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Share my location for nearby matches</Text>
+            <Text style={styles.helperText}>
+              Background/minimized updates are supported. iOS force-closed
+              behavior is best effort.
+            </Text>
+          </View>
+          <Switch
+            value={locationControl?.sharingEnabled ?? true}
+            onValueChange={onToggleLocationSharing}
+            disabled={locationBusy || saving || deleting}
+          />
+        </View>
+
+        <Text style={styles.label}>Permission</Text>
+        <Text style={styles.readonlyValue}>
+          {prettyPermission(locationControl?.permissionStatus)}
+        </Text>
+
+        <Text style={styles.label}>Last location update</Text>
+        <Text style={styles.readonlyValue}>
+          {prettyLastSeen(locationControl?.lastLocationAt)}
+        </Text>
+
+        <Text style={styles.label}>Last accuracy (meters)</Text>
+        <Text style={styles.readonlyValue}>
+          {locationControl?.lastAccuracyM == null
+            ? "-"
+            : String(Math.round(locationControl.lastAccuracyM))}
+        </Text>
 
         <View style={styles.divider} />
 
@@ -592,6 +682,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 8,
     marginBottom: 8,
+  },
+
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
   },
 
   divider: {

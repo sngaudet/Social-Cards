@@ -94,6 +94,17 @@ export default function SignupReview() {
         photoURL, // single main photo (easy for UI)
         photoUrls, // full list (future gallery)
 
+        locationControl: {
+          sharingEnabled: true,
+          permissionStatus: "unknown",
+          updatedAt: serverTimestamp(),
+        },
+        locationStatus: {
+          lastLocationAt: null,
+          lastAccuracyM: null,
+          lastSource: null,
+        },
+
         createdAt: serverTimestamp(),
       });
 

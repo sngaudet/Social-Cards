@@ -1,0 +1,26 @@
+
+
+npx firebase-tools@latest login --no-localhost
+npx firebase-tools use social-cards-b8e6f
+npx firebase-tools deploy --only functions
+npx expo start --go -c
+
+
+
+If you want to test nearby users fast with 1 phone:
+
+create fake users/<fakeUid> docs in Firestore
+create matching presence/<fakeUid> docs near your lat/lng
+then open nearby screen and verify they show up
+Required fake user fields:
+
+firstName, major, hobbies, photoURL, iceBreakerOne, iceBreakerTwo, iceBreakerThree
+Required fake presence fields:
+
+uid, lat, lng, geohash, accuracyM, source, updatedAt, expiresAt
+If you want, I can give you exact copy/paste fake docs (with realistic lat/lng offsets) for instant nearby and crowd testing.
+
+
+
+
+so how do i do this, the easuest way possible 
