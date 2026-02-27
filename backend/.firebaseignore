@@ -1,0 +1,8 @@
+# ignore heavy local folders and backups
+node_modules
+node_modules_broken_*
+_node_modules_broken_*
+.local-backups
+package-lock.broken.*.json
+firebase-debug.log
+*.local

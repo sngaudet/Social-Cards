@@ -1,0 +1,19 @@
+{
+  "name": "icebreakers-backend",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "deploy": "firebase deploy --only functions",
+    "serve": "firebase emulators:start --only functions,firestore",
+    "seed:nearby-fakes": "node scripts/seedNearbyFakes.js",
+    "seed:nearby-fakes:sf": "node scripts/seedNearbyFakes.js --lat 37.785834 --lng -122.406417 --geohash 9q8yywdq7v --count 8 --spreadFt 35 --ttlMinutes 90"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1",
+    "geofire-common": "^6.0.0"
+  }
+}

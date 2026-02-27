@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -60,7 +61,11 @@ export default function SignupProfileStep() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Profile Setup</Text>
 
       <TextInput
@@ -143,12 +148,13 @@ export default function SignupProfileStep() {
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
   title: {
     fontSize: 28,
     fontWeight: "600",

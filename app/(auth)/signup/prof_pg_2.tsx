@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -120,7 +121,11 @@ export default function SignupIceBreakersStep() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Ice Breakers</Text>
 
       <View style={{ gap: 12 }}>
@@ -182,12 +187,13 @@ export default function SignupIceBreakersStep() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
   title: {
     fontSize: 28,
     fontWeight: "600",
