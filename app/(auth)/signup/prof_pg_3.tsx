@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -9,6 +10,14 @@ import {
   View,
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
+
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function SignupHobbiesStep() {
   const router = useRouter();
@@ -18,7 +27,7 @@ export default function SignupHobbiesStep() {
 
   const onNext = () => {
     if (!hobbies.trim()) {
-      Alert.alert("Missing fields", "Please add at least one hobby.");
+      showAlert("Missing fields", "Please add at least one hobby.");
       return;
     }
 

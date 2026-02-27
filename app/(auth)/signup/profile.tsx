@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +11,14 @@ import {
   View,
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
+
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function SignupProfileStep() {
   const router = useRouter();
@@ -34,7 +43,7 @@ export default function SignupProfileStep() {
       !gradYear ||
       !major.trim()
     ) {
-      Alert.alert("Missing fields", "Please complete all profile fields.");
+      showAlert("Missing fields", "Please complete all profile fields.");
       return;
     }
 
@@ -97,7 +106,7 @@ export default function SignupProfileStep() {
           onValueChange={(itemValue) => setAge(itemValue)}
         >
           <Picker.Item label="Select age..." value={null} />
-          {Array.from({ length: 63 }, (_, i) => 18 + i).map((num) => (
+          {Array.from({ length: 79 }, (_, i) => 12 + i).map((num) => (
             <Picker.Item key={num} label={num.toString()} value={num} />
           ))}
         </Picker>
