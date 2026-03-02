@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
 
-import { bootstrapLocationServicesForSession, stopLocationUpdatesForCurrentUser } from "@/src/location/service";
+import { bootstrapLocationServicesForSession, stopLocationUpdatesForCurrentUser } from "../src/location/service";
 import { auth } from "../firebaseConfig";
 
 export default function RootLayout() {
