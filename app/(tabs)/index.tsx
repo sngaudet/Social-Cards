@@ -15,7 +15,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import { auth } from "../../firebaseConfig";
@@ -91,6 +91,35 @@ export default function HomeTab() {
     );
   }
 
+// // This is the function for the FlatList
+// const renderUserCard = ({ item: user }: { item: any }) => (
+//     <View style={styles.userCard}>
+//       <View style={styles.userHeader}>
+//         {user.photoURL ? (
+//           <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+//         ) : (
+//           <View style={styles.avatarPlaceholder}>
+//             <Text style={styles.avatarText}>No Photo</Text>
+//           </View>
+//         )}
+
+//         <View style={{ flex: 1 }}>
+//           <Text style={styles.userName}>{user.firstName || "Unknown"}</Text>
+//           <Text style={styles.subtleText}>{user.major || "Undeclared"}</Text>
+//           <Text style={styles.distanceText}>{user.distanceFt} ft away</Text>
+//         </View>
+//       </View>
+
+//       <Text style={styles.label}>Hobbies</Text>
+//       <Text style={styles.value}>{user.hobbies || "-"}</Text>
+
+//       <Text style={styles.label}>Icebreaker prompts</Text>
+//       <Text style={styles.value}> {user.iceBreakerOne || "-"}</Text>
+//       <Text style={styles.value}> {user.iceBreakerTwo || "-"}</Text>
+//       <Text style={styles.value}> {user.iceBreakerThree || "-"}</Text>
+//     </View>
+//   );
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -144,6 +173,18 @@ export default function HomeTab() {
           </View>
         ))
       )}
+
+{/* This is the FlatList implementation */}
+      {/* <view>
+        <FlatList
+        data={nearby.users}
+        renderItem={renderUserCard}
+        keyExtractor={(item) => item.uid}
+        style={styles.scroll}
+        scrollEnabled = {false}
+        contentContainerStyle={styles.content}/>
+      </view> */}
+
 
       <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
         <Text style={styles.secondaryButtonText}>Log Out</Text>
