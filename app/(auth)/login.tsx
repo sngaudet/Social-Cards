@@ -25,19 +25,13 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!email.trim() || !password.trim()) {
       showAlert(
         "Missing fields",
         "Enter email, password, and confirm password.",
       );
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      showAlert("Passwords do not match");
       return;
     }
 
@@ -70,15 +64,6 @@ export default function Login() {
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-      />
-
-      <TextInput
-        placeholder="Confirm Password"
-        placeholderTextColor="#4f4f4f"
-        style={styles.input}
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
       />
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>

@@ -26,11 +26,12 @@ export default function SignupAccountStep() {
   // Prefill from draft so Back keeps values
   const [email, setEmail] = useState(draft.email ?? "");
   const [password, setPassword] = useState(draft.password ?? "");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const onNext = () => {
     const cleanEmail = email.trim();
 
-    if (!cleanEmail || !password) {
+    if (!cleanEmail || !password || !confirmPassword.trim()) {
       showAlert("Missing fields", "Enter email and password.");
       return;
     }
@@ -48,6 +49,11 @@ export default function SignupAccountStep() {
     // Firebase requires 6+ for email/password accounts
     if (password.length < 6) {
       Alert.alert("Weak password", "Use at least 6 characters.");
+      return;
+    }
+
+      if (password !== confirmPassword) {
+      showAlert("Passwords do not match");
       return;
     }
 
@@ -84,6 +90,16 @@ export default function SignupAccountStep() {
         onChangeText={setPassword}
         style={styles.input}
       />
+
+      <TextInput
+        placeholder="Confirm Password"
+        placeholderTextColor="#4f4f4f"
+        style={styles.input}
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+      
 
       <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
         <Text style={styles.primaryText}>Next</Text>
