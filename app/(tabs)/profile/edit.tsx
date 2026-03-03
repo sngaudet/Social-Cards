@@ -1,9 +1,9 @@
-import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
+import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
 import {
   getLocationControlStatus,
   LocationControlStatus,
   setLocationSharingEnabled,
-} from "@/src/location/service";
+} from "../../../src/location/service";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -258,7 +258,7 @@ export default function EditProfile() {
         iceBreakerThree: ice3.trim(),
         hobbies: hobbies.trim(),
 
-        // ✅ profile photo
+        // profile photo
         photoURL: updatedPhotoURL,
 
         updatedAt: serverTimestamp(),

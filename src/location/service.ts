@@ -409,7 +409,8 @@ export async function sendForegroundPing(): Promise<void> {
 
   // this skips ping when permission cannot provide location
   const permissionStatus = await getCurrentLocationPermissionStatus();
-  if (permissionStatus === "denied" || permissionStatus === "unknown") return;
+  if (permissionStatus === "denied") return;
+  if (permissionStatus === "unknown" && Platform.OS !== "web") return;
 
   if (Platform.OS === "web") {
     const geolocation = getWebGeolocation();
@@ -467,7 +468,10 @@ export async function setLocationSharingEnabled(
 
   // this forces off if permission is not usable
   const canShare =
-    sharingEnabled && (permissionStatus === "always" || permissionStatus === "while_in_use");
+    sharingEnabled &&
+    (permissionStatus === "always" ||
+      permissionStatus === "while_in_use" ||
+      (Platform.OS === "web" && permissionStatus === "unknown"));
 
   await callWithRetry(() =>
     setSharingCallable({
@@ -540,7 +544,8 @@ export async function bootstrapLocationServicesForSession(): Promise<void> {
   const canShare =
     control.sharingEnabled &&
     (currentPermissionStatus === "always" ||
-      currentPermissionStatus === "while_in_use");
+      currentPermissionStatus === "while_in_use" ||
+      (Platform.OS === "web" && currentPermissionStatus === "unknown"));
 
   try {
     // this syncs backend sharing with actual device permission

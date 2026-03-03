@@ -11,6 +11,9 @@ const {
   FRESHNESS_MS,
   THROTTLE_MS,
   THROTTLE_DISTANCE_M,
+  MAX_ACCURACY_BUFFER_M,
+  MAX_RECORDED_AT_AGE_MS,
+  MAX_RECORDED_AT_FUTURE_MS,
 } = require("./constants");
 
 // this checks login and gives the handler the user id
@@ -91,6 +94,18 @@ function validatePingInput(data) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
+  const nowMs = nowDate().getTime();
+
+  // this blocks stale pings that would make presence jump around
+  if (recordedAtMs < nowMs - MAX_RECORDED_AT_AGE_MS) {
+    return { ok: false, response: rejectPing("invalid") };
+  }
+
+  // this blocks future timestamps from clock drift or spoofing
+  if (recordedAtMs > nowMs + MAX_RECORDED_AT_FUTURE_MS) {
+    return { ok: false, response: rejectPing("invalid") };
+  }
+
   return {
     ok: true,
     value: { lat, lng, accuracyM, source, recordedAtMs },
@@ -127,6 +142,25 @@ function distanceMeters(a, b) {
   return distanceBetween([a.lat, a.lng], [b.lat, b.lng]) * 1000;
 }
 
+// this keeps huge accuracy readings from widening too much
+function getAccuracyBufferM(presence) {
+  const raw = presence?.accuracyM;
+  if (!isFiniteNumber(raw) || raw <= 0) return 0;
+  return Math.min(raw, MAX_ACCURACY_BUFFER_M);
+}
+
+// this adds gps wiggle room for nearby matching
+function isWithinRadiusWithAccuracy(center, candidate, radiusM, useAccuracyBuffer) {
+  const meters = distanceMeters(center, candidate);
+  if (!useAccuracyBuffer) return { within: meters <= radiusM, meters };
+
+  const centerBufferM = getAccuracyBufferM(center);
+  const candidateBufferM = getAccuracyBufferM(candidate);
+  const allowedRadiusM = radiusM + centerBufferM + candidateBufferM;
+
+  return { within: meters <= allowedRadiusM, meters };
+}
+
 // this gets latest live location for one user
 async function getPresenceByUid(uid) {
   const db = getDb();
@@ -135,8 +169,10 @@ async function getPresenceByUid(uid) {
   return extractPresence(snap);
 }
 
-// this finds nearby users with a broad search then exact distance check
-async function queryNearbyPresence(center, radiusM) {
+// this finds nearby users with a broad search then radius filtering
+async function queryNearbyPresence(center, radiusM, options = {}) {
+  // this toggles gps wiggle room without duplicate query code
+  const useAccuracyBuffer = options.useAccuracyBuffer === true;
   const db = getDb();
   const bounds = geohashQueryBounds([center.lat, center.lng], radiusM);
   const queries = bounds.map(([start, end]) =>
@@ -167,8 +203,13 @@ async function queryNearbyPresence(center, radiusM) {
   // this keeps only recent users that are truly inside the radius
   for (const presence of byUid.values()) {
     if (!isFreshPresence(presence, now)) continue;
-    const meters = distanceMeters(center, presence);
-    if (meters <= radiusM) {
+    const { within, meters } = isWithinRadiusWithAccuracy(
+      center,
+      presence,
+      radiusM,
+      useAccuracyBuffer,
+    );
+    if (within) {
       results.push({ ...presence, distanceM: meters });
     }
   }

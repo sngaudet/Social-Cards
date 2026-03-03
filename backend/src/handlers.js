@@ -232,7 +232,12 @@ const location_upsertPing = onCall(
 
     // this checks sender and nearby users for crowd alerts
     const radiusM = toMeters(DEFAULT_RADIUS_FT);
-    const aroundSender = await queryNearbyPresence({ lat, lng }, radiusM);
+    // this keeps crowd alerts on strict distance
+    const aroundSender = await queryNearbyPresence(
+      { lat, lng },
+      radiusM,
+      { useAccuracyBuffer: false },
+    );
     const nearbyWithoutSender = aroundSender.filter((presence) => presence.uid !== uid);
 
     const impactedUsers = [
@@ -262,7 +267,11 @@ const location_getNearby = onCall(
       return buildEmptyNearbyResponse();
     }
 
-    const nearbyPresence = await queryNearbyPresence(callerPresence, radiusM);
+    const nearbyPresence = await queryNearbyPresence(
+      callerPresence,
+      radiusM,
+      { useAccuracyBuffer: true },
+    );
     const filtered = nearbyPresence.filter((presence) => presence.uid !== uid);
     const userMap = await getUsersByUids(filtered.map((presence) => presence.uid));
 
