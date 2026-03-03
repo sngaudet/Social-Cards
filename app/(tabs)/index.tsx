@@ -2,7 +2,7 @@ import {
   fetchNearbyUsers,
   NearbyResponse,
   sendForegroundPing,
-} from "@/src/location/service";
+} from "../../src/location/service";
 import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import React, { useCallback, useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -35,7 +36,7 @@ export default function HomeTab() {
 
   const loadNearby = useCallback(async () => {
     await sendForegroundPing();
-    const response = await fetchNearbyUsers(50);
+    const response = await fetchNearbyUsers(300);
     setNearby(response);
   }, []);
 
@@ -64,6 +65,21 @@ export default function HomeTab() {
       loadNearby().catch((e: any) =>
         Alert.alert("Could not refresh nearby users", e?.message ?? "Unknown error"),
       );
+    }, [loadNearby]),
+  );
+
+  // Added a periodic refresh every 25 seconds for web, since the foreground ping won't work when the tab is in the background
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "web") return undefined;
+
+      const intervalId = setInterval(() => {
+        loadNearby().catch((e) => {
+          console.warn("Web periodic nearby refresh failed", e);
+        });
+      }, 25000);
+
+      return () => clearInterval(intervalId);
     }, [loadNearby]),
   );
 
