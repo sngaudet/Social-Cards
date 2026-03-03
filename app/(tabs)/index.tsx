@@ -7,10 +7,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -27,6 +25,14 @@ const emptyNearby: NearbyResponse = {
   asOf: new Date().toISOString(),
 };
 
+const AUTO_REFRESH_MS = 5000;
+const AUTO_PING_MS = 30000;
+const MAX_PING_WAIT_MS = 1500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function HomeTab() {
   const router = useRouter();
 
@@ -34,11 +40,24 @@ export default function HomeTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [nearby, setNearby] = useState<NearbyResponse>(emptyNearby);
   const periodicRefreshBusyRef = useRef(false);
+  const lastPingAtRef = useRef(0);
 
-  const loadNearby = useCallback(async () => {
-    await sendForegroundPing();
+  const loadNearby = useCallback(async (options?: { includePing?: boolean }) => {
+    const includePing = options?.includePing !== false;
+
+    if (includePing) {
+      lastPingAtRef.current = Date.now();
+
+      // this avoids waiting too long on geolocation before fetching nearby
+      const pingPromise = sendForegroundPing().catch((e) => {
+        console.warn("Foreground ping failed", e);
+      });
+      await Promise.race([pingPromise, sleep(MAX_PING_WAIT_MS)]);
+    }
+
     const response = await fetchNearbyUsers(300);
     setNearby(response);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -49,7 +68,6 @@ export default function HomeTab() {
       }
 
       try {
-        setLoading(true);
         await loadNearby();
       } catch (e: any) {
         Alert.alert("Could not load nearby users", e?.message ?? "Unknown error");
@@ -63,27 +81,27 @@ export default function HomeTab() {
 
   useFocusEffect(
     useCallback(() => {
-      loadNearby().catch((e: any) =>
-        Alert.alert("Could not refresh nearby users", e?.message ?? "Unknown error"),
-      );
+      loadNearby().catch((e: any) => {
+        console.warn("Could not refresh nearby users", e?.message ?? "Unknown error");
+      });
     }, [loadNearby]),
   );
 
-  // this keeps web refreshes from stacking up on slow networks
+  // this silently refreshes every 5s while this tab is focused
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS !== "web") return undefined;
-
       const intervalId = setInterval(() => {
         if (periodicRefreshBusyRef.current) return;
         periodicRefreshBusyRef.current = true;
 
-        loadNearby().catch((e) => {
-          console.warn("Web periodic nearby refresh failed", e);
+        const shouldPing = Date.now() - lastPingAtRef.current >= AUTO_PING_MS;
+
+        loadNearby({ includePing: shouldPing }).catch((e) => {
+          console.warn("Periodic nearby refresh failed", e);
         }).finally(() => {
           periodicRefreshBusyRef.current = false;
         });
-      }, 25000);
+      }, AUTO_REFRESH_MS);
 
       return () => {
         clearInterval(intervalId);
@@ -108,12 +126,7 @@ export default function HomeTab() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 10 }}>Loading nearby users…</Text>
-      </View>
-    );
+    return <View style={styles.scroll} />;
   }
 
 // // This is the function for the FlatList
@@ -221,7 +234,6 @@ export default function HomeTab() {
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 24, paddingBottom: 48, gap: 12 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
   title: {
     fontSize: 28,
