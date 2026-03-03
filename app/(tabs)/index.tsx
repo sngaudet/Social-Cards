@@ -5,7 +5,7 @@ import {
 } from "../../src/location/service";
 import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +33,7 @@ export default function HomeTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [nearby, setNearby] = useState<NearbyResponse>(emptyNearby);
+  const periodicRefreshBusyRef = useRef(false);
 
   const loadNearby = useCallback(async () => {
     await sendForegroundPing();
@@ -68,18 +69,26 @@ export default function HomeTab() {
     }, [loadNearby]),
   );
 
-  // Added a periodic refresh every 25 seconds for web, since the foreground ping won't work when the tab is in the background
+  // this keeps web refreshes from stacking up on slow networks
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "web") return undefined;
 
       const intervalId = setInterval(() => {
+        if (periodicRefreshBusyRef.current) return;
+        periodicRefreshBusyRef.current = true;
+
         loadNearby().catch((e) => {
           console.warn("Web periodic nearby refresh failed", e);
+        }).finally(() => {
+          periodicRefreshBusyRef.current = false;
         });
       }, 25000);
 
-      return () => clearInterval(intervalId);
+      return () => {
+        clearInterval(intervalId);
+        periodicRefreshBusyRef.current = false;
+      };
     }, [loadNearby]),
   );
 
@@ -147,7 +156,7 @@ export default function HomeTab() {
       <Text style={styles.title}>Nearby Icebreakers</Text>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryText}>Within 50 ft: {nearby.crowdCount}</Text>
+        <Text style={styles.summaryText}>Within 300 ft: {nearby.crowdCount}</Text>
         <Text style={styles.subtleText}>
           Updated: {new Date(nearby.asOf).toLocaleTimeString()}
         </Text>

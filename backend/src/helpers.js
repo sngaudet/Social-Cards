@@ -12,6 +12,8 @@ const {
   THROTTLE_MS,
   THROTTLE_DISTANCE_M,
   MAX_ACCURACY_BUFFER_M,
+  MAX_RECORDED_AT_AGE_MS,
+  MAX_RECORDED_AT_FUTURE_MS,
 } = require("./constants");
 
 // this checks login and gives the handler the user id
@@ -89,6 +91,18 @@ function validatePingInput(data) {
   }
 
   if (!isFiniteNumber(recordedAtMs)) {
+    return { ok: false, response: rejectPing("invalid") };
+  }
+
+  const nowMs = nowDate().getTime();
+
+  // this blocks stale pings that would make presence jump around
+  if (recordedAtMs < nowMs - MAX_RECORDED_AT_AGE_MS) {
+    return { ok: false, response: rejectPing("invalid") };
+  }
+
+  // this blocks future timestamps from clock drift or spoofing
+  if (recordedAtMs > nowMs + MAX_RECORDED_AT_FUTURE_MS) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
