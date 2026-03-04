@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View
 } from "react-native";
 import {
@@ -130,7 +129,7 @@ export default function HomeTab() {
   }
 
   const toWelcome = () => {
-    router.navigate('../')
+    router.navigate('/')
   };
 
 // // This is the function for the FlatList
@@ -227,15 +226,17 @@ export default function HomeTab() {
         contentContainerStyle={styles.content}/>
       </view> */}
 
-       
-      <TouchableOpacity style={styles.secondaryButton} onPress={toWelcome}>
+       {/* this button was used to check the initial welcom page  */}
+      {/* <TouchableOpacity style={styles.secondaryButton} onPress={toWelcome}>
         <Text style={styles.secondaryButtonText}>To the Welcome Page</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
-
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
+        {/* this button has been moved to the settings page in (tabs) */}
+      {/* <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
         <Text style={styles.secondaryButtonText}>Log Out</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
+
+
     </ScrollView>
   );
 }
