@@ -1,8 +1,3 @@
-import {
-  fetchNearbyUsers,
-  NearbyResponse,
-  sendForegroundPing,
-} from "../../src/location/service";
 import { useFocusEffect, useRouter } from "expo-router";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +11,11 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import {
+  fetchNearbyUsers,
+  NearbyResponse,
+  sendForegroundPing,
+} from "../../src/location/service";
 
 import { auth } from "../../firebaseConfig";
 
@@ -129,6 +129,10 @@ export default function HomeTab() {
     return <View style={styles.scroll} />;
   }
 
+  const toWelcome = () => {
+    router.navigate('../')
+  };
+
 // // This is the function for the FlatList
 // const renderUserCard = ({ item: user }: { item: any }) => (
 //     <View style={styles.userCard}>
@@ -222,6 +226,11 @@ export default function HomeTab() {
         scrollEnabled = {false}
         contentContainerStyle={styles.content}/>
       </view> */}
+
+       
+      <TouchableOpacity style={styles.secondaryButton} onPress={toWelcome}>
+        <Text style={styles.secondaryButtonText}>To the Welcome Page</Text>
+      </TouchableOpacity>
 
 
       <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>

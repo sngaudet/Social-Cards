@@ -110,7 +110,9 @@ export default function SignupReview() {
 
       resetDraft();
       Alert.alert("Account created!");
-      router.replace("/(tabs)");
+      router.replace("/(auth)/signup/onboardingIntro");
+      //old implementation to Home Page
+      // router.replace("/(tabs)");
     } catch (e: any) {
       const code = e?.code as string | undefined;
 
