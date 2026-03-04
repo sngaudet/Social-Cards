@@ -46,11 +46,11 @@ describe("<Login />", () => {
   test("renders the basic login UI", () => {
     const { getByText, getByPlaceholderText } = render(<Login />);
 
-    getByText("Welcome");
-    getByPlaceholderText("Email");
-    getByPlaceholderText("Password");
-    getByText("Log In");
-    getByText("Need an account? Sign Up Here");
+    expect(getByText("Welcome")).toBeTruthy();
+    expect(getByPlaceholderText("Email")).toBeTruthy();
+    expect(getByPlaceholderText("Password")).toBeTruthy();
+    expect(getByText("Log In")).toBeTruthy();
+    expect(getByText("Need an account? Sign Up Here")).toBeTruthy();
   });
 
   test("shows missing fields alert when pressing Log In with empty inputs", () => {
