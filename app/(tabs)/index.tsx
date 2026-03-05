@@ -8,7 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
   fetchNearbyUsers,
@@ -120,6 +121,10 @@ export default function HomeTab() {
     }
   }, [loadNearby]);
 
+  const openUserProfile = useCallback((uid: string) => {
+    router.push({ pathname: "/(tabs)/user/[uid]", params: { uid } });
+  }, [router]);
+
   const handleLogout = async () => {
     await signOut(auth);
   };
@@ -208,9 +213,16 @@ export default function HomeTab() {
             <Text style={styles.value}>{user.hobbies || "-"}</Text>
 
             <Text style={styles.label}>Icebreaker prompts</Text>
-            <Text style={styles.value}>• {user.iceBreakerOne || "-"}</Text>
-            <Text style={styles.value}>• {user.iceBreakerTwo || "-"}</Text>
-            <Text style={styles.value}>• {user.iceBreakerThree || "-"}</Text>
+            <Text style={styles.value}>- {user.iceBreakerOne || "-"}</Text>
+            <Text style={styles.value}>- {user.iceBreakerTwo || "-"}</Text>
+            <Text style={styles.value}>- {user.iceBreakerThree || "-"}</Text>
+
+            <TouchableOpacity
+              style={styles.viewProfileButton}
+              onPress={() => openUserProfile(user.uid)}
+            >
+              <Text style={styles.viewProfileButtonText}>View Profile</Text>
+            </TouchableOpacity>
           </View>
         ))
       )}
@@ -353,6 +365,21 @@ const styles = StyleSheet.create({
 
   secondaryButtonText: {
     color: "#fff",
+    fontWeight: "700",
+  },
+
+  viewProfileButton: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    backgroundColor: "#1d4ed8",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+
+  viewProfileButtonText: {
+    color: "#fff",
+    fontSize: 13,
     fontWeight: "700",
   },
 });
