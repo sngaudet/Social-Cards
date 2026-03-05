@@ -85,34 +85,52 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: "center",
   },
+
   title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 24,
+    fontSize: 40,
+    fontWeight: "400",
+    marginBottom: 32,
     textAlign: "center",
   },
+
   input: {
+    backgroundColor: "#e9eef6",
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
+    borderRadius: 6,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 20,
+    fontSize: 16,
   },
+
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: "#60a5fa",
+    paddingVertical: 14,
+    borderRadius: 999,
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
+
+    // shadow (iOS + web)
+    shadowColor: "#3b82f6",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+
+    // Android
+    elevation: 6,
   },
+
   primaryText: {
     color: "white",
     fontWeight: "600",
+    fontSize: 16,
   },
+
   linkText: {
     color: "#3b82f6",
     textAlign: "center",
-    textDecorationLine: "underline",
     fontWeight: "500",
+    marginTop: 8,
   },
+
 });

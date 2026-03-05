@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSignup } from "../../../src/signup/context";
 
+
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
     window.alert(message ? `${title}\n\n${message}` : title);
@@ -52,7 +53,7 @@ export default function SignupAccountStep() {
       return;
     }
 
-      if (password !== confirmPassword) {
+    if (password !== confirmPassword) {
       showAlert("Passwords do not match");
       return;
     }
@@ -99,7 +100,7 @@ export default function SignupAccountStep() {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
       />
-      
+
 
       <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
         <Text style={styles.primaryText}>Next</Text>
@@ -118,27 +119,49 @@ export default function SignupAccountStep() {
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
+
   title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 24,
+    fontSize: 40,
+    fontWeight: "400",
+    marginBottom: 32,
     textAlign: "center",
+    color: "#000",
   },
   input: {
+    backgroundColor: "#e9eef6",
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
+    borderRadius: 6,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 20,
+    fontSize: 16,
   },
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: "#60a5fa",
+    paddingVertical: 14,
+    borderRadius: 999,
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
+
+    // Shadow (iOS + web)
+    shadowColor: "#3b82f6",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+
+    // Android
+    elevation: 6,
   },
-  primaryText: { color: "white", fontWeight: "600" },
-  secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },
-  secondaryText: { color: "#666" },
+  primaryText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+
+  secondaryButton: { padding: 12, alignItems: "center" },
+
+  secondaryText: {
+    color: "#444",
+    fontSize: 14,
+  },
 });
