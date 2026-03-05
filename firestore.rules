@@ -13,6 +13,11 @@ service cloud.firestore {
       }
     }
 
+    match /publicProfiles/{userId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
+    }
+
     match /presence/{docId} {
       allow read, write: if false;
     }

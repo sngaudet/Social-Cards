@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   serverTimestamp,
+  setDoc,
   updateDoc
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -263,6 +264,25 @@ export default function EditProfile() {
 
         updatedAt: serverTimestamp(),
       });
+
+      await setDoc(
+        doc(db, "publicProfiles", uid),
+        {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          Gender: gender.trim(),
+          age: age,
+          gradYear: gradYear,
+          major: major.trim(),
+          iceBreakerOne: ice1.trim(),
+          iceBreakerTwo: ice2.trim(),
+          iceBreakerThree: ice3.trim(),
+          hobbies: hobbies.trim(),
+          photoURL: updatedPhotoURL,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);
