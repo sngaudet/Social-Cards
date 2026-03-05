@@ -2,8 +2,8 @@ import { Stack } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
 
-import { bootstrapLocationServicesForSession, stopLocationUpdatesForCurrentUser } from "@/src/location/service";
 import { auth } from "../firebaseConfig";
+import { bootstrapLocationServicesForSession, stopLocationUpdatesForCurrentUser } from "../src/location/service";
 
 export default function RootLayout() {
   useEffect(() => {
@@ -27,6 +27,7 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="index" options={{ title: "Welcome Page"}}/>
     </Stack>
   );
 }

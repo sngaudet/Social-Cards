@@ -144,9 +144,75 @@ function mapPermissionStatus(
   return "unknown";
 }
 
+// this maps browser geolocation permission states into app values
+function mapWebPermissionState(state: unknown): LocationPermissionStatus {
+  if (state === "granted") return "while_in_use";
+  if (state === "denied") return "denied";
+  return "unknown";
+}
+
+// this reads browser geolocation object safely across environments
+function getWebGeolocation(): {
+  getCurrentPosition: (
+    success: (position: any) => void,
+    error?: (err: { code?: number }) => void,
+    options?: { enableHighAccuracy?: boolean; timeout?: number; maximumAge?: number },
+  ) => void;
+} | null {
+  if (Platform.OS !== "web") return null;
+
+  const navigatorRef = (globalThis as { navigator?: any }).navigator;
+  return navigatorRef?.geolocation ?? null;
+}
+
+// this reads browser geolocation permission without prompting
+async function getWebPermissionStatus(): Promise<LocationPermissionStatus> {
+  const geolocation = getWebGeolocation();
+  if (!geolocation) return "denied";
+
+  const navigatorRef = (globalThis as { navigator?: any }).navigator;
+  const query = navigatorRef?.permissions?.query;
+  if (typeof query !== "function") return "unknown";
+
+  try {
+    const result = await query.call(navigatorRef.permissions, {
+      name: "geolocation",
+    });
+    return mapWebPermissionState(result?.state);
+  } catch {
+    return "unknown";
+  }
+}
+
+// this prompts browser geolocation permission by requesting one position
+async function requestWebLocationPermission(): Promise<LocationPermissionStatus> {
+  const geolocation = getWebGeolocation();
+  if (!geolocation) return "denied";
+
+  return new Promise((resolve) => {
+    geolocation.getCurrentPosition(
+      () => resolve("while_in_use"),
+      (error) => {
+        if (error?.code === 1) {
+          resolve("denied");
+          return;
+        }
+        resolve("unknown");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      },
+    );
+  });
+}
+
 // this reads current location permission without prompting
 async function getCurrentLocationPermissionStatus(): Promise<LocationPermissionStatus> {
-  if (Platform.OS === "web") return "unknown";
+  if (Platform.OS === "web") {
+    return getWebPermissionStatus();
+  }
 
   const foreground = await Location.getForegroundPermissionsAsync();
   const background = await Location.getBackgroundPermissionsAsync();
@@ -156,7 +222,9 @@ async function getCurrentLocationPermissionStatus(): Promise<LocationPermissionS
 
 // this asks for location permission and attempts background permission too
 async function requestLocationPermissions(): Promise<LocationPermissionStatus> {
-  if (Platform.OS === "web") return "unknown";
+  if (Platform.OS === "web") {
+    return requestWebLocationPermission();
+  }
 
   const foreground = await Location.requestForegroundPermissionsAsync();
   let background = await Location.getBackgroundPermissionsAsync();
@@ -230,32 +298,50 @@ export async function registerPushTokenIfPossible(): Promise<boolean> {
   return true;
 }
 
-// this converts a location object into one upsert ping call
-async function sendPingFromLocationObject(
-  location: Pick<Location.LocationObject, "coords" | "timestamp">,
+// this sends one ping from raw coordinate values
+async function sendPingFromCoordinates(
+  latitude: number,
+  longitude: number,
+  accuracy: number | null | undefined,
   source: PingSource,
+  timestampMs: number | null | undefined,
 ): Promise<void> {
   if (!auth.currentUser) return;
 
-  const { latitude, longitude, accuracy } = location.coords;
-
-  // this guards against invalid location payloads
-  if (
-    typeof latitude !== "number" ||
-    typeof longitude !== "number" ||
-    typeof accuracy !== "number"
-  ) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return;
   }
+
+  const safeAccuracy =
+    typeof accuracy === "number" && Number.isFinite(accuracy) ? accuracy : 50;
+  const safeTimestamp =
+    typeof timestampMs === "number" && Number.isFinite(timestampMs)
+      ? timestampMs
+      : Date.now();
 
   await callWithRetry(() =>
     upsertPingCallable({
       lat: latitude,
       lng: longitude,
-      accuracyM: Math.max(0, accuracy),
+      accuracyM: Math.max(0, safeAccuracy),
       source,
-      recordedAtMs: location.timestamp || Date.now(),
+      recordedAtMs: safeTimestamp,
     }),
+  );
+}
+
+// this converts a location object into one upsert ping call
+async function sendPingFromLocationObject(
+  location: Pick<Location.LocationObject, "coords" | "timestamp">,
+  source: PingSource,
+): Promise<void> {
+  const { latitude, longitude, accuracy } = location.coords;
+  await sendPingFromCoordinates(
+    latitude,
+    longitude,
+    accuracy,
+    source,
+    location.timestamp || Date.now(),
   );
 }
 
@@ -319,12 +405,41 @@ export async function stopLocationUpdatesForCurrentUser(): Promise<void> {
 
 // this sends one immediate foreground ping
 export async function sendForegroundPing(): Promise<void> {
-  if (Platform.OS === "web") return;
   if (!auth.currentUser) return;
 
   // this skips ping when permission cannot provide location
   const permissionStatus = await getCurrentLocationPermissionStatus();
-  if (permissionStatus === "denied" || permissionStatus === "unknown") return;
+  if (permissionStatus === "denied") return;
+  if (permissionStatus === "unknown" && Platform.OS !== "web") return;
+
+  if (Platform.OS === "web") {
+    const geolocation = getWebGeolocation();
+    if (!geolocation) return;
+
+    const position = await new Promise<{
+      coords: { latitude: number; longitude: number; accuracy?: number | null };
+      timestamp?: number;
+    }>((resolve, reject) => {
+      geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 15000,
+        },
+      );
+    });
+
+    await sendPingFromCoordinates(
+      position.coords.latitude,
+      position.coords.longitude,
+      position.coords.accuracy,
+      "foreground",
+      position.timestamp,
+    );
+    return;
+  }
 
   const location = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
@@ -353,7 +468,10 @@ export async function setLocationSharingEnabled(
 
   // this forces off if permission is not usable
   const canShare =
-    sharingEnabled && (permissionStatus === "always" || permissionStatus === "while_in_use");
+    sharingEnabled &&
+    (permissionStatus === "always" ||
+      permissionStatus === "while_in_use" ||
+      (Platform.OS === "web" && permissionStatus === "unknown"));
 
   await callWithRetry(() =>
     setSharingCallable({
@@ -426,7 +544,8 @@ export async function bootstrapLocationServicesForSession(): Promise<void> {
   const canShare =
     control.sharingEnabled &&
     (currentPermissionStatus === "always" ||
-      currentPermissionStatus === "while_in_use");
+      currentPermissionStatus === "while_in_use" ||
+      (Platform.OS === "web" && currentPermissionStatus === "unknown"));
 
   try {
     // this syncs backend sharing with actual device permission

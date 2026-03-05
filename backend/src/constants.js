@@ -1,13 +1,16 @@
 // numbers and limits used by the location backend
 const REGION = "us-central1";
 const DEFAULT_RADIUS_FT = 50;
-const MAX_RADIUS_FT = 100;
+const MAX_RADIUS_FT = 300;
 const CROWD_ALERT_MIN_USERS = 8;
 const FRESHNESS_MS = 10 * 60 * 1000;
 const COOLDOWN_MS = 30 * 60 * 1000;
 const IMPACTED_LIMIT = 30;
 const THROTTLE_MS = 20 * 1000;
 const THROTTLE_DISTANCE_M = 3;
+const MAX_ACCURACY_BUFFER_M = 30;
+const MAX_RECORDED_AT_AGE_MS = 15 * 60 * 1000;
+const MAX_RECORDED_AT_FUTURE_MS = 2 * 60 * 1000;
 
 // permission values the app can send
 const ALLOWED_PERMISSION_STATUS = new Set([
@@ -27,5 +30,8 @@ module.exports = {
   IMPACTED_LIMIT,
   THROTTLE_MS,
   THROTTLE_DISTANCE_M,
+  MAX_ACCURACY_BUFFER_M,
+  MAX_RECORDED_AT_AGE_MS,
+  MAX_RECORDED_AT_FUTURE_MS,
   ALLOWED_PERMISSION_STATUS,
 };

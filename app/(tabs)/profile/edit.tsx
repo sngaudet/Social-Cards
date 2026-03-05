@@ -1,9 +1,9 @@
-import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
+import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
 import {
   getLocationControlStatus,
   LocationControlStatus,
   setLocationSharingEnabled,
-} from "@/src/location/service";
+} from "../../../src/location/service";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   serverTimestamp,
+  setDoc,
   updateDoc
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -258,11 +259,30 @@ export default function EditProfile() {
         iceBreakerThree: ice3.trim(),
         hobbies: hobbies.trim(),
 
-        // ✅ profile photo
+        // profile photo
         photoURL: updatedPhotoURL,
 
         updatedAt: serverTimestamp(),
       });
+
+      await setDoc(
+        doc(db, "publicProfiles", uid),
+        {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          Gender: gender.trim(),
+          age: age,
+          gradYear: gradYear,
+          major: major.trim(),
+          iceBreakerOne: ice1.trim(),
+          iceBreakerTwo: ice2.trim(),
+          iceBreakerThree: ice3.trim(),
+          hobbies: hobbies.trim(),
+          photoURL: updatedPhotoURL,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);

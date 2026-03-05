@@ -76,7 +76,7 @@ export default function SignupReview() {
       // main profile photo (first one)
       const photoURL = photoUrls[0] ?? "";
 
-      // 3) ONE Firestore write that includes everything
+      // 3) Write private profile doc
       await setDoc(doc(db, "users", cred.user.uid), {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
@@ -108,9 +108,27 @@ export default function SignupReview() {
         createdAt: serverTimestamp(),
       });
 
+      // 4) Write public profile doc (safe fields only)
+      await setDoc(doc(db, "publicProfiles", cred.user.uid), {
+        firstName: draft.firstName ?? "",
+        lastName: draft.lastName ?? "",
+        Gender: draft.Gender ?? "",
+        age: draft.age ?? "",
+        gradYear: draft.gradYear ?? "",
+        major: draft.major ?? "",
+        iceBreakerOne: draft.iceBreakerOne ?? "",
+        iceBreakerTwo: draft.iceBreakerTwo ?? "",
+        iceBreakerThree: draft.iceBreakerThree ?? "",
+        hobbies: draft.hobbies ?? "",
+        photoURL,
+        updatedAt: serverTimestamp(),
+      });
+
       resetDraft();
       Alert.alert("Account created!");
-      router.replace("/(tabs)");
+      router.replace("/(auth)/signup/onboardingIntro");
+      //old implementation to Home Page
+      // router.replace("/(tabs)");
     } catch (e: any) {
       const code = e?.code as string | undefined;
 
