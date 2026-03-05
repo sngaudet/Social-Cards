@@ -137,7 +137,7 @@ export default function HomeTab() {
     router.navigate('/')
   };
 
-// // This is the function for the FlatList
+  // // This is the function for the FlatList
 // const renderUserCard = ({ item: user }: { item: any }) => (
 //     <View style={styles.userCard}>
 //       <View style={styles.userHeader}>
