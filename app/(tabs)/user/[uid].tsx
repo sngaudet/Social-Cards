@@ -50,7 +50,7 @@ export default function UserProfileView() {
       return;
     }
 
-    const snap = await getDoc(doc(db, "users", uid));
+    const snap = await getDoc(doc(db, "publicProfiles", uid));
     if (!snap.exists()) {
       setData(null);
       return;
