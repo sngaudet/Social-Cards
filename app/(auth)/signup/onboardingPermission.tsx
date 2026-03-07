@@ -1,18 +1,34 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Text,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import SubButton from "../../../src/components/SubButton";
+import { requestLocationPermissions } from "../../../src/location/service";
 
 
 export default function OnboardingPermissionPage(){
     const router = useRouter();
-    // const onLogin = () => {
-    //     router.replace("/(auth)/signup/hobbies");
-    // }
+    const [requesting, setRequesting] = useState(false);
+
+    const handleEnablePermissions = async () => {
+      try {
+        setRequesting(true);
+        await requestLocationPermissions();
+        router.replace("/(auth)/signup/registrationComplete");
+      } catch (e: any) {
+        Alert.alert(
+          "Permission request failed",
+          e?.message ?? "Could not request location permissions.",
+        );
+      } finally {
+        setRequesting(false);
+      }
+    };
     
     return (
         <ScrollView contentContainerStyle = {styles.content} >
@@ -24,9 +40,17 @@ export default function OnboardingPermissionPage(){
             <Text style={styles.title}>Onboarding Permission Page</Text>
             
             <PrimaryButton
-              title="Enable Permissions"
+              title={requesting ? "Enabling..." : "Enable Permissions"}
               style={styles.primaryButton}
+              onPress={handleEnablePermissions}
+              disabled={requesting}
+            />
+
+            <SubButton
+              title="Not Now"
+              style={styles.skipButton}
               onPress={() => router.replace("/(auth)/signup/registrationComplete")}
+              disabled={requesting}
             />
         </ScrollView>
     );
@@ -94,5 +118,8 @@ const styles = StyleSheet.create({
   welcomeLogo: {
     width: 300,
     height: 300,
+  },
+  skipButton: {
+    marginTop: 8,
   },
 });
