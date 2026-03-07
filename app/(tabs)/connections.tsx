@@ -10,7 +10,7 @@ import {
 export default function connectionsPage(){
     const router = useRouter();
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
@@ -101,4 +101,3 @@ const styles = StyleSheet.create({
     height: 300,
   },
 });
-

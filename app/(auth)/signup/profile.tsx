@@ -57,7 +57,7 @@ export default function SignupProfileStep() {
       major: major.trim(),
     });
 
-    router.replace("/(auth)/signup/prof_pg_2");
+    router.replace("/(auth)/signup/icebreakers");
   };
 
   return (

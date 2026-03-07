@@ -13,7 +13,7 @@ import SecondaryButton from "../src/components/SecondaryButton";
 export default function welcomePage(){
     const router = useRouter();
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
@@ -34,13 +34,13 @@ export default function welcomePage(){
             <PrimaryButton
               title="Get Started"
               style={styles.getStartedButton}
-              onPress={() => router.replace("/(auth)/signup")}
+              onPress={() => router.push("/(auth)/signup")}
             />
 
             <SecondaryButton
               title="Login"
               style={styles.loginButton}
-              onPress={() => router.replace("/(auth)/login")}
+              onPress={() => router.push("/(auth)/login")}
             />
             <Text style={styles.secondaryText}>University email is required</Text>
         </ScrollView>

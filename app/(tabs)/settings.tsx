@@ -18,7 +18,7 @@ export default function settingsPage(){
     const [isVisible, setIsVisible] = useState(false)
     
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     const handleLogout = async () => {
         await signOut(auth);
@@ -180,4 +180,3 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
 });
-

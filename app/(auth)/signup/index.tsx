@@ -108,7 +108,7 @@ export default function SignupAccountStep() {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.replace("/(auth)/login")}
+        onPress={() => router.replace("/")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

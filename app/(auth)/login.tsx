@@ -75,6 +75,10 @@ export default function Login() {
           <Text style={styles.linkText}>Need an account? Sign Up Here</Text>
         </TouchableOpacity>
       </Link>
+
+      <TouchableOpacity onPress={() => router.replace("/")}>
+        <Text style={styles.backLinkText}>Back</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -131,6 +135,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "500",
     marginTop: 8,
+  },
+
+  backLinkText: {
+    color: "#444",
+    textAlign: "center",
+    marginTop: 16,
   },
 
 });

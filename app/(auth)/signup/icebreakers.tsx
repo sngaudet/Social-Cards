@@ -80,7 +80,7 @@ export default function SignupIceBreakersStep() {
       iceBreakerThree: iceBreakerThree.trim(),
     });
 
-    router.replace("/(auth)/signup/prof_pg_3");
+    router.replace("/(auth)/signup/hobbies");
   };
 
   const renderCard = (key: IceKey) => {
