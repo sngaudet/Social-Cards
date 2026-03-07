@@ -221,7 +221,7 @@ async function getCurrentLocationPermissionStatus(): Promise<LocationPermissionS
 }
 
 // this asks for location permission and attempts background permission too
-async function requestLocationPermissions(): Promise<LocationPermissionStatus> {
+export async function requestLocationPermissions(): Promise<LocationPermissionStatus> {
   if (Platform.OS === "web") {
     return requestWebLocationPermission();
   }
