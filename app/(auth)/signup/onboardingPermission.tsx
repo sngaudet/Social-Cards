@@ -8,7 +8,7 @@ import {
 } from "react-native";
 
 
-export default function welcomePage(){
+export default function OnboardingPermissionPage(){
     const router = useRouter();
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");

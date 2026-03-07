@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import React from "react";
 import {
     ScrollView,
@@ -7,8 +6,8 @@ import {
 } from "react-native";
 
 
-export default function connectionsPage(){
-    const router = useRouter();
+export default function ConnectionsPage(){
+    //const router = useRouter();
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");
     // }

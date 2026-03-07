@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -125,17 +125,17 @@ export default function HomeTab() {
     router.push({ pathname: "/(tabs)/user/[uid]", params: { uid } });
   }, [router]);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-  };
+  // const handleLogout = async () => {
+  //   await signOut(auth);
+  // };
 
   if (loading) {
     return <View style={styles.scroll} />;
   }
 
-  const toWelcome = () => {
-    router.navigate('/')
-  };
+  // const toWelcome = () => {
+  //   router.navigate('/')
+  // };
 
   // // This is the function for the FlatList
 // const renderUserCard = ({ item: user }: { item: any }) => (

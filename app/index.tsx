@@ -10,7 +10,7 @@ import PrimaryButton from "../src/components/PrimaryButton";
 import SecondaryButton from "../src/components/SecondaryButton";
 
 
-export default function welcomePage(){
+export default function WelcomePage(){
     const router = useRouter();
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");

@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
@@ -13,8 +12,8 @@ import { auth } from "../../firebaseConfig";
 
 
 
-export default function settingsPage(){
-    const router = useRouter();
+export default function SettingsPage(){
+    // const router = useRouter();
     const [isVisible, setIsVisible] = useState(false)
     
     // const onLogin = () => {
