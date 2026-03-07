@@ -15,6 +15,7 @@ type PrimaryButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
   showArrow?: boolean;
+  leftIcon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
@@ -24,6 +25,7 @@ export default function PrimaryButton({
   onPress,
   disabled = false,
   showArrow = false,
+  leftIcon,
   style,
   textStyle,
 }: PrimaryButtonProps) {
@@ -48,7 +50,14 @@ export default function PrimaryButton({
           style={styles.button}
         >
           <View style={styles.content}>
-            <Text style={[styles.text, disabled && styles.disabledText, textStyle]}>
+            {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
+
+            <Text
+              style={[styles.text, disabled && styles.disabledText, textStyle]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
               {title}
             </Text>
 
@@ -106,7 +115,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: 8,
+  },
+
+  leftIcon: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   text: {
@@ -115,6 +129,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: "#FFFFFF",
     textAlign: "center",
+    flexShrink: 1,
   },
 
   arrow: {

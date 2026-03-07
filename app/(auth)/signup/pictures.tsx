@@ -1,11 +1,10 @@
 // app/(auth)/signup/pictures.tsx
+import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
-  Button,
   Image,
   ScrollView,
   StyleSheet,
@@ -13,13 +12,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
+import SubButton from "../../../src/components/SubButton";
 import { useSignup } from "../../../src/signup/context"; // adjust if your path differs
 
 export default function SignupPictures() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
 
-  // We store local URIs in draft.photoUris for later upload in review.tsx
+  // We store local URIs in draft.photoUris for final account creation.
   const initial = useMemo(
     () => (draft.photoUris as string[] | undefined) ?? [],
     [draft.photoUris],
@@ -48,12 +49,11 @@ export default function SignupPictures() {
       if (result.canceled) return;
 
       const uri = result.assets[0].uri;
+      const nextImages = images.includes(uri) ? images : [...images, uri];
 
-      setImages((prev) => {
-        // de-dupe just in case
-        if (prev.includes(uri)) return prev;
-        return [...prev, uri];
-      });
+      setImages(nextImages);
+      updateDraft({ photoUris: nextImages });
+      router.push("/(auth)/signup/onboardingIntro");
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to pick image.");
     } finally {
@@ -62,28 +62,14 @@ export default function SignupPictures() {
   };
 
   const removeImage = (uri: string) => {
-    setImages((prev) => prev.filter((x) => x !== uri));
-  };
-
-  const handleNext = () => {
-    if (images.length === 0) {
-      Alert.alert(
-        "Missing photo",
-        "Please select at least one photo (or tap Skip).",
-      );
-      return;
-    }
-
-    // Save local URIs in draft for review.tsx to upload AFTER createUserWithEmailAndPassword
-    updateDraft({ photoUris: images });
-
-    // Go to next step — change this route to your actual next signup file
-    router.push("/(auth)/signup/review");
+    const nextImages = images.filter((x) => x !== uri);
+    setImages(nextImages);
+    updateDraft({ photoUris: nextImages });
   };
 
   const handleSkip = () => {
     updateDraft({ photoUris: [] });
-    router.push("/(auth)/signup/review");
+    router.push("/(auth)/signup/onboardingIntro");
   };
 
   return (
@@ -94,13 +80,13 @@ export default function SignupPictures() {
         created.
       </Text>
 
-      <View style={{ width: "100%", gap: 10 }}>
-        <Button
-          title={busy ? "Opening..." : "Pick a Photo"}
-          onPress={pickImage}
-          disabled={busy}
-        />
-      </View>
+      <PrimaryButton
+        title={busy ? "Opening..." : "Upload Photo"}
+        leftIcon={<Feather name="upload" size={18} color="#FFFFFF" />}
+        style={styles.uploadButton}
+        onPress={pickImage}
+        disabled={busy}
+      />
 
       <View style={styles.previewContainer}>
         {images.map((uri) => (
@@ -117,28 +103,12 @@ export default function SignupPictures() {
         ))}
       </View>
 
-      <TouchableOpacity
-        style={styles.nextButton}
-        onPress={handleNext}
-        disabled={busy}
-      >
-        {busy ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <ActivityIndicator />
-            <Text style={styles.nextButtonText}>Working...</Text>
-          </View>
-        ) : (
-          <Text style={styles.nextButtonText}>Next</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
+      <SubButton
+        title="Not Now"
         style={styles.skipButton}
         onPress={handleSkip}
         disabled={busy}
-      >
-        <Text style={styles.skipButtonText}>Skip for now</Text>
-      </TouchableOpacity>
+      />
     </ScrollView>
   );
 }
@@ -151,6 +121,10 @@ const styles = StyleSheet.create({
     color: "#555",
     textAlign: "center",
     marginBottom: 14,
+  },
+
+  uploadButton: {
+    marginBottom: 4,
   },
 
   previewContainer: {
@@ -180,25 +154,7 @@ const styles = StyleSheet.create({
   },
   removeBadgeText: { color: "white", fontWeight: "800", fontSize: 14 },
 
-  nextButton: {
-    backgroundColor: "#3399ff",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    minWidth: 200,
-    alignItems: "center",
-  },
-  nextButtonText: { color: "#fff", fontWeight: "bold" },
-
   skipButton: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 8,
-    borderColor: "#999",
-    borderWidth: 1,
-    backgroundColor: "#eee",
-    minWidth: 200,
-    alignItems: "center",
+    marginTop: 8,
   },
-  skipButtonText: { color: "#333", fontWeight: "bold" },
 });

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -138,9 +139,12 @@ export default function SignupProfileStep() {
         style={styles.input}
       />
 
-      <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
-        <Text style={styles.primaryText}>Next</Text>
-      </TouchableOpacity>
+      <PrimaryButton
+        title="Next Step"
+        showArrow
+        style={styles.primaryButton}
+        onPress={onNext}
+      />
 
       <TouchableOpacity
         style={styles.secondaryButton}
@@ -169,10 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
+    alignSelf: "center",
     marginBottom: 12,
   },
   primaryText: { color: "white", fontWeight: "600" },
