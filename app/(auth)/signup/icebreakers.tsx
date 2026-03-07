@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -80,7 +81,7 @@ export default function SignupIceBreakersStep() {
       iceBreakerThree: iceBreakerThree.trim(),
     });
 
-    router.replace("/(auth)/signup/prof_pg_3");
+    router.replace("/(auth)/signup/hobbies");
   };
 
   const renderCard = (key: IceKey) => {
@@ -138,9 +139,12 @@ export default function SignupIceBreakersStep() {
         {filledCount} Icebreakers selected
       </Text>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
-        <Text style={styles.primaryText}>Next</Text>
-      </TouchableOpacity>
+      <PrimaryButton
+        title="Next Step"
+        showArrow
+        style={styles.primaryButton}
+        onPress={onNext}
+      />
 
       <TouchableOpacity
         style={styles.secondaryButton}
@@ -221,10 +225,7 @@ const styles = StyleSheet.create({
   cardChevron: { fontSize: 26, color: "#9ca3af", marginLeft: 10 },
 
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
+    alignSelf: "center",
     marginTop: 18,
     marginBottom: 12,
   },

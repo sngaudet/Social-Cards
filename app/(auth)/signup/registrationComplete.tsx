@@ -1,32 +1,151 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import React, { useMemo, useState } from "react";
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
+import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
+import { auth, db } from "../../../firebaseConfig";
+import { useSignup } from "../../../src/signup/context";
 
 
-export default function welcomePage(){
+export default function RegistrationCompletePage(){
     const router = useRouter();
-    // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
-    // }
+    const { draft, resetDraft } = useSignup();
+    const [submitting, setSubmitting] = useState(false);
+
+    const missing = useMemo(() => {
+      const fields: string[] = [];
+      if (!draft.email?.trim()) fields.push("email");
+      if (!draft.password) fields.push("password");
+      if (!draft.firstName?.trim()) fields.push("first name");
+      if (!draft.lastName?.trim()) fields.push("last name");
+      if (!draft.Gender?.trim()) fields.push("gender");
+      if (draft.age == null) fields.push("age");
+      if (draft.gradYear == null) fields.push("grad year");
+      if (!draft.major?.trim()) fields.push("major");
+      if (!draft.iceBreakerOne?.trim()) fields.push("ice breaker 1");
+      if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
+      if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
+      if (!draft.hobbies?.trim()) fields.push("hobbies");
+      return fields;
+    }, [draft]);
+
+    const handleSubmit = async () => {
+      if (missing.length > 0) {
+        Alert.alert(
+          "Missing info",
+          `Please go back and fill: ${missing.join(", ")}.`,
+        );
+        return;
+      }
+
+      const email = draft.email.trim();
+      const password = draft.password;
+
+      if (!email.includes("@")) {
+        Alert.alert("Invalid email", "Enter a valid email address.");
+        return;
+      }
+
+      if (password.length < 6) {
+        Alert.alert("Weak password", "Use at least 6 characters.");
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+        const photoUrls: string[] = [];
+        for (const uri of draft.photoUris ?? []) {
+          const url = await uploadProfilePhotoAsync(uri);
+          photoUrls.push(url);
+        }
+
+        const photoURL = photoUrls[0] ?? "";
+
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email: cred.user.email,
+          firstName: draft.firstName ?? "",
+          lastName: draft.lastName ?? "",
+          Gender: draft.Gender ?? "",
+          age: draft.age ?? "",
+          gradYear: draft.gradYear ?? "",
+          major: draft.major ?? "",
+          iceBreakerOne: draft.iceBreakerOne ?? "",
+          iceBreakerTwo: draft.iceBreakerTwo ?? "",
+          iceBreakerThree: draft.iceBreakerThree ?? "",
+          hobbies: draft.hobbies ?? "",
+          photoURL,
+          photoUrls,
+          locationControl: {
+            sharingEnabled: true,
+            permissionStatus: "unknown",
+            updatedAt: serverTimestamp(),
+          },
+          locationStatus: {
+            lastLocationAt: null,
+            lastAccuracyM: null,
+            lastSource: null,
+          },
+          createdAt: serverTimestamp(),
+        });
+
+        await setDoc(doc(db, "publicProfiles", cred.user.uid), {
+          firstName: draft.firstName ?? "",
+          lastName: draft.lastName ?? "",
+          Gender: draft.Gender ?? "",
+          age: draft.age ?? "",
+          gradYear: draft.gradYear ?? "",
+          major: draft.major ?? "",
+          iceBreakerOne: draft.iceBreakerOne ?? "",
+          iceBreakerTwo: draft.iceBreakerTwo ?? "",
+          iceBreakerThree: draft.iceBreakerThree ?? "",
+          hobbies: draft.hobbies ?? "",
+          photoURL,
+          updatedAt: serverTimestamp(),
+        });
+
+        resetDraft();
+        router.replace("/(tabs)");
+      } catch (e: any) {
+        const code = e?.code as string | undefined;
+
+        if (code === "auth/email-already-in-use") {
+          Alert.alert("Email already in use", "Try logging in instead.");
+        } 
+        else if (code === "auth/invalid-email") {
+          Alert.alert("Invalid email", "Check your email address and try again.");
+        } 
+        else if (code === "auth/weak-password") {
+          Alert.alert("Weak password", "Use at least 6 characters.");
+        } 
+        else {
+          Alert.alert("Error", e?.message ?? "Signup failed.");
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    };
     
     return (
         <ScrollView contentContainerStyle = {styles.content} >
-            {/* this is how to reference an image */}
-            {/* <Image
-              source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
-            /> */}
-
-            <Text style={styles.title}>Registration Success Page</Text>
+            <Text style={styles.title}>Welcome to Icebreakers!</Text>
             
-            <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(tabs)")}>
-                <Text>Start Discovering Nearby</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              title={submitting ? "Submitting..." : "Start Discovering Nearby"}
+              showArrow={!submitting}
+              style={styles.primaryButton}
+              onPress={handleSubmit}
+              disabled={submitting}
+            />
         </ScrollView>
     );
 }
@@ -47,58 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: 44,
     textAlign: "center",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 36,
-  },
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    textAlign: "center",
-    justifyContent: "center",
     marginBottom: 12,
-  },
-  primaryText: { 
-    color: "white", 
-    fontWeight: "600", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  title2: {
-    color: "black", 
-    fontSize: 20, 
-    fontWeight: "bold", 
-    textAlign: "center",
-    textShadowRadius: 2, 
-    textShadowColor: "yellow",
-    marginBottom: 30,
-  },
-  secondaryButton: { 
-    padding: 16, 
-    borderRadius: 8, 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  secondaryText: { 
-    color: "#666", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  thirdText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 300
-  },
-  welcomeLogo: {
-    width: 300,
-    height: 300,
   },
 });

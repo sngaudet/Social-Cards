@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { auth } from "../../firebaseConfig";
 
 function showAlert(title: string, message?: string) {
@@ -66,15 +67,22 @@ export default function Login() {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-        <Text style={styles.primaryText}>Log In</Text>
-      </TouchableOpacity>
+      <PrimaryButton
+        title="Log In"
+        showArrow
+        style={styles.primaryButton}
+        onPress={handleLogin}
+      />
 
       <Link href="/(auth)/signup" asChild>
         <TouchableOpacity>
           <Text style={styles.linkText}>Need an account? Sign Up Here</Text>
         </TouchableOpacity>
       </Link>
+
+      <TouchableOpacity onPress={() => router.replace("/")}>
+        <Text style={styles.backLinkText}>Back</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -104,20 +112,8 @@ const styles = StyleSheet.create({
   },
 
   primaryButton: {
-    backgroundColor: "#60a5fa",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
+    alignSelf: "center",
     marginBottom: 16,
-
-    // shadow (iOS + web)
-    shadowColor: "#3b82f6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-
-    // Android
-    elevation: 6,
   },
 
   primaryText: {
@@ -131,6 +127,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "500",
     marginTop: 8,
+  },
+
+  backLinkText: {
+    color: "#444",
+    textAlign: "center",
+    marginTop: 16,
   },
 
 });

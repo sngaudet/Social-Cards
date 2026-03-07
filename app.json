@@ -80,7 +80,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#3b82f6"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

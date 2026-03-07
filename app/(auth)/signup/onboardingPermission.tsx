@@ -4,14 +4,14 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
 
 
-export default function welcomePage(){
+export default function OnboardingPermissionPage(){
     const router = useRouter();
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
@@ -23,10 +23,11 @@ export default function welcomePage(){
 
             <Text style={styles.title}>Onboarding Permission Page</Text>
             
-            <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(auth)/signup/registrationComplete")}>
-                <Text>Enable Permissions</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              title="Enable Permissions"
+              style={styles.primaryButton}
+              onPress={() => router.replace("/(auth)/signup/registrationComplete")}
+            />
         </ScrollView>
     );
 }
@@ -55,13 +56,6 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    textAlign: "center",
-    justifyContent: "center",
     marginBottom: 12,
   },
   primaryText: { 
@@ -102,4 +96,3 @@ const styles = StyleSheet.create({
     height: 300,
   },
 });
-

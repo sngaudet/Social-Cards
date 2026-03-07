@@ -5,14 +5,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
 } from "react-native";
+import PrimaryButton from "../src/components/PrimaryButton";
+import SecondaryButton from "../src/components/SecondaryButton";
 
 
-export default function welcomePage(){
+export default function WelcomePage(){
     const router = useRouter();
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
@@ -30,16 +31,17 @@ export default function welcomePage(){
                 Find study buddies, friends, and meet people nearby. 
                 Discovering your community starts here! </Text>
             
-            <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(auth)/signup")}>
-                <Text>Get Started</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              title="Get Started"
+              style={styles.getStartedButton}
+              onPress={() => router.push("/(auth)/signup")}
+            />
 
-            <TouchableOpacity style={styles.primaryButton}
-                onPress={() => router.replace("/(auth)/login")}>
-                <Text>Login</Text>
-                
-            </TouchableOpacity>
+            <SecondaryButton
+              title="Login"
+              style={styles.loginButton}
+              onPress={() => router.push("/(auth)/login")}
+            />
             <Text style={styles.secondaryText}>University email is required</Text>
         </ScrollView>
     );
@@ -78,6 +80,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 12,
   },
+  getStartedButton: {
+    marginBottom: 12,
+  },
   primaryText: { 
     color: "white", 
     fontWeight: "600", 
@@ -98,6 +103,9 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     textAlign: "center",
     marginBottom: 30, 
+  },
+  loginButton: {
+    marginBottom: 30,
   },
   secondaryText: { 
     color: "#666", 

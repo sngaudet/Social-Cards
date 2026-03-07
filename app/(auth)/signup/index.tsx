@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
 import { useSignup } from "../../../src/signup/context";
 
 
@@ -102,13 +103,16 @@ export default function SignupAccountStep() {
       />
 
 
-      <TouchableOpacity style={styles.primaryButton} onPress={onNext}>
-        <Text style={styles.primaryText}>Next</Text>
-      </TouchableOpacity>
+      <PrimaryButton
+        title="Next Step"
+        showArrow
+        style={styles.primaryButton}
+        onPress={onNext}
+      />
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.replace("/(auth)/login")}
+        onPress={() => router.replace("/")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
@@ -137,20 +141,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   primaryButton: {
-    backgroundColor: "#60a5fa",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
+    alignSelf: "center",
     marginBottom: 16,
-
-    // Shadow (iOS + web)
-    shadowColor: "#3b82f6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-
-    // Android
-    elevation: 6,
   },
   primaryText: {
     color: "white",

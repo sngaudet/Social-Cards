@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
+import PrimaryButton from "@/src/components/PrimaryButton";
 import { auth, db } from "../../../firebaseConfig";
 import { useSignup } from "../../../src/signup/context";
 
@@ -189,15 +190,13 @@ export default function SignupReview() {
         <Text style={styles.value}>{draft.hobbies || "-"}</Text>
       </View>
 
-      <TouchableOpacity
-        style={[styles.primaryButton, submitting && styles.disabledButton]}
+      <PrimaryButton
+        title={submitting ? "Submitting..." : "Start Discovering Nearby"}
+        showArrow={!submitting}
+        style={styles.primaryButton}
         onPress={handleSubmit}
         disabled={submitting}
-      >
-        <Text style={styles.primaryText}>
-          {submitting ? "Submitting..." : "Submit"}
-        </Text>
-      </TouchableOpacity>
+      />
 
       <TouchableOpacity
         style={styles.secondaryButton}
@@ -249,13 +248,9 @@ const styles = StyleSheet.create({
   value: { fontSize: 16, marginBottom: 6 },
 
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
+    alignSelf: "center",
     marginBottom: 12,
   },
-  disabledButton: { opacity: 0.6 },
   primaryText: { color: "white", fontWeight: "600" },
 
   secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },

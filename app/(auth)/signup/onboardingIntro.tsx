@@ -6,14 +6,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity
 } from "react-native";
+import PrimaryButton from "../../../src/components/PrimaryButton";
 
 
 export default function Onboarding(){
     const router = useRouter();
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
@@ -38,10 +38,12 @@ export default function Onboarding(){
               private, but is needed to make {"\n"}
               connections with other users.</Text>
             
-            <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(auth)/signup/onboardingPermission")}>
-                <Text>Next Step</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              title="Next Step"
+              showArrow
+              style={styles.primaryButton}
+              onPress={() => router.replace("/(auth)/signup/onboardingPermission")}
+            />
         </ScrollView>
     );
 }
@@ -70,13 +72,6 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   primaryButton: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    textAlign: "center",
-    justifyContent: "center",
     marginBottom: 12,
   },
   
@@ -120,4 +115,3 @@ const styles = StyleSheet.create({
     height: 300,
   },
 });
-

@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
@@ -13,12 +12,12 @@ import { auth } from "../../firebaseConfig";
 
 
 
-export default function settingsPage(){
-    const router = useRouter();
+export default function SettingsPage(){
+    // const router = useRouter();
     const [isVisible, setIsVisible] = useState(false)
     
     // const onLogin = () => {
-    //     router.replace("/(auth)/signup/prof_pg_3");
+    //     router.replace("/(auth)/signup/hobbies");
     // }
     const handleLogout = async () => {
         await signOut(auth);
@@ -180,4 +179,3 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
 });
-
