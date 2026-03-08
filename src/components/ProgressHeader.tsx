@@ -24,7 +24,7 @@ export default function ProgressHeader({
         <Text style={styles.titleText}>{title}</Text>
       </View>
 
-      <View style={styles.track}>
+      <View style={[styles.track]}>
         <View style={[styles.fill, { width: `${progressPercent}%` }]} />
       </View>
     </View>
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
 
   titleText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
     color: "#64748B",
   },
@@ -68,4 +68,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#89DBFB",
     borderRadius: 999,
   },
+
 });

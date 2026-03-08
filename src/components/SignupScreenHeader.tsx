@@ -14,32 +14,37 @@ export default function SignupScreenHeader({
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
 
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {subtitle ? (
+        <Text style={styles.subtitle}>
+          {subtitle}
+        </Text>
+      ) : null}
+      
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    marginTop: 32,
-    marginBottom: 24,
+    marginTop: 46,
+    marginBottom: 36,
   },
 
   title: {
-    fontSize: 46,
-    lineHeight: 52,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -1.2,
+    fontSize: 32,
+    lineHeight: 42,
+    fontWeight: "700",
+    letterSpacing: -1.3,
+    color: "#0B1533",
+    maxWidth: 300,
   },
 
   subtitle: {
-    marginTop: 16,
-    fontSize: 18,
-    lineHeight: 30,
+    marginTop: 18,
+    fontSize: 17,
+    lineHeight: 24,
     fontWeight: "400",
     color: "#64748B",
-    maxWidth: 460,
+    maxWidth: 330,
   },
 });

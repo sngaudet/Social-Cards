@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import ProgressHeader from "../../../src/components/ProgressHeader";
+import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -42,7 +44,12 @@ export default function SignupHobbiesStep() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Hobbies</Text>
+      <ProgressHeader currentStep={3} />
+
+      <SignupScreenHeader
+        title="What are you into?"
+        subtitle="Pick your interests to help us match you with the right crowd."
+      />
 
       <TextInput
         placeholder="List your hobbies (ex: Basketball, Reading, Cooking)"
@@ -73,13 +80,7 @@ export default function SignupHobbiesStep() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
-  title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 24,
-    textAlign: "center",
-  },
+  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -94,7 +95,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
-  primaryText: { color: "white", fontWeight: "600" },
   secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },
   secondaryText: { color: "#666" },
 });
