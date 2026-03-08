@@ -65,8 +65,8 @@ const styles = StyleSheet.create({
 
   text: {
     fontFamily: "LexendSemiBold",
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 26,
     letterSpacing: 0.4,
     color: "#2B6CEE",
     textAlign: "center",
