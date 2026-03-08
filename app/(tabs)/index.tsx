@@ -1,5 +1,4 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -11,13 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { sendConnectionRequest } from "../../src/connections/service";
+import { showAlert } from "../../src/lib/showAlert";
 import {
   fetchNearbyUsers,
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
-
-import { auth } from "../../firebaseConfig";
 
 const emptyNearby: NearbyResponse = {
   users: [],
@@ -42,52 +41,77 @@ export default function HomeTab() {
   const periodicRefreshBusyRef = useRef(false);
   const lastPingAtRef = useRef(0);
 
-  const loadNearby = useCallback(async (options?: { includePing?: boolean }) => {
-    const includePing = options?.includePing !== false;
-
-    if (includePing) {
-      lastPingAtRef.current = Date.now();
-
-      // this avoids waiting too long on geolocation before fetching nearby
-      const pingPromise = sendForegroundPing().catch((e) => {
-        console.warn("Foreground ping failed", e);
-      });
-      await Promise.race([pingPromise, sleep(MAX_PING_WAIT_MS)]);
+  const handleConnect = useCallback(async (toUid: string) => {
+    try {
+      await sendConnectionRequest(toUid);
+      showAlert("Success", "Connection request sent.");
+    } catch (e: any) {
+      const code = e?.code ? ` (${e.code})` : "";
+      showAlert(
+        "Could not send request",
+        `${e?.message ?? "Unknown error"}${code}`,
+      );
     }
-
-    const response = await fetchNearbyUsers(300);
-    setNearby(response);
-    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/(auth)/login");
-        return;
+  const loadNearby = useCallback(
+    async (options?: { includePing?: boolean }) => {
+      const includePing = options?.includePing !== false;
+
+      if (includePing) {
+        lastPingAtRef.current = Date.now();
+
+        const pingPromise = sendForegroundPing().catch((e) => {
+          console.warn("Foreground ping failed", e);
+        });
+
+        await Promise.race([pingPromise, sleep(MAX_PING_WAIT_MS)]);
       }
 
+      const response = await fetchNearbyUsers(300);
+      setNearby(response);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
       try {
         await loadNearby();
       } catch (e: any) {
-        Alert.alert("Could not load nearby users", e?.message ?? "Unknown error");
+        if (!cancelled) {
+          Alert.alert(
+            "Could not load nearby users",
+            e?.message ?? "Unknown error",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return unsub;
-  }, [router, loadNearby]);
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadNearby]);
 
   useFocusEffect(
     useCallback(() => {
       loadNearby().catch((e: any) => {
-        console.warn("Could not refresh nearby users", e?.message ?? "Unknown error");
+        console.warn(
+          "Could not refresh nearby users",
+          e?.message ?? "Unknown error",
+        );
       });
     }, [loadNearby]),
   );
 
-  // this silently refreshes every 5s while this tab is focused
   useFocusEffect(
     useCallback(() => {
       const intervalId = setInterval(() => {
@@ -96,11 +120,13 @@ export default function HomeTab() {
 
         const shouldPing = Date.now() - lastPingAtRef.current >= AUTO_PING_MS;
 
-        loadNearby({ includePing: shouldPing }).catch((e) => {
-          console.warn("Periodic nearby refresh failed", e);
-        }).finally(() => {
-          periodicRefreshBusyRef.current = false;
-        });
+        loadNearby({ includePing: shouldPing })
+          .catch((e) => {
+            console.warn("Periodic nearby refresh failed", e);
+          })
+          .finally(() => {
+            periodicRefreshBusyRef.current = false;
+          });
       }, AUTO_REFRESH_MS);
 
       return () => {
@@ -121,50 +147,16 @@ export default function HomeTab() {
     }
   }, [loadNearby]);
 
-  const openUserProfile = useCallback((uid: string) => {
-    router.push({ pathname: "/(tabs)/user/[uid]", params: { uid } });
-  }, [router]);
-
-  // const handleLogout = async () => {
-  //   await signOut(auth);
-  // };
+  const openUserProfile = useCallback(
+    (uid: string) => {
+      router.push({ pathname: "/(tabs)/user/[uid]", params: { uid } });
+    },
+    [router],
+  );
 
   if (loading) {
     return <View style={styles.scroll} />;
   }
-
-  // const toWelcome = () => {
-  //   router.navigate('/')
-  // };
-
-  // // This is the function for the FlatList
-// const renderUserCard = ({ item: user }: { item: any }) => (
-//     <View style={styles.userCard}>
-//       <View style={styles.userHeader}>
-//         {user.photoURL ? (
-//           <Image source={{ uri: user.photoURL }} style={styles.avatar} />
-//         ) : (
-//           <View style={styles.avatarPlaceholder}>
-//             <Text style={styles.avatarText}>No Photo</Text>
-//           </View>
-//         )}
-
-//         <View style={{ flex: 1 }}>
-//           <Text style={styles.userName}>{user.firstName || "Unknown"}</Text>
-//           <Text style={styles.subtleText}>{user.major || "Undeclared"}</Text>
-//           <Text style={styles.distanceText}>{user.distanceFt} ft away</Text>
-//         </View>
-//       </View>
-
-//       <Text style={styles.label}>Hobbies</Text>
-//       <Text style={styles.value}>{user.hobbies || "-"}</Text>
-
-//       <Text style={styles.label}>Icebreaker prompts</Text>
-//       <Text style={styles.value}> {user.iceBreakerOne || "-"}</Text>
-//       <Text style={styles.value}> {user.iceBreakerTwo || "-"}</Text>
-//       <Text style={styles.value}> {user.iceBreakerThree || "-"}</Text>
-//     </View>
-//   );
 
   return (
     <ScrollView
@@ -177,7 +169,9 @@ export default function HomeTab() {
       <Text style={styles.title}>Nearby Icebreakers</Text>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryText}>Within 300 ft: {nearby.crowdCount}</Text>
+        <Text style={styles.summaryText}>
+          Within 300 ft: {nearby.crowdCount}
+        </Text>
         <Text style={styles.subtleText}>
           Updated: {new Date(nearby.asOf).toLocaleTimeString()}
         </Text>
@@ -203,9 +197,15 @@ export default function HomeTab() {
               )}
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.userName}>{user.firstName || "Unknown"}</Text>
-                <Text style={styles.subtleText}>{user.major || "Undeclared"}</Text>
-                <Text style={styles.distanceText}>{user.distanceFt} ft away</Text>
+                <Text style={styles.userName}>
+                  {user.firstName || "Unknown"}
+                </Text>
+                <Text style={styles.subtleText}>
+                  {user.major || "Undeclared"}
+                </Text>
+                <Text style={styles.distanceText}>
+                  {user.distanceFt} ft away
+                </Text>
               </View>
             </View>
 
@@ -223,32 +223,16 @@ export default function HomeTab() {
             >
               <Text style={styles.viewProfileButtonText}>View Profile</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.connectButton}
+              onPress={() => handleConnect(user.uid)}
+            >
+              <Text style={styles.viewProfileButtonText}>Connect</Text>
+            </TouchableOpacity>
           </View>
         ))
       )}
-
-{/* This is the FlatList implementation */}
-      {/* <view>
-        <FlatList
-        data={nearby.users}
-        renderItem={renderUserCard}
-        keyExtractor={(item) => item.uid}
-        style={styles.scroll}
-        scrollEnabled = {false}
-        contentContainerStyle={styles.content}/>
-      </view> */}
-
-       {/* this button was used to check the initial welcom page  */}
-      {/* <TouchableOpacity style={styles.secondaryButton} onPress={toWelcome}>
-        <Text style={styles.secondaryButtonText}>To the Welcome Page</Text>
-      </TouchableOpacity> */}
-
-        {/* this button has been moved to the settings page in (tabs) */}
-      {/* <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
-        <Text style={styles.secondaryButtonText}>Log Out</Text>
-      </TouchableOpacity> */}
-
-
     </ScrollView>
   );
 }
@@ -371,7 +355,16 @@ const styles = StyleSheet.create({
   viewProfileButton: {
     marginTop: 12,
     alignSelf: "flex-start",
-    backgroundColor: "#1d4ed8",
+    backgroundColor: "#fac104",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+
+  connectButton: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    backgroundColor: "#2452ce",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,

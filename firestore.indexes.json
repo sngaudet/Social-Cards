@@ -1,5 +1,38 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "connectionRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "fromUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "toUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "connectionRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "toUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
   "fieldOverrides": [
     {
       "collectionGroup": "presence",

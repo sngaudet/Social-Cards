@@ -18,6 +18,47 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == userId;
     }
 
+    match /connectionRequests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.status == "pending";
+
+      allow read: if signedIn()
+        && (
+          resource.data.fromUid == request.auth.uid
+          || resource.data.toUid == request.auth.uid
+        );
+
+      allow update: if signedIn()
+        && (
+          resource.data.fromUid == request.auth.uid
+          || resource.data.toUid == request.auth.uid
+        )
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toUid == resource.data.toUid
+        && (
+          request.resource.data.status == "accepted"
+          || request.resource.data.status == "declined"
+        );
+
+      allow delete: if false;
+    }
+
+    match /connections/{connectionId} {
+      allow create: if signedIn()
+        && request.resource.data.users is list
+        && request.resource.data.users.size() == 2
+        && request.resource.data.users[0] is string
+        && request.resource.data.users[1] is string
+        && request.resource.data.users[0] != request.resource.data.users[1]
+        && request.resource.data.users.hasAny([request.auth.uid]);
+
+      allow read: if signedIn() && resource.data.users.hasAny([request.auth.uid]);
+      allow update, delete: if false;
+    }
+
     match /presence/{docId} {
       allow read, write: if false;
     }
