@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { sendConnectionRequest } from "../../src/connections/service";
+import { formatHobbies } from "../../src/lib/hobbies";
 import { showAlert } from "../../src/lib/showAlert";
 import {
   fetchNearbyUsers,
@@ -210,7 +211,7 @@ export default function HomeTab() {
             </View>
 
             <Text style={styles.label}>Hobbies</Text>
-            <Text style={styles.value}>{user.hobbies || "-"}</Text>
+            <Text style={styles.value}>{formatHobbies(user.hobbies)}</Text>
 
             <Text style={styles.label}>Icebreaker prompts</Text>
             <Text style={styles.value}>- {user.iceBreakerOne || "-"}</Text>

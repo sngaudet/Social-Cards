@@ -13,6 +13,7 @@ import {
 
 import { uploadProfilePhotoAsync } from "@/src/lib/picture_upload";
 import PrimaryButton from "@/src/components/PrimaryButton";
+import { formatHobbies, normalizeHobbies } from "../../../src/lib/hobbies";
 import { auth, db } from "../../../firebaseConfig";
 import { useSignup } from "../../../src/signup/context";
 
@@ -21,6 +22,7 @@ export default function SignupReview() {
   const { draft, resetDraft } = useSignup();
 
   const [submitting, setSubmitting] = useState(false);
+  const hobbies = useMemo(() => normalizeHobbies(draft.hobbies), [draft.hobbies]);
 
   // Compute missing fields (memoized so it doesn't rebuild every render unnecessarily)
   const missing = useMemo(() => {
@@ -36,9 +38,9 @@ export default function SignupReview() {
     if (!draft.iceBreakerOne?.trim()) m.push("ice breaker 1");
     if (!draft.iceBreakerTwo?.trim()) m.push("ice breaker 2");
     if (!draft.iceBreakerThree?.trim()) m.push("ice breaker 3");
-    if (!draft.hobbies?.trim()) m.push("hobbies");
+    if (hobbies.length === 0) m.push("hobbies");
     return m;
-  }, [draft]);
+  }, [draft, hobbies]);
 
   const handleSubmit = async () => {
     if (missing.length > 0) {
@@ -89,7 +91,7 @@ export default function SignupReview() {
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
-        hobbies: draft.hobbies ?? "",
+        hobbies,
 
         // photos
         photoURL, // single main photo (easy for UI)
@@ -120,7 +122,7 @@ export default function SignupReview() {
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
-        hobbies: draft.hobbies ?? "",
+        hobbies,
         photoURL,
         updatedAt: serverTimestamp(),
       });
@@ -187,7 +189,7 @@ export default function SignupReview() {
         <Text style={styles.value}>{draft.iceBreakerThree || "-"}</Text>
 
         <Text style={styles.label}>Hobbies</Text>
-        <Text style={styles.value}>{draft.hobbies || "-"}</Text>
+        <Text style={styles.value}>{formatHobbies(draft.hobbies)}</Text>
       </View>
 
       <PrimaryButton

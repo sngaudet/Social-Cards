@@ -73,6 +73,7 @@ const styles = StyleSheet.create({
   shadowWrap: {
     width: 324,
     height: 60,
+    marginTop: 20,
     borderRadius: 20,
     backgroundColor: "transparent",
     shadowColor: "#87BCFE",
