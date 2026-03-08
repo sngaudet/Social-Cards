@@ -1,102 +1,392 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { auth } from "../../firebaseConfig";
+import {
+  acceptConnectionRequest,
+  ConnectionDoc,
+  ConnectionRequest,
+  declineConnectionRequest,
+  getUserProfile,
+  PublicUserProfile,
+  subscribeToConnections,
+  subscribeToIncomingRequests,
+} from "../../src/connections/service";
+import { showAlert } from "../../src/lib/showAlert";
 
+type RequestWithProfile = ConnectionRequest & {
+  fromUser?: PublicUserProfile;
+};
 
-export default function ConnectionsPage(){
-    //const router = useRouter();
-    // const onLogin = () => {
-    //     router.replace("/(auth)/signup/hobbies");
-    // }
-    
+type ConnectionWithProfile = ConnectionDoc & {
+  otherUid: string;
+  otherUser?: PublicUserProfile;
+};
+
+export default function ConnectionsPage() {
+  const currentUid = auth.currentUser?.uid;
+
+  const [requests, setRequests] = useState<ConnectionRequest[]>([]);
+  const [connections, setConnections] = useState<ConnectionDoc[]>([]);
+  const [requestProfiles, setRequestProfiles] = useState<
+    Record<string, PublicUserProfile>
+  >({});
+  const [connectionProfiles, setConnectionProfiles] = useState<
+    Record<string, PublicUserProfile>
+  >({});
+  const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUid) return;
+
+    const unsubRequests = subscribeToIncomingRequests(currentUid, setRequests);
+    const unsubConnections = subscribeToConnections(currentUid, setConnections);
+
+    return () => {
+      unsubRequests();
+      unsubConnections();
+    };
+  }, [currentUid]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfiles = async () => {
+      const uniqueFromUids = Array.from(
+        new Set(requests.map((r) => r.fromUid)),
+      );
+
+      const entries = await Promise.all(
+        uniqueFromUids.map(async (uid) => {
+          const profile = await getUserProfile(uid);
+          return [uid, profile] as const;
+        }),
+      );
+
+      if (!cancelled) {
+        setRequestProfiles(Object.fromEntries(entries));
+      }
+    };
+
+    loadProfiles().catch((e) => {
+      console.warn("Failed to load request profiles", e);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requests]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfiles = async () => {
+      if (!currentUid) return;
+
+      const otherUids = Array.from(
+        new Set(
+          connections.map(
+            (c) => c.users.find((uid) => uid !== currentUid) || "",
+          ),
+        ),
+      ).filter(Boolean);
+
+      const entries = await Promise.all(
+        otherUids.map(async (uid) => {
+          const profile = await getUserProfile(uid);
+          return [uid, profile] as const;
+        }),
+      );
+
+      if (!cancelled) {
+        setConnectionProfiles(Object.fromEntries(entries));
+      }
+    };
+
+    loadProfiles().catch((e) => {
+      console.warn("Failed to load connection profiles", e);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connections, currentUid]);
+
+  const requestsWithProfiles: RequestWithProfile[] = useMemo(() => {
+    return requests.map((r) => ({
+      ...r,
+      fromUser: requestProfiles[r.fromUid],
+    }));
+  }, [requests, requestProfiles]);
+
+  const connectionsWithProfiles: ConnectionWithProfile[] = useMemo(() => {
+    if (!currentUid) return [];
+
+    return connections.map((c) => {
+      const otherUid = c.users.find((uid) => uid !== currentUid) || "";
+      return {
+        ...c,
+        otherUid,
+        otherUser: connectionProfiles[otherUid],
+      };
+    });
+  }, [connections, connectionProfiles, currentUid]);
+
+  const handleAccept = async (request: ConnectionRequest) => {
+    try {
+      setBusyRequestId(request.id);
+      await acceptConnectionRequest(request.id, request.fromUid, request.toUid);
+      showAlert("Accepted", "Connection request accepted.");
+    } catch (e: any) {
+      showAlert("Could not accept", e?.message ?? "Unknown error");
+    } finally {
+      setBusyRequestId(null);
+    }
+  };
+
+  const handleDecline = async (requestId: string) => {
+    try {
+      setBusyRequestId(requestId);
+      await declineConnectionRequest(requestId);
+      showAlert("Declined", "Connection request declined.");
+    } catch (e: any) {
+      showAlert("Could not decline", e?.message ?? "Unknown error");
+    } finally {
+      setBusyRequestId(null);
+    }
+  };
+
+  if (!currentUid) {
     return (
-        <ScrollView contentContainerStyle = {styles.content} >
-            {/* this is how to reference an image */}
-            {/* <Image
-              source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
-            /> */}
-
-            <Text style={styles.title}>Previous Connections</Text>
-            
-            {/* <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(auth)/signup/onboardingPermission")}>
-                <Text>Next Step</Text>
-            </TouchableOpacity> */}
-        </ScrollView>
+      <View style={styles.centered}>
+        <Text style={styles.title}>Connections</Text>
+        <Text style={styles.subtleText}>You must be logged in.</Text>
+      </View>
     );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Connections</Text>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Pending Requests</Text>
+
+        {requestsWithProfiles.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No pending requests</Text>
+            <Text style={styles.subtleText}>
+              When someone sends you a connection request, it will appear here.
+            </Text>
+          </View>
+        ) : (
+          requestsWithProfiles.map((request) => (
+            <View key={request.id} style={styles.card}>
+              <View style={styles.row}>
+                {request.fromUser?.photoURL ? (
+                  <Image
+                    source={{ uri: request.fromUser.photoURL }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarText}>No Photo</Text>
+                  </View>
+                )}
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nameText}>
+                    {request.fromUser?.firstName || request.fromUid}
+                  </Text>
+                  <Text style={styles.subtleText}>
+                    {request.fromUser?.major || "No major listed"}
+                  </Text>
+                  <Text style={styles.uidText}>UID: {request.fromUid}</Text>
+                </View>
+              </View>
+
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.acceptButton,
+                    busyRequestId === request.id && styles.disabledButton,
+                  ]}
+                  disabled={busyRequestId === request.id}
+                  onPress={() => handleAccept(request)}
+                >
+                  <Text style={styles.buttonText}>Accept</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.declineButton,
+                    busyRequestId === request.id && styles.disabledButton,
+                  ]}
+                  disabled={busyRequestId === request.id}
+                  onPress={() => handleDecline(request.id)}
+                >
+                  <Text style={styles.buttonText}>Decline</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Accepted Connections</Text>
+
+        {connectionsWithProfiles.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No connections yet</Text>
+            <Text style={styles.subtleText}>
+              Accepted connections will appear here.
+            </Text>
+          </View>
+        ) : (
+          connectionsWithProfiles.map((connection) => (
+            <View key={connection.id} style={styles.card}>
+              <View style={styles.row}>
+                {connection.otherUser?.photoURL ? (
+                  <Image
+                    source={{ uri: connection.otherUser.photoURL }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarText}>No Photo</Text>
+                  </View>
+                )}
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nameText}>
+                    {connection.otherUser?.firstName || connection.otherUid}
+                  </Text>
+                  <Text style={styles.subtleText}>
+                    {connection.otherUser?.major || "No major listed"}
+                  </Text>
+                  <Text style={styles.uidText}>UID: {connection.otherUid}</Text>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { 
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 48, 
+  centered: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: '#D9E0F0', 
+    backgroundColor: "#D9E0F0",
+    padding: 24,
+  },
+  content: {
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+    gap: 20,
   },
   title: {
-    fontSize: 38,
-    fontWeight: "600",
-    marginBottom: 44,
+    fontSize: 34,
+    fontWeight: "700",
     textAlign: "center",
+    marginTop: 8,
   },
-  input: {
+  section: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  emptyCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: "#ddd",
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  subtleText: {
+    fontSize: 13,
+    color: "#666",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
     padding: 14,
-    marginBottom: 36,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    gap: 12,
   },
-  primaryButton: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
+  row: {
+    flexDirection: "row",
     alignItems: "center",
-    textAlign: "center",
+    gap: 12,
+  },
+  avatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#e5e7eb",
+  },
+  avatarPlaceholder: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
   },
-  primaryText: { 
-    color: "white", 
-    fontWeight: "600", 
+  avatarText: {
+    fontSize: 10,
+    color: "#666",
     textAlign: "center",
-    marginBottom: 30, 
   },
-  title2: {
-    color: "black", 
-    fontSize: 20, 
-    fontWeight: "bold", 
-    textAlign: "center",
-    textShadowRadius: 2, 
-    textShadowColor: "yellow",
-    marginBottom: 30,
+  nameText: {
+    fontSize: 18,
+    fontWeight: "700",
   },
-  secondaryButton: { 
-    padding: 16, 
-    borderRadius: 8, 
-    textAlign: "center",
-    marginBottom: 30, 
+  uidText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#888",
   },
-  secondaryText: { 
-    color: "#666", 
-    textAlign: "center",
-    marginBottom: 30, 
+  buttonRow: {
+    flexDirection: "row",
+    gap: 10,
   },
-  thirdText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 300
+  acceptButton: {
+    backgroundColor: "#2452ce",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
-  welcomeLogo: {
-    width: 300,
-    height: 300,
+  declineButton: {
+    backgroundColor: "#888",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 });
