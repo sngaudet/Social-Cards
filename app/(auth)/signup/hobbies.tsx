@@ -91,16 +91,22 @@ export default function SignupHobbiesStep() {
     ),
   );
 
+  const toHobbyLabels = (keys: string[]) =>
+    hobbyItems
+      .filter((item) => keys.includes(item.key))
+      .map((item) => item.label);
+
   const toggleHobby = (key: string) => {
-    setSelectedHobbies((prev) =>
-      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
-    );
+    const next = selectedHobbies.includes(key)
+      ? selectedHobbies.filter((item) => item !== key)
+      : [...selectedHobbies, key];
+
+    setSelectedHobbies(next);
+    updateDraft({ hobbies: toHobbyLabels(next) });
   };
 
   const onNext = () => {
-    const hobbies = hobbyItems
-      .filter((item) => selectedHobbies.includes(item.key))
-      .map((item) => item.label);
+    const hobbies = toHobbyLabels(selectedHobbies);
 
     if (hobbies.length === 0) {
       showAlert("Missing fields", "Please add at least one hobby.");
