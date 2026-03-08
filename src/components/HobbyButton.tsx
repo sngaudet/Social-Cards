@@ -31,6 +31,7 @@ export default function HobbyButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        selected && styles.selectedGlow,
         selected ? styles.buttonSelected : styles.buttonUnselected,
         pressed && styles.buttonPressed,
         style,
@@ -60,6 +61,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 18,
+  },
+
+  selectedGlow: {
+    shadowColor: "#87BCFE",
+    shadowOpacity: 0.65,
+    shadowRadius: 13,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
 
   buttonUnselected: {
