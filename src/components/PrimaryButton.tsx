@@ -55,8 +55,6 @@ export default function PrimaryButton({
             <Text
               style={[styles.text, disabled && styles.disabledText, textStyle]}
               numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
             >
               {title}
             </Text>
@@ -106,7 +104,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 49,
+    paddingHorizontal: 28,
     paddingVertical: 17,
     backgroundColor: "#89DBFB",
   },
