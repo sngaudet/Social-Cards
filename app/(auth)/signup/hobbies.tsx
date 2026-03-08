@@ -12,6 +12,10 @@ import {
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
+import {
+  hobbiesToInputValue,
+  parseHobbiesInput,
+} from "../../../src/lib/hobbies";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -26,15 +30,19 @@ export default function SignupHobbiesStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
 
-  const [hobbies, setHobbies] = useState(draft.hobbies ?? "");
+  const [hobbiesInput, setHobbiesInput] = useState(
+    hobbiesToInputValue(draft.hobbies),
+  );
 
   const onNext = () => {
-    if (!hobbies.trim()) {
+    const hobbies = parseHobbiesInput(hobbiesInput);
+
+    if (hobbies.length === 0) {
       showAlert("Missing fields", "Please add at least one hobby.");
       return;
     }
 
-    updateDraft({ hobbies: hobbies.trim() });
+    updateDraft({ hobbies });
     router.replace("/(auth)/signup/pictures");
   };
 
@@ -54,8 +62,8 @@ export default function SignupHobbiesStep() {
       <TextInput
         placeholder="List your hobbies (ex: Basketball, Reading, Cooking)"
         placeholderTextColor="#4f4f4f"
-        value={hobbies}
-        onChangeText={setHobbies}
+        value={hobbiesInput}
+        onChangeText={setHobbiesInput}
         style={[styles.input, styles.multilineInput]}
         multiline
         textAlignVertical="top"

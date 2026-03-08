@@ -120,11 +120,23 @@ test("payload rounds", () => {
   // this checks nearby payload keeps fields and rounds distance
   const payload = buildNearbyUserPayload(
     "u1",
-    { firstName: "sam", major: "cs", hobbies: "music" },
+    { firstName: "sam", major: "cs", hobbies: ["music"] },
     { distanceM: 10 },
   );
 
   assert.equal(payload.uid, "u1");
   assert.equal(payload.firstName, "sam");
+  assert.deepEqual(payload.hobbies, ["music"]);
   assert.equal(payload.distanceFt, 33);
+});
+
+test("payload normalizes legacy hobby string", () => {
+  // this keeps older string-based hobby docs working during the transition
+  const payload = buildNearbyUserPayload(
+    "u1",
+    { firstName: "sam", major: "cs", hobbies: "music, movies" },
+    { distanceM: 10 },
+  );
+
+  assert.deepEqual(payload.hobbies, ["music", "movies"]);
 });

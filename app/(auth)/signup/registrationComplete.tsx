@@ -9,6 +9,7 @@ import {
     Text,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import { normalizeHobbies } from "../../../src/lib/hobbies";
 import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
 import { auth, db } from "../../../firebaseConfig";
 import { useSignup } from "../../../src/signup/context";
@@ -18,6 +19,7 @@ export default function RegistrationCompletePage(){
     const router = useRouter();
     const { draft, resetDraft } = useSignup();
     const [submitting, setSubmitting] = useState(false);
+    const hobbies = useMemo(() => normalizeHobbies(draft.hobbies), [draft.hobbies]);
 
     const missing = useMemo(() => {
       const fields: string[] = [];
@@ -32,9 +34,9 @@ export default function RegistrationCompletePage(){
       if (!draft.iceBreakerOne?.trim()) fields.push("ice breaker 1");
       if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
       if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
-      if (!draft.hobbies?.trim()) fields.push("hobbies");
+      if (hobbies.length === 0) fields.push("hobbies");
       return fields;
-    }, [draft]);
+    }, [draft, hobbies]);
 
     const handleSubmit = async () => {
       if (missing.length > 0) {
@@ -82,7 +84,7 @@ export default function RegistrationCompletePage(){
           iceBreakerOne: draft.iceBreakerOne ?? "",
           iceBreakerTwo: draft.iceBreakerTwo ?? "",
           iceBreakerThree: draft.iceBreakerThree ?? "",
-          hobbies: draft.hobbies ?? "",
+          hobbies,
           photoURL,
           photoUrls,
           locationControl: {
@@ -108,7 +110,7 @@ export default function RegistrationCompletePage(){
           iceBreakerOne: draft.iceBreakerOne ?? "",
           iceBreakerTwo: draft.iceBreakerTwo ?? "",
           iceBreakerThree: draft.iceBreakerThree ?? "",
-          hobbies: draft.hobbies ?? "",
+          hobbies,
           photoURL,
           updatedAt: serverTimestamp(),
         });

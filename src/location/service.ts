@@ -19,7 +19,7 @@ export type NearbyUser = {
   uid: string;
   firstName: string;
   major: string;
-  hobbies: string;
+  hobbies: string[];
   photoURL: string;
   iceBreakerOne: string;
   iceBreakerTwo: string;

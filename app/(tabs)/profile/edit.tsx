@@ -30,6 +30,10 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
+import {
+  hobbiesToInputValue,
+  parseHobbiesInput,
+} from "../../../src/lib/hobbies";
 
 type UserDoc = {
   email?: string;
@@ -42,7 +46,7 @@ type UserDoc = {
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
-  hobbies?: string;
+  hobbies?: string[] | string;
   photoURL?: string;
   photoUrls?: string[];
   locationControl?: {
@@ -139,7 +143,7 @@ export default function EditProfile() {
     setIce1(d.iceBreakerOne ?? "");
     setIce2(d.iceBreakerTwo ?? "");
     setIce3(d.iceBreakerThree ?? "");
-    setHobbies(d.hobbies ?? "");
+    setHobbies(hobbiesToInputValue(d.hobbies));
   }, []);
 
   useEffect(() => {
@@ -223,7 +227,7 @@ export default function EditProfile() {
       Alert.alert("Missing fields", "Please fill out all three ice breakers.");
       return false;
     }
-    if (!hobbies.trim()) {
+    if (parseHobbiesInput(hobbies).length === 0) {
       Alert.alert("Missing fields", "Please enter at least one hobby.");
       return false;
     }
@@ -244,6 +248,8 @@ export default function EditProfile() {
         updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri);
       }
 
+      const normalizedHobbies = parseHobbiesInput(hobbies);
+
       await updateDoc(doc(db, "users", uid), {
         email: auth.currentUser?.email ?? email,
 
@@ -257,7 +263,7 @@ export default function EditProfile() {
         iceBreakerOne: ice1.trim(),
         iceBreakerTwo: ice2.trim(),
         iceBreakerThree: ice3.trim(),
-        hobbies: hobbies.trim(),
+        hobbies: normalizedHobbies,
 
         // profile photo
         photoURL: updatedPhotoURL,
@@ -277,7 +283,7 @@ export default function EditProfile() {
           iceBreakerOne: ice1.trim(),
           iceBreakerTwo: ice2.trim(),
           iceBreakerThree: ice3.trim(),
-          hobbies: hobbies.trim(),
+          hobbies: normalizedHobbies,
           photoURL: updatedPhotoURL,
           updatedAt: serverTimestamp(),
         },
@@ -287,6 +293,7 @@ export default function EditProfile() {
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);
       setNewPhotoUri(null);
+      setHobbies(hobbiesToInputValue(normalizedHobbies));
 
       Alert.alert("Saved", "Your profile has been updated.");
     } catch (e: any) {

@@ -44,6 +44,24 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+// this keeps array-like profile fields in a clean string list
+function normalizeStringArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 // this turns feet into meters for distance math
 function toMeters(feet) {
   return feet * 0.3048;
@@ -254,7 +272,7 @@ function buildNearbyUserPayload(uid, userDoc, presence) {
     uid,
     firstName: userDoc?.firstName || "",
     major: userDoc?.major || "",
-    hobbies: userDoc?.hobbies || "",
+    hobbies: normalizeStringArray(userDoc?.hobbies),
     photoURL: userDoc?.photoURL || "",
     iceBreakerOne: userDoc?.iceBreakerOne || "",
     iceBreakerTwo: userDoc?.iceBreakerTwo || "",

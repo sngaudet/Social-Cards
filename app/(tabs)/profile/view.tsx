@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
+import { formatHobbies } from "../../../src/lib/hobbies";
 
 type UserDoc = {
   email?: string;
@@ -25,7 +26,7 @@ type UserDoc = {
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
-  hobbies?: string;
+  hobbies?: string[] | string;
   createdAt?: any; // Firestore Timestamp (or serverTimestamp placeholder)
   photoURL?: string;
   photoUrls?: string[];
@@ -192,7 +193,7 @@ export default function ViewProfile() {
           <Text style={styles.sectionTitle}>Hobbies</Text>
 
           <Text style={styles.label}>Hobbies</Text>
-          <Text style={styles.value}>{pretty(data.hobbies)}</Text>
+          <Text style={styles.value}>{formatHobbies(data.hobbies)}</Text>
         </View>
       )}
     </ScrollView>

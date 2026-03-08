@@ -8,7 +8,7 @@ npm install
 cd ..
 ```
 
-## 2. start backend locally
+## how to start backend locally
 
 run functions + firestore emulators:
 
@@ -17,7 +17,7 @@ cd backend
 npm run serve
 ```
 
-## 3. run backend tests
+## how to run backend tests
 
 in a second terminal:
 
@@ -26,7 +26,7 @@ cd backend
 npm test
 ```
 
-## 4. one-time firebase cli setup (for deploy)
+## 2. one-time firebase cli setup (for deploy)
 
 login:
 
@@ -40,7 +40,7 @@ set this repo to the project:
 npx firebase-tools use social-cards-b8e6f
 ```
 
-## 5. deploy backend changes
+## 3. deploy backend changes
 
 deploy functions only:
 

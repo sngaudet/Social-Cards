@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { auth, db } from "../../../firebaseConfig";
+import { formatHobbies } from "../../../src/lib/hobbies";
 
 type UserDoc = {
   firstName?: string;
@@ -25,7 +26,7 @@ type UserDoc = {
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
-  hobbies?: string;
+  hobbies?: string[] | string;
   photoURL?: string;
 };
 
@@ -162,7 +163,7 @@ export default function UserProfileView() {
           <View style={styles.divider} />
 
           <Text style={styles.sectionTitle}>Hobbies</Text>
-          <Text style={styles.value}>{pretty(data.hobbies)}</Text>
+          <Text style={styles.value}>{formatHobbies(data.hobbies)}</Text>
         </View>
       )}
     </ScrollView>
