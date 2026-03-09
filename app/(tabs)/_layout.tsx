@@ -29,6 +29,7 @@ export default function TabDisplay() {
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
       <Tabs.Screen name="connections" options={{ title: "Connections" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+      <Tabs.Screen name="uid" options={{ href: null }} />
     </Tabs>
   );
 }

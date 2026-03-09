@@ -150,7 +150,7 @@ export default function HomeTab() {
 
   const openUserProfile = useCallback(
     (uid: string) => {
-      router.push({ pathname: "/uid", params: { uid } });
+      router.push({ pathname: "/(tabs)/uid", params: { uid } });
     },
     [router],
   );
