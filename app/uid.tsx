@@ -71,7 +71,10 @@ export default function UserProfileView() {
         setLoading(true);
         await loadProfile();
       } catch (error: any) {
-        Alert.alert("Could not load profile", error?.message ?? "Unknown error");
+        Alert.alert(
+          "Could not load profile",
+          error?.message ?? "Unknown error",
+        );
       } finally {
         setLoading(false);
       }
