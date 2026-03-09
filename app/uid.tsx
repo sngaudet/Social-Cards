@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 
-import { auth, db } from "../../../firebaseConfig";
-import { formatHobbies } from "../../../src/lib/hobbies";
+import { auth, db } from "../firebaseConfig";
+import { formatHobbies } from "../src/lib/hobbies";
 
 type UserDoc = {
   firstName?: string;
