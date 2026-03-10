@@ -256,11 +256,25 @@ function makeDeviceId(expoPushToken: string): string {
   return `${Platform.OS}-${model}-${cleanToken}`;
 }
 
+// this creates the android channel required before requesting push permissions
+async function ensureAndroidNotificationChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+
+  await Notifications.setNotificationChannelAsync("default", {
+    name: "default",
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#3b82f6",
+  });
+}
+
 // this registers push token when user and device are valid
 export async function registerPushTokenIfPossible(): Promise<boolean> {
   if (Platform.OS === "web") return false;
   if (!Device.isDevice) return false;
   if (!auth.currentUser) return false;
+
+  await ensureAndroidNotificationChannel();
 
   // this checks existing permission first before asking
   const existing = await Notifications.getPermissionsAsync();

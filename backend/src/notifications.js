@@ -1,5 +1,6 @@
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { getDb, timestampFromDate, logger } = require("./firebase");
-const { COOLDOWN_MS, CROWD_ALERT_MIN_USERS } = require("./constants");
+const { REGION, COOLDOWN_MS, CROWD_ALERT_MIN_USERS } = require("./constants");
 const { nowDate, getTimestampValue } = require("./helpers");
 
 // this reads enabled expo push tokens for one user
@@ -30,6 +31,7 @@ async function sendExpoPush(tokens, title, body, data = {}) {
 
   const messages = tokens.map((to) => ({
     to,
+    channelId: "default",
     sound: "default",
     title,
     body,
@@ -54,6 +56,31 @@ async function sendExpoPush(tokens, title, body, data = {}) {
       logger.error("Expo push failed", { status: res.status, body: text });
     }
   }
+}
+
+// this trims profile names into notification-safe display text
+function normalizeFirstName(value) {
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return clean || null;
+}
+
+// this prefers public profile data but falls back to private user data
+async function getUserFirstName(uid) {
+  const db = getDb();
+
+  const publicSnap = await db.collection("publicProfiles").doc(uid).get();
+  const publicName = normalizeFirstName(publicSnap.data()?.firstName);
+  if (publicName) return publicName;
+
+  const userSnap = await db.collection("users").doc(uid).get();
+  return normalizeFirstName(userSnap.data()?.firstName);
+}
+
+// this formats a clear connection request push body
+function buildConnectionRequestBody(firstName) {
+  if (firstName) return `${firstName} sent you a connection request.`;
+  return "You received a new connection request.";
 }
 
 // this builds a simple key so we do not repeat the same alert
@@ -120,6 +147,52 @@ async function maybeSendCrowdAlert(subjectUid, nearbyUsers) {
   );
 }
 
+// this sends one push when a new pending request is created
+const connection_requestCreated = onDocumentCreated(
+  {
+    region: REGION,
+    document: "connectionRequests/{requestId}",
+  },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const requestId = event.params.requestId;
+    const fromUid = typeof data.fromUid === "string" ? data.fromUid.trim() : "";
+    const toUid = typeof data.toUid === "string" ? data.toUid.trim() : "";
+    const status = typeof data.status === "string" ? data.status : "";
+
+    if (!requestId || !fromUid || !toUid || status !== "pending") {
+      logger.warn("Skipping malformed connection request notification", {
+        requestId,
+        fromUid,
+        toUid,
+        status,
+      });
+      return;
+    }
+
+    if (fromUid === toUid) return;
+
+    const tokens = await getPushTokens(toUid);
+    if (!tokens.length) return;
+
+    const senderName = await getUserFirstName(fromUid);
+
+    await sendExpoPush(
+      tokens,
+      "New connection request",
+      buildConnectionRequestBody(senderName),
+      {
+        type: "connection_request",
+        requestId,
+        fromUid,
+      },
+    );
+  },
+);
+
 module.exports = {
   maybeSendCrowdAlert,
+  connection_requestCreated,
 };
