@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { SignupDraft, emptySignupDraft } from "./types";
+import {
+  SignupDraft,
+  SignupLocationPermissionStatus,
+  emptySignupDraft,
+} from "./types";
 import { normalizeHobbies } from "../lib/hobbies";
 
 type SignupContextType = {
@@ -11,6 +15,20 @@ type SignupContextType = {
 
 const SignupContext = createContext<SignupContextType | undefined>(undefined);
 const SIGNUP_DRAFT_STORAGE_KEY = "icebreakers_signup_draft_v1";
+
+function normalizeLocationPermissionStatus(
+  value: unknown,
+): SignupLocationPermissionStatus {
+  if (
+    value === "always" ||
+    value === "while_in_use" ||
+    value === "denied" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+  return "unknown";
+}
 
 function normalizeDraft(value: unknown): SignupDraft {
   const raw = (value && typeof value === "object" ? value : {}) as Partial<SignupDraft> & {
@@ -33,6 +51,10 @@ function normalizeDraft(value: unknown): SignupDraft {
         : raw.gradYear == null
           ? null
           : Number(raw.gradYear) || null,
+    locationSharingEnabled: raw.locationSharingEnabled === true,
+    locationPermissionStatus: normalizeLocationPermissionStatus(
+      raw.locationPermissionStatus,
+    ),
     hobbies: normalizeHobbies(raw.hobbies),
     photoUris: Array.isArray(raw.photoUris)
       ? raw.photoUris.filter((item): item is string => typeof item === "string")
