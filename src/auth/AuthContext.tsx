@@ -7,6 +7,7 @@ import React, {
     useState,
 } from "react";
 import { auth } from "../../firebaseConfig";
+import { registerPushTokenIfPossible } from "../location/service";
 
 type AuthContextType = {
   user: User | null;
@@ -40,6 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    registerPushTokenIfPossible().catch((error) => {
+      console.warn("Push token registration failed", error);
+    });
+  }, [user?.uid]);
 
   const value = useMemo(
     () => ({

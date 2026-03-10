@@ -1,3 +1,9 @@
+export type SignupLocationPermissionStatus =
+  | "always"
+  | "while_in_use"
+  | "denied"
+  | "unknown";
+
 export type SignupDraft = {
   email: string;
   password: string;
@@ -14,6 +20,8 @@ export type SignupDraft = {
   hobbies: string[];
 
   photoUris: string[];
+  locationSharingEnabled: boolean;
+  locationPermissionStatus: SignupLocationPermissionStatus;
 };
 
 export const emptySignupDraft: SignupDraft = {
@@ -32,4 +40,6 @@ export const emptySignupDraft: SignupDraft = {
   hobbies: [],
 
   photoUris: [],
+  locationSharingEnabled: false,
+  locationPermissionStatus: "unknown",
 };

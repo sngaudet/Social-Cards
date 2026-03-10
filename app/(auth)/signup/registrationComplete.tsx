@@ -88,8 +88,8 @@ export default function RegistrationCompletePage(){
           photoURL,
           photoUrls,
           locationControl: {
-            sharingEnabled: true,
-            permissionStatus: "unknown",
+            sharingEnabled: draft.locationSharingEnabled,
+            permissionStatus: draft.locationPermissionStatus,
             updatedAt: serverTimestamp(),
           },
           locationStatus: {
