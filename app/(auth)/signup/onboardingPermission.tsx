@@ -1,10 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import SubButton from "../../../src/components/SubButton";
@@ -47,8 +50,60 @@ export default function OnboardingPermissionPage(){
               source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
             /> */}
 
-            <Text style={styles.title}>Onboarding Permission Page</Text>
-            
+            <Image
+              source={require('../../../assets/images/onPermissionIcon.png')} style={styles.permissionLogo}
+              />
+
+            <Text style={styles.title}>Onboarding Permission Page / Let’s get you connected</Text>
+
+
+            <Text style={styles.subtitle}>
+             To help you meet students nearby we need a couple of permissions.
+            </Text>
+
+            {/* PERMISSIONS CARD */}
+            <View style={styles.permissionCard}>
+        
+              {/* Location */}
+              <View style={styles.permissionRow}>
+                <Ionicons name="location-outline" size={26} color="#4A7CFF" />
+
+                <View style={styles.permissionTextContainer}>
+                  <Text style={styles.permissionTitle}>Location Access</Text>
+                  <Text style={styles.permissionDescription}>
+                    Required to find students within walking distance. Your exact
+                    location is never shared publicly.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Notifications  */}
+              <View style={styles.permissionRow}>
+              <Ionicons name="notifications-outline" size={26} color="#9C27B0" />
+
+                <View style={styles.permissionTextContainer}>
+                  <Text style={styles.permissionTitle}>Notifications</Text>
+                  <Text style={styles.permissionDescription}>
+                    Get notified immediately when 8+ people nearby or when a timed
+                    chat is about to expire.
+                  </Text>
+                </View>
+              </View>
+
+            </View>
+
+            <View style={styles.infoContainer}>
+              <Ionicons name="information-circle-outline" size={18} color="#F59E0B" />
+
+              <Text style={styles.infoText}>
+                Without location access, discovery features will be disabled. You can
+                change these settings anytime in your phone settings.
+              </Text>
+            </View>
+
+            {/* Buttons  */}
             <PrimaryButton
               title={requesting ? "Enabling..." : "Enable Permissions"}
               style={styles.primaryButton}
@@ -88,54 +143,95 @@ const styles = StyleSheet.create({
     marginBottom: 44,
     textAlign: "center",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 36,
-  },
+ 
   primaryButton: {
     marginBottom: 12,
   },
-  primaryText: { 
-    color: "white", 
-    fontWeight: "600", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  title2: {
-    color: "black", 
-    fontSize: 20, 
-    fontWeight: "bold", 
-    textAlign: "center",
-    textShadowRadius: 2, 
-    textShadowColor: "yellow",
-    marginBottom: 30,
-  },
-  secondaryButton: { 
-    padding: 16, 
-    borderRadius: 8, 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  secondaryText: { 
-    color: "#666", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  thirdText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 300
-  },
-  welcomeLogo: {
+  
+  permissionLogo: {
     width: 300,
     height: 300,
+    marginBottom: 20,
   },
+  
   skipButton: {
     marginTop: 8,
   },
+
+
+  floatingLocation: {
+    position: "absolute",
+    right: 0,
+    top: 20,
+    backgroundColor: "white",
+    padding: 10,
+    borderRadius: 20,
+  },
+
+  floatingBell: {
+    position: "absolute",
+    left: 0,
+    bottom: 20,
+    backgroundColor: "white",
+    padding: 10,
+    borderRadius: 20,
+  },
+
+  permissionCard: {
+    width: "100%",
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 18,
+    marginBottom: 20,
+  },
+
+  permissionRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  permissionTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  permissionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+
+  permissionDescription: {
+    fontSize: 14,
+    color: "#666",
+  },
+
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+    maxWidth: 320,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginVertical: 16,
+  },
+
+  infoContainer: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+  marginBottom: 30,
+  maxWidth: 320,
+  },
+
+  infoText: {
+    fontSize: 13,
+    color: "#777",
+    marginLeft: 8,
+    flex: 1,
+  },
+
 });
