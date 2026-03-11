@@ -1,4 +1,8 @@
 import { useRouter } from "expo-router";
+import {
+  CircleCheckBig,
+  Megaphone,
+} from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -13,6 +17,8 @@ import {
   View,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import ProgressHeader from "../../../src/components/ProgressHeader";
+import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -97,10 +103,24 @@ export default function SignupIceBreakersStep() {
         ]}
       >
         <View style={{ gap: 6 }}>
+          {hasAnswer && <View style={styles.selectedRow}>
+            <Megaphone color="#89DBFB" size="20"/>
+            <Text style={styles.textSelected}>   Selected</Text>
+            </View>}
+          {/* {hasAnswer && <Text style={styles.textSelected}>Selected</Text>} */}
           <Text style={styles.cardTitle}>{questions[key]}</Text>
-          <Text style={styles.cardSubtitle}>
-            {hasAnswer ? answers[key].trim() : "Tap to answer"}
-          </Text>
+          
+          <View style={styles.subtitleSpace}>
+            <Text style={styles.cardSubtitle}>
+                {hasAnswer ? answers[key].trim() : "Tap to answer"} 
+            </Text>
+
+            {hasAnswer && (
+              <View style={styles.iconPosition}>
+                {hasAnswer && <CircleCheckBig color="#007502" size="20" ></CircleCheckBig>}
+              </View>)  
+            }
+          </View>
         </View>
         <Text style={styles.cardChevron}>›</Text>
       </Pressable>
@@ -127,7 +147,15 @@ export default function SignupIceBreakersStep() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Ice Breakers</Text>
+      {/* Progress Bar */}
+      <ProgressHeader currentStep={2} />
+      {/* Header */}
+      <SignupScreenHeader
+        title="Pick Your Icebreakers"
+        subtitle="Select a few icebreakers to help others break the ice. Tap or click a card to answer it."
+      />
+      
+      {/* <Text style={styles.title}>Ice Breakers</Text> */}
 
       <View style={{ gap: 12 }}>
         {renderCard("one")}
@@ -218,11 +246,40 @@ const styles = StyleSheet.create({
   },
   cardFilled: {
     borderColor: "#93c5fd",
-    backgroundColor: "#eff6ff",
+    borderWidth: 2,
+    borderLeftWidth: 4,
+    // backgroundColor: "#eff6ff",
+    backgroundColor: "white",
   },
   cardTitle: { fontSize: 16, fontWeight: "600" },
-  cardSubtitle: { color: "#6b7280" },
+  cardSubtitle: { 
+    color: "black",
+  },
+
+  subtitleSpace:{
+    backgroundColor: "#edeeef",
+    borderRadius: 20,
+    paddingTop: 15,
+    paddingBottom: 35,
+    paddingLeft: 20,
+    paddingRight: 20,
+    position:"relative",
+  },
+  iconPosition:{
+    position:"absolute",
+    bottom: 10,
+    right:12,
+  },
+  textSelected: {
+    color: "#89DBFB"
+  },
+  selectedRow:{
+    flex: 1,
+    flexDirection: "row"
+  },
   cardChevron: { fontSize: 26, color: "#9ca3af", marginLeft: 10 },
+
+  
 
   primaryButton: {
     alignSelf: "center",

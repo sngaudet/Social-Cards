@@ -10,7 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { sendConnectionRequest } from "../../src/connections/service";
+import { auth } from "../../firebaseConfig";
+import {
+  sendConnectionRequest,
+  subscribeToConnections,
+} from "../../src/connections/service";
 import { formatHobbies } from "../../src/lib/hobbies";
 import { showAlert } from "../../src/lib/showAlert";
 import {
@@ -35,10 +39,12 @@ function sleep(ms: number): Promise<void> {
 
 export default function HomeTab() {
   const router = useRouter();
+  const currentUid = auth.currentUser?.uid;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [nearby, setNearby] = useState<NearbyResponse>(emptyNearby);
+  const [connectedUids, setConnectedUids] = useState<Set<string>>(new Set());
   const periodicRefreshBusyRef = useRef(false);
   const lastPingAtRef = useRef(0);
 
@@ -101,6 +107,28 @@ export default function HomeTab() {
       cancelled = true;
     };
   }, [loadNearby]);
+
+  useEffect(() => {
+    if (!currentUid) {
+      setConnectedUids(new Set());
+      return;
+    }
+
+    const unsub = subscribeToConnections(currentUid, (connections) => {
+      const next = new Set<string>();
+
+      for (const connection of connections) {
+        const otherUid = connection.users.find((uid) => uid !== currentUid);
+        if (otherUid) next.add(otherUid);
+      }
+
+      setConnectedUids(next);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [currentUid]);
 
   useFocusEffect(
     useCallback(() => {
@@ -225,12 +253,18 @@ export default function HomeTab() {
               <Text style={styles.viewProfileButtonText}>View Profile</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.connectButton}
-              onPress={() => handleConnect(user.uid)}
-            >
-              <Text style={styles.viewProfileButtonText}>Connect</Text>
-            </TouchableOpacity>
+            {connectedUids.has(user.uid) ? (
+              <View style={styles.connectedBadge}>
+                <Text style={styles.connectedBadgeText}>Connected</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => handleConnect(user.uid)}
+              >
+                <Text style={styles.viewProfileButtonText}>Connect</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))
       )}
@@ -369,6 +403,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
+  },
+  connectedBadge: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    backgroundColor: "#16a34a",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  connectedBadgeText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   viewProfileButtonText: {

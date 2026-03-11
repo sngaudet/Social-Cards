@@ -9,16 +9,26 @@ import {
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import SubButton from "../../../src/components/SubButton";
 import { requestLocationPermissions } from "../../../src/location/service";
+import { useSignup } from "../../../src/signup/context";
 
 
 export default function OnboardingPermissionPage(){
     const router = useRouter();
+    const { updateDraft } = useSignup();
     const [requesting, setRequesting] = useState(false);
 
     const handleEnablePermissions = async () => {
       try {
         setRequesting(true);
-        await requestLocationPermissions();
+        const permissionStatus = await requestLocationPermissions();
+        const sharingEnabled =
+          permissionStatus === "always" || permissionStatus === "while_in_use";
+
+        updateDraft({
+          locationSharingEnabled: sharingEnabled,
+          locationPermissionStatus: permissionStatus,
+        });
+
         router.replace("/(auth)/signup/registrationComplete");
       } catch (e: any) {
         Alert.alert(
@@ -49,7 +59,13 @@ export default function OnboardingPermissionPage(){
             <SubButton
               title="Not Now"
               style={styles.skipButton}
-              onPress={() => router.replace("/(auth)/signup/registrationComplete")}
+              onPress={() => {
+                updateDraft({
+                  locationSharingEnabled: false,
+                  locationPermissionStatus: "unknown",
+                });
+                router.replace("/(auth)/signup/registrationComplete");
+              }}
               disabled={requesting}
             />
         </ScrollView>

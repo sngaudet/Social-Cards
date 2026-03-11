@@ -24,7 +24,10 @@ const {
   buildNearbyUserPayload,
   getThrottleSeconds,
 } = require("./helpers");
-const { maybeSendCrowdAlert } = require("./notifications");
+const {
+  maybeSendCrowdAlert,
+  connection_requestCreated,
+} = require("./notifications");
 
 // this gives a user doc reference from a uid
 function getUserRef(uid) {
@@ -37,12 +40,10 @@ function normalizePermissionStatus(value) {
   return "unknown";
 }
 
-// this fetches a user doc and throws if it does not exist
-async function getUserDataOrThrow(userRef) {
+// this fetches a user doc and falls back to empty data during signup races
+async function getUserDataOrEmpty(userRef) {
   const userSnap = await userRef.get();
-  if (!userSnap.exists) {
-    throw new HttpsError("failed-precondition", "User profile is missing.");
-  }
+  if (!userSnap.exists) return {};
   return userSnap.data() || {};
 }
 
@@ -177,7 +178,7 @@ const location_upsertPing = onCall(
     const { lat, lng, accuracyM, source } = parsedPing.value;
 
     const userRef = getUserRef(uid);
-    const user = await getUserDataOrThrow(userRef);
+    const user = await getUserDataOrEmpty(userRef);
 
     const sharingEnabled = user.locationControl?.sharingEnabled !== false;
     if (!sharingEnabled) {
@@ -299,4 +300,5 @@ module.exports = {
   location_getControlStatus,
   location_upsertPing,
   location_getNearby,
+  connection_requestCreated,
 };
