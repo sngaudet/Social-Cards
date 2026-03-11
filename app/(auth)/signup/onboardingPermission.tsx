@@ -54,7 +54,7 @@ export default function OnboardingPermissionPage(){
               source={require('../../../assets/images/onPermissionIcon.png')} style={styles.permissionLogo}
               />
 
-            <Text style={styles.title}>Onboarding Permission Page / Let’s get you connected</Text>
+            <Text style={styles.title}>Let’s get you connected</Text>
 
 
             <Text style={styles.subtitle}>
@@ -156,25 +156,6 @@ const styles = StyleSheet.create({
   
   skipButton: {
     marginTop: 8,
-  },
-
-
-  floatingLocation: {
-    position: "absolute",
-    right: 0,
-    top: 20,
-    backgroundColor: "white",
-    padding: 10,
-    borderRadius: 20,
-  },
-
-  floatingBell: {
-    position: "absolute",
-    left: 0,
-    bottom: 20,
-    backgroundColor: "white",
-    padding: 10,
-    borderRadius: 20,
   },
 
   permissionCard: {
