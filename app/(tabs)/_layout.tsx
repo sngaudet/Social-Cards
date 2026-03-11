@@ -1,15 +1,44 @@
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
-import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import React, { ReactNode, useEffect, useRef } from "react";
+import { ActivityIndicator, Animated, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthContext";
+
+function AnimatedIcon({
+  focused,
+  children,
+}: {
+  focused: boolean;
+  children: ReactNode;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.15 : 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  }, [focused]);
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{ scale }],
+        backgroundColor: focused ? "#F3D36A" : "transparent",
+        borderRadius: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 4, // just a little padding so icon isn't flush
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
 
 export default function TabDisplay() {
   const { user, initializing } = useAuth();
-
-  console.log("Tabs layout", {
-    user: user?.uid ?? null,
-    initializing,
-  });
 
   if (initializing) {
     return (
@@ -24,11 +53,87 @@ export default function TabDisplay() {
   }
 
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
-      <Tabs.Screen name="connections" options={{ title: "Connections" }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+
+        tabBarStyle: {
+        height: 80,
+        paddingTop: 10,
+        backgroundColor: "#DADDE5",
+        borderTopWidth: 0,
+        overflow: "visible",
+    },
+
+        tabBarLabelStyle: {
+          fontSize: 12,
+          marginTop: 4,
+        },
+
+        tabBarActiveTintColor: "#333",
+        tabBarInactiveTintColor: "#555",
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedIcon focused={focused}>
+              <Ionicons name="star" size={22} color={color} />
+            </AnimatedIcon>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="message"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedIcon focused={focused}>
+              <Feather name="message-circle" size={22} color={color} />
+            </AnimatedIcon>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedIcon focused={focused}>
+              <Feather name="user" size={22} color={color} />
+            </AnimatedIcon>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="connections"
+        options={{
+          title: "Connections",
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedIcon focused={focused}>
+              <Feather name="menu" size={22} color={color} />
+            </AnimatedIcon>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ focused, color }) => (
+            <AnimatedIcon focused={focused}>
+              <Ionicons name="settings-outline" size={22} color={color} />
+            </AnimatedIcon>
+          ),
+        }}
+      />
+
       <Tabs.Screen name="uid" options={{ href: null }} />
     </Tabs>
   );
