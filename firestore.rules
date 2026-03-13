@@ -57,6 +57,22 @@ service cloud.firestore {
 
       allow read: if signedIn() && resource.data.users.hasAny([request.auth.uid]);
       allow update, delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/connections/$(connectionId))
+            .data.users.hasAny([request.auth.uid]);
+
+        allow create: if signedIn()
+          && get(/databases/$(database)/documents/connections/$(connectionId))
+            .data.users.hasAny([request.auth.uid])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000;
+
+        allow update, delete: if false;
+      }
     }
 
     match /presence/{docId} {

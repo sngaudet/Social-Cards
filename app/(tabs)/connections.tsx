@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -30,6 +31,7 @@ type ConnectionWithProfile = ConnectionDoc & {
 };
 
 export default function ConnectionsPage() {
+  const router = useRouter();
   const currentUid = auth.currentUser?.uid;
 
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
@@ -162,6 +164,13 @@ export default function ConnectionsPage() {
     }
   };
 
+  const openChat = (connectionId: string, otherUid: string) => {
+    router.push({
+      pathname: "/(tabs)/chat/[connectionId]",
+      params: { connectionId, otherUid },
+    });
+  };
+
   if (!currentUid) {
     return (
       <View style={styles.centered}>
@@ -274,6 +283,13 @@ export default function ConnectionsPage() {
                   <Text style={styles.uidText}>UID: {connection.otherUid}</Text>
                 </View>
               </View>
+
+              <TouchableOpacity
+                style={styles.messageButton}
+                onPress={() => openChat(connection.id, connection.otherUid)}
+              >
+                <Text style={styles.buttonText}>Text</Text>
+              </TouchableOpacity>
             </View>
           ))
         )}
@@ -378,6 +394,13 @@ const styles = StyleSheet.create({
   },
   declineButton: {
     backgroundColor: "#888",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  messageButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2452ce",
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
