@@ -1,6 +1,11 @@
+import { Feather } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import ProgressHeader from "../../../src/components/ProgressHeader";
+import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
+
+
 import {
   Alert,
   Platform,
@@ -25,72 +30,75 @@ function showAlert(title: string, message?: string) {
 export default function SignupProfileStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
+
   const [firstName, setFirstName] = useState(draft.firstName ?? "");
   const [lastName, setLastName] = useState(draft.lastName ?? "");
   const [gender, setGender] = useState(draft.Gender ?? "");
-  const [age, setAge] = useState<number | null>(
-    draft.age ? Number(draft.age) : null,
-  );
-  const [gradYear, setGradYear] = useState<number | null>(
-    draft.gradYear ?? null,
-  );
+  const [age, setAge] = useState<number | null>(draft.age ?? null);
+  const [gradYear, setGradYear] = useState<number | null>(draft.gradYear ?? null);
   const [major, setMajor] = useState(draft.major ?? "");
 
   const onNext = () => {
-    if (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !gender.trim() ||
-      !age ||
-      !gradYear ||
-      !major.trim()
-    ) {
-      showAlert("Missing fields", "Please complete all profile fields.");
+    if (!firstName || !lastName || !gender || !age || !gradYear || !major) {
+      showAlert("Missing fields", "Please complete all fields.");
       return;
     }
 
     updateDraft({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      Gender: gender.trim(),
-      age: age,
-      gradYear: gradYear,
-      major: major.trim(),
+      firstName,
+      lastName,
+      Gender: gender,
+      age,
+      gradYear,
+      major,
     });
 
-    router.replace("/(auth)/signup/icebreakers");
+    router.push("/(auth)/signup/icebreakers");
   };
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.title}>Profile Setup</Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-      <TextInput
-        placeholder="First Name"
-        placeholderTextColor="#4f4f4f"
-        value={firstName}
-        onChangeText={setFirstName}
-        style={styles.input}
-      />
+      {/* Progress Bar */}
+<ProgressHeader currentStep={2} />
 
-      <TextInput
-        placeholder="Last Name"
-        placeholderTextColor="#4f4f4f"
-        value={lastName}
-        onChangeText={setLastName}
-        style={styles.input}
-      />
 
+      {/* Header */}
+<SignupScreenHeader
+  title="Profile Setup"
+  subtitle="Tell other students a bit about yourself."
+/>
+
+      {/* First Name */}
+      <Text style={styles.label}>First Name</Text>
+      <View style={styles.inputWrapper}>
+        <Feather name="user" size={20} color="#999" style={{ marginRight: 8 }} />
+        <TextInput
+          placeholder="e.g. Alex"
+          placeholderTextColor="#4f4f4f"
+          value={firstName}
+          onChangeText={setFirstName}
+          style={styles.input}
+        />
+      </View>
+
+      {/* Last Name */}
+      <Text style={styles.label}>Last Name</Text>
+      <View style={styles.inputWrapper}>
+        <Feather name="user" size={20} color="#999" style={{ marginRight: 8 }} />
+        <TextInput
+          placeholder="e.g. Smith"
+          placeholderTextColor="#4f4f4f"
+          value={lastName}
+          onChangeText={setLastName}
+          style={styles.input}
+        />
+      </View>
+
+      {/* Gender */}
       <Text style={styles.label}>Gender</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={gender}
-          onValueChange={(value) => setGender(value)}
-        >
+      <View style={styles.pickerWrapper}>
+        <Picker selectedValue={gender} onValueChange={(v) => setGender(v)}>
           <Picker.Item label="Select gender..." value="" />
           <Picker.Item label="Male" value="male" />
           <Picker.Item label="Female" value="female" />
@@ -105,12 +113,10 @@ export default function SignupProfileStep() {
         </Picker>
       </View>
 
+      {/* Age */}
       <Text style={styles.label}>Age</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={age}
-          onValueChange={(itemValue) => setAge(itemValue)}
-        >
+      <View style={styles.pickerWrapper}>
+        <Picker selectedValue={age} onValueChange={(v) => setAge(v)}>
           <Picker.Item label="Select age..." value={null} />
           {Array.from({ length: 79 }, (_, i) => 12 + i).map((num) => (
             <Picker.Item key={num} label={num.toString()} value={num} />
@@ -118,12 +124,10 @@ export default function SignupProfileStep() {
         </Picker>
       </View>
 
+      {/* Grad Year */}
       <Text style={styles.label}>Graduation Year</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={gradYear}
-          onValueChange={(value) => setGradYear(value)}
-        >
+      <View style={styles.pickerWrapper}>
+        <Picker selectedValue={gradYear} onValueChange={(v) => setGradYear(v)}>
           <Picker.Item label="Select graduation year..." value={null} />
           {Array.from({ length: 25 }, (_, i) => 2026 + i).map((year) => (
             <Picker.Item key={year} label={year.toString()} value={year} />
@@ -131,13 +135,18 @@ export default function SignupProfileStep() {
         </Picker>
       </View>
 
-      <TextInput
-        placeholder="Major"
-        placeholderTextColor="#4f4f4f"
-        value={major}
-        onChangeText={setMajor}
-        style={styles.input}
-      />
+      {/* Major */}
+      <Text style={styles.label}>Major</Text>
+      <View style={styles.inputWrapper}>
+        <Feather name="book" size={20} color="#999" style={{ marginRight: 8 }} />
+        <TextInput
+          placeholder="e.g. Computer Science"
+          placeholderTextColor="#4f4f4f"
+          value={major}
+          onChangeText={setMajor}
+          style={styles.input}
+        />
+      </View>
 
       <PrimaryButton
         title="Next Step"
@@ -158,36 +167,36 @@ export default function SignupProfileStep() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
-  title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 24,
-    textAlign: "center",
-  },
-  input: {
+
+  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
+
+  
+  label: { fontWeight: "600", color: "#333", marginBottom: 6 },
+
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3f6fb",
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 14,
+    paddingHorizontal: 12,
     marginBottom: 16,
   },
-  primaryButton: {
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  primaryText: { color: "white", fontWeight: "600" },
-  secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },
-  secondaryText: { color: "#666" },
-  label: {
-    fontSize: 14,
-    marginBottom: 6,
-    color: "#444",
-  },
-  pickerContainer: {
+
+  input: { flex: 1, paddingVertical: 12, fontSize: 16 },
+
+  pickerWrapper: {
+    backgroundColor: "#f3f6fb",
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 8,
     marginBottom: 16,
   },
+
+  primaryButton: { alignSelf: "center", marginBottom: 16 },
+
+  secondaryButton: { padding: 12, alignItems: "center" },
+
+  secondaryText: { color: "#444", fontSize: 14 },
 });
