@@ -87,7 +87,7 @@ export default function TabDisplay() {
       />
 
       <Tabs.Screen
-        name="message"
+        name="message_cur"
         options={{
           title: "Messages",
           tabBarIcon: ({ focused, color }) => (
