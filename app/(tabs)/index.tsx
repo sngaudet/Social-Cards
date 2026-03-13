@@ -45,6 +45,9 @@ export default function HomeTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [nearby, setNearby] = useState<NearbyResponse>(emptyNearby);
   const [connectedUids, setConnectedUids] = useState<Set<string>>(new Set());
+  const [connectionIdsByUid, setConnectionIdsByUid] = useState<
+    Record<string, string>
+  >({});
   const periodicRefreshBusyRef = useRef(false);
   const lastPingAtRef = useRef(0);
 
@@ -111,18 +114,24 @@ export default function HomeTab() {
   useEffect(() => {
     if (!currentUid) {
       setConnectedUids(new Set());
+      setConnectionIdsByUid({});
       return;
     }
 
     const unsub = subscribeToConnections(currentUid, (connections) => {
       const next = new Set<string>();
+      const nextIds: Record<string, string> = {};
 
       for (const connection of connections) {
         const otherUid = connection.users.find((uid) => uid !== currentUid);
-        if (otherUid) next.add(otherUid);
+        if (otherUid) {
+          next.add(otherUid);
+          nextIds[otherUid] = connection.id;
+        }
       }
 
       setConnectedUids(next);
+      setConnectionIdsByUid(nextIds);
     });
 
     return () => {
@@ -179,6 +188,16 @@ export default function HomeTab() {
   const openUserProfile = useCallback(
     (uid: string) => {
       router.push({ pathname: "/(tabs)/uid", params: { uid } });
+    },
+    [router],
+  );
+
+  const openChat = useCallback(
+    (connectionId: string, otherUid: string) => {
+      router.push({
+        pathname: "/(tabs)/chat/[connectionId]",
+        params: { connectionId, otherUid },
+      });
     },
     [router],
   );
@@ -254,8 +273,18 @@ export default function HomeTab() {
             </TouchableOpacity>
 
             {connectedUids.has(user.uid) ? (
-              <View style={styles.connectedBadge}>
-                <Text style={styles.connectedBadgeText}>Connected</Text>
+              <View style={styles.connectedRow}>
+                <View style={styles.connectedBadge}>
+                  <Text style={styles.connectedBadgeText}>Connected</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.textButton}
+                  onPress={() =>
+                    openChat(connectionIdsByUid[user.uid], user.uid)
+                  }
+                >
+                  <Text style={styles.viewProfileButtonText}>Text</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
@@ -404,8 +433,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  connectedBadge: {
+  connectedRow: {
     marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  connectedBadge: {
     alignSelf: "flex-start",
     backgroundColor: "#16a34a",
     paddingHorizontal: 14,
@@ -416,6 +450,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontWeight: "700",
+  },
+  textButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2452ce",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
 
   viewProfileButtonText: {
