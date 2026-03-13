@@ -68,7 +68,7 @@ export default function RegistrationCompletePage(){
 
         const photoUrls: string[] = [];
         for (const uri of draft.photoUris ?? []) {
-          const url = await uploadProfilePhotoAsync(uri);
+          const url = await uploadProfilePhotoAsync(uri, cred.user.uid);
           photoUrls.push(url);
         }
 
@@ -119,6 +119,7 @@ export default function RegistrationCompletePage(){
         resetDraft();
         router.replace("/(tabs)");
       } catch (e: any) {
+        console.error("registrationComplete.handleSubmit failed", e);
         const code = e?.code as string | undefined;
 
         if (code === "auth/email-already-in-use") {

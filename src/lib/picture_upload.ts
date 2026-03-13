@@ -1,9 +1,12 @@
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { auth, storage } from "../../firebaseConfig"; // adjust path to your firebaseConfig
 
-export async function uploadProfilePhotoAsync(localUri: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not signed in.");
+export async function uploadProfilePhotoAsync(
+  localUri: string,
+  userId?: string,
+) {
+  const resolvedUserId = userId ?? auth.currentUser?.uid;
+  if (!resolvedUserId) throw new Error("Not signed in.");
 
   const response = await fetch(localUri);
   const blob = await response.blob();
@@ -12,7 +15,7 @@ export async function uploadProfilePhotoAsync(localUri: string) {
   const fileName = `profile_${Date.now()}_${Math.random().toString(16).slice(2)}.jpg`;
   const storageRef = ref(
     storage,
-    `users/${user.uid}/profilePictures/${fileName}`,
+    `users/${resolvedUserId}/profilePictures/${fileName}`,
   );
 
   const uploadTask = uploadBytesResumable(storageRef, blob);
