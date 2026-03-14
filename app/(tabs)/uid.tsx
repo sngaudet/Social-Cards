@@ -14,7 +14,12 @@ import {
 } from "react-native";
 
 import { auth, db } from "../../firebaseConfig";
+import { subscribeToConnections } from "../../src/connections/service";
 import { formatHobbies } from "../../src/lib/hobbies";
+import {
+  normalizePreConnectionVisibility,
+  PreConnectionVisibility,
+} from "../../src/profile/visibility";
 
 type UserDoc = {
   firstName?: string;
@@ -28,6 +33,7 @@ type UserDoc = {
   iceBreakerThree?: string;
   hobbies?: string[] | string;
   photoURL?: string;
+  preConnectionVisibility?: PreConnectionVisibility;
 };
 
 const pretty = (value: unknown) => {
@@ -44,6 +50,8 @@ export default function UserProfileView() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<UserDoc | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const currentUid = auth.currentUser?.uid;
 
   const loadProfile = useCallback(async () => {
     if (!uid) {
@@ -59,6 +67,23 @@ export default function UserProfileView() {
 
     setData(snap.data() as UserDoc);
   }, [uid]);
+
+  useEffect(() => {
+    if (!currentUid || !uid || currentUid === uid) {
+      setIsConnected(currentUid === uid);
+      return;
+    }
+
+    const unsub = subscribeToConnections(currentUid, (connections) => {
+      setIsConnected(
+        connections.some((connection) => connection.users.includes(uid)),
+      );
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [currentUid, uid]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -103,6 +128,27 @@ export default function UserProfileView() {
     );
   }
 
+  const visibility = normalizePreConnectionVisibility(
+    data?.preConnectionVisibility,
+  );
+  const canSeeAllFields = Boolean(currentUid && uid && currentUid === uid) || isConnected;
+  const canSeeField = (field: keyof PreConnectionVisibility) =>
+    canSeeAllFields || visibility[field];
+  const visibleName = [data?.firstName, canSeeField("lastName") ? data?.lastName : ""]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" ")
+    .trim();
+  const hasVisibleBasics =
+    canSeeField("Gender") ||
+    canSeeField("age") ||
+    canSeeField("gradYear") ||
+    canSeeField("major");
+  const hasVisibleIceBreakers =
+    canSeeField("iceBreakerOne") ||
+    canSeeField("iceBreakerTwo") ||
+    canSeeField("iceBreakerThree");
+  const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -113,14 +159,16 @@ export default function UserProfileView() {
     >
       <Text style={styles.title}>User Profile</Text>
 
-      {data?.photoURL ? (
+      {data?.photoURL && canSeeField("photoURL") ? (
         <View style={styles.imageContainer}>
           <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
         </View>
       ) : (
         <View style={styles.imageContainer}>
           <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderText}>No Profile Photo</Text>
+            <Text style={styles.placeholderText}>
+              {canSeeField("photoURL") ? "No Profile Photo" : "Hidden Before Connection"}
+            </Text>
           </View>
         </View>
       )}
@@ -134,39 +182,89 @@ export default function UserProfileView() {
           <Text style={styles.sectionTitle}>Basics</Text>
 
           <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>
-            {pretty(data.firstName)} {pretty(data.lastName)}
-          </Text>
+          <Text style={styles.value}>{visibleName || pretty(data.firstName)}</Text>
 
-          <Text style={styles.label}>Gender</Text>
-          <Text style={styles.value}>{pretty(data.Gender)}</Text>
+          {hasVisibleBasics ? (
+            <>
+              {canSeeField("Gender") ? (
+                <>
+                  <Text style={styles.label}>Gender</Text>
+                  <Text style={styles.value}>{pretty(data.Gender)}</Text>
+                </>
+              ) : null}
 
-          <Text style={styles.label}>Age</Text>
-          <Text style={styles.value}>{pretty(data.age)}</Text>
+              {canSeeField("age") ? (
+                <>
+                  <Text style={styles.label}>Age</Text>
+                  <Text style={styles.value}>{pretty(data.age)}</Text>
+                </>
+              ) : null}
 
-          <Text style={styles.label}>Graduation Year</Text>
-          <Text style={styles.value}>{pretty(data.gradYear)}</Text>
+              {canSeeField("gradYear") ? (
+                <>
+                  <Text style={styles.label}>Graduation Year</Text>
+                  <Text style={styles.value}>{pretty(data.gradYear)}</Text>
+                </>
+              ) : null}
 
-          <Text style={styles.label}>Major</Text>
-          <Text style={styles.value}>{pretty(data.major)}</Text>
+              {canSeeField("major") ? (
+                <>
+                  <Text style={styles.label}>Major</Text>
+                  <Text style={styles.value}>{pretty(data.major)}</Text>
+                </>
+              ) : null}
+            </>
+          ) : (
+            <Text style={styles.value}>This user hides their basic details before connection.</Text>
+          )}
 
-          <View style={styles.divider} />
+          {hasVisibleIceBreakers || canSeeField("hobbies") ? (
+            <View style={styles.divider} />
+          ) : null}
 
-          <Text style={styles.sectionTitle}>Ice Breakers</Text>
+          {hasVisibleIceBreakers ? (
+            <>
+              <Text style={styles.sectionTitle}>Ice Breakers</Text>
 
-          <Text style={styles.label}>Ideal weekend</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerOne)}</Text>
+              {canSeeField("iceBreakerOne") ? (
+                <>
+                  <Text style={styles.label}>Ideal weekend</Text>
+                  <Text style={styles.value}>{pretty(data.iceBreakerOne)}</Text>
+                </>
+              ) : null}
 
-          <Text style={styles.label}>Food you cannot say no to</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerTwo)}</Text>
+              {canSeeField("iceBreakerTwo") ? (
+                <>
+                  <Text style={styles.label}>Food you cannot say no to</Text>
+                  <Text style={styles.value}>{pretty(data.iceBreakerTwo)}</Text>
+                </>
+              ) : null}
 
-          <Text style={styles.label}>Fun fact</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerThree)}</Text>
+              {canSeeField("iceBreakerThree") ? (
+                <>
+                  <Text style={styles.label}>Fun fact</Text>
+                  <Text style={styles.value}>{pretty(data.iceBreakerThree)}</Text>
+                </>
+              ) : null}
+            </>
+          ) : null}
 
-          <View style={styles.divider} />
+          {hasVisibleIceBreakers && canSeeField("hobbies") ? (
+            <View style={styles.divider} />
+          ) : null}
 
-          <Text style={styles.sectionTitle}>Hobbies</Text>
-          <Text style={styles.value}>{formatHobbies(data.hobbies)}</Text>
+          {canSeeField("hobbies") ? (
+            <>
+              <Text style={styles.sectionTitle}>Hobbies</Text>
+              <Text style={styles.value}>{formatHobbies(data.hobbies)}</Text>
+            </>
+          ) : null}
+
+          {!canSeeAllFields && !hasVisibleDetails ? (
+            <Text style={styles.value}>
+              This user hides the rest of their profile until you connect.
+            </Text>
+          ) : null}
         </View>
       )}
     </ScrollView>

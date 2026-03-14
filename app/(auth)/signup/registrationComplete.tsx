@@ -20,6 +20,7 @@ import {
   deleteUploadedProfilePhotoAsync,
   uploadProfilePhotoAsync,
 } from "../../../src/lib/picture_upload";
+import { DEFAULT_PRE_CONNECTION_VISIBILITY } from "../../../src/profile/visibility";
 import { useSignup } from "../../../src/signup/context";
 
 export default function RegistrationCompletePage() {
@@ -103,6 +104,7 @@ export default function RegistrationCompletePage() {
         hobbies,
         photoURL,
         photoUrls: uploadedPhotoUrls,
+        preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
         locationControl: {
           sharingEnabled: draft.locationSharingEnabled,
           permissionStatus: draft.locationPermissionStatus,
@@ -128,6 +130,7 @@ export default function RegistrationCompletePage() {
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
         photoURL,
+        preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
         updatedAt: serverTimestamp(),
       });
 

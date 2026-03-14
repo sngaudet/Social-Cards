@@ -62,6 +62,33 @@ function normalizeStringArray(value) {
   return [];
 }
 
+function normalizePreConnectionVisibility(value) {
+  const record = value && typeof value === "object" ? value : {};
+
+  return {
+    photoURL:
+      typeof record.photoURL === "boolean" ? record.photoURL : false,
+    lastName:
+      typeof record.lastName === "boolean" ? record.lastName : false,
+    Gender:
+      typeof record.Gender === "boolean" ? record.Gender : true,
+    age:
+      typeof record.age === "boolean" ? record.age : true,
+    gradYear:
+      typeof record.gradYear === "boolean" ? record.gradYear : true,
+    major:
+      typeof record.major === "boolean" ? record.major : true,
+    iceBreakerOne:
+      typeof record.iceBreakerOne === "boolean" ? record.iceBreakerOne : true,
+    iceBreakerTwo:
+      typeof record.iceBreakerTwo === "boolean" ? record.iceBreakerTwo : true,
+    iceBreakerThree:
+      typeof record.iceBreakerThree === "boolean" ? record.iceBreakerThree : true,
+    hobbies:
+      typeof record.hobbies === "boolean" ? record.hobbies : true,
+  };
+}
+
 // this turns feet into meters for distance math
 function toMeters(feet) {
   return feet * 0.3048;
@@ -271,6 +298,13 @@ function buildNearbyUserPayload(uid, userDoc, presence) {
   return {
     uid,
     firstName: userDoc?.firstName || "",
+    lastName: userDoc?.lastName || "",
+    preConnectionVisibility: normalizePreConnectionVisibility(
+      userDoc?.preConnectionVisibility,
+    ),
+    Gender: userDoc?.Gender || "",
+    age: userDoc?.age ?? "",
+    gradYear: userDoc?.gradYear ?? "",
     major: userDoc?.major || "",
     hobbies: normalizeStringArray(userDoc?.hobbies),
     photoURL: userDoc?.photoURL || "",

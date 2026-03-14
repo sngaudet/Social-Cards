@@ -8,6 +8,7 @@ import { FirebaseError } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 import { app, auth } from "../../firebaseConfig";
+import { PreConnectionVisibility } from "../profile/visibility";
 
 export type LocationPermissionStatus =
   | "always"
@@ -18,6 +19,11 @@ export type LocationPermissionStatus =
 export type NearbyUser = {
   uid: string;
   firstName: string;
+  lastName?: string;
+  preConnectionVisibility?: PreConnectionVisibility;
+  Gender?: string;
+  age?: number | string;
+  gradYear?: number | string;
   major: string;
   hobbies: string[];
   photoURL: string;
