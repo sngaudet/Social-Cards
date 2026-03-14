@@ -268,8 +268,27 @@ async function ensureAndroidNotificationChannel(): Promise<void> {
   });
 }
 
+export async function requestNotificationPermissions(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  if (!Device.isDevice) return false;
+
+  await ensureAndroidNotificationChannel();
+
+  const existing = await Notifications.getPermissionsAsync();
+  let status = existing.status;
+
+  if (status !== "granted") {
+    const requested = await Notifications.requestPermissionsAsync();
+    status = requested.status;
+  }
+
+  return status === "granted";
+}
+
 // this registers push token when user and device are valid
-export async function registerPushTokenIfPossible(): Promise<boolean> {
+export async function registerPushTokenIfPossible(
+  options?: { promptIfNeeded?: boolean },
+): Promise<boolean> {
   if (Platform.OS === "web") return false;
   if (!Device.isDevice) return false;
   if (!auth.currentUser) return false;
@@ -280,7 +299,7 @@ export async function registerPushTokenIfPossible(): Promise<boolean> {
   const existing = await Notifications.getPermissionsAsync();
   let status = existing.status;
 
-  if (status !== "granted") {
+  if (status !== "granted" && options?.promptIfNeeded) {
     const requested = await Notifications.requestPermissionsAsync();
     status = requested.status;
   }

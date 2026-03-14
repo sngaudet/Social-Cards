@@ -8,10 +8,12 @@ import {
 } from "react-native";
 import PrimaryButton from "../src/components/PrimaryButton";
 import SecondaryButton from "../src/components/SecondaryButton";
+import { useSignup } from "../src/signup/context";
 
 
 export default function WelcomePage(){
     const router = useRouter();
+    const { resumeRoute, shouldResumeSignup } = useSignup();
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");
     // }
@@ -34,7 +36,9 @@ export default function WelcomePage(){
             <PrimaryButton
               title="Get Started"
               style={styles.getStartedButton}
-              onPress={() => router.push("/(auth)/signup")}
+              onPress={() =>
+                router.push(shouldResumeSignup ? resumeRoute : "/(auth)/signup")
+              }
             />
 
             <SecondaryButton

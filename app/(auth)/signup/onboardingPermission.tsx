@@ -11,7 +11,10 @@ import {
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import SubButton from "../../../src/components/SubButton";
-import { requestLocationPermissions } from "../../../src/location/service";
+import {
+  requestLocationPermissions,
+  requestNotificationPermissions,
+} from "../../../src/location/service";
 import { useSignup } from "../../../src/signup/context";
 
 
@@ -24,6 +27,7 @@ export default function OnboardingPermissionPage(){
       try {
         setRequesting(true);
         const permissionStatus = await requestLocationPermissions();
+        await requestNotificationPermissions();
         const sharingEnabled =
           permissionStatus === "always" || permissionStatus === "while_in_use";
 

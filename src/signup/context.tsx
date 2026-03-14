@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { usePathname } from "expo-router";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   SignupDraft,
@@ -7,14 +8,57 @@ import {
 } from "./types";
 import { normalizeHobbies } from "../lib/hobbies";
 
+type SignupResumeRoute =
+  | "/(auth)/signup"
+  | "/(auth)/signup/profile"
+  | "/(auth)/signup/icebreakers"
+  | "/(auth)/signup/hobbies"
+  | "/(auth)/signup/pictures"
+  | "/(auth)/signup/onboardingIntro"
+  | "/(auth)/signup/onboardingPermission"
+  | "/(auth)/signup/registrationComplete";
+
 type SignupContextType = {
   draft: SignupDraft;
+  hasDraftProgress: boolean;
+  resumeRoute: SignupResumeRoute;
+  shouldResumeSignup: boolean;
   updateDraft: (partial: Partial<SignupDraft>) => void;
   resetDraft: () => void;
 };
 
 const SignupContext = createContext<SignupContextType | undefined>(undefined);
 const SIGNUP_DRAFT_STORAGE_KEY = "icebreakers_signup_draft_v1";
+const DEFAULT_SIGNUP_ROUTE: SignupResumeRoute = "/(auth)/signup";
+const SIGNUP_ROUTES = new Set<SignupResumeRoute>([
+  "/(auth)/signup",
+  "/(auth)/signup/profile",
+  "/(auth)/signup/icebreakers",
+  "/(auth)/signup/hobbies",
+  "/(auth)/signup/pictures",
+  "/(auth)/signup/onboardingIntro",
+  "/(auth)/signup/onboardingPermission",
+  "/(auth)/signup/registrationComplete",
+]);
+
+type PersistedSignupState = {
+  draft?: unknown;
+  resumeRoute?: unknown;
+};
+
+function normalizeRoutePath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  if (value === "/signup" || value.startsWith("/signup/")) {
+    return `/(auth)${value}`;
+  }
+
+  if (value === "/(auth)/signup" || value.startsWith("/(auth)/signup/")) {
+    return value;
+  }
+
+  return null;
+}
 
 function normalizeLocationPermissionStatus(
   value: unknown,
@@ -62,8 +106,38 @@ function normalizeDraft(value: unknown): SignupDraft {
   };
 }
 
+function normalizeResumeRoute(value: unknown): SignupResumeRoute {
+  const normalizedRoute = normalizeRoutePath(value);
+  return normalizedRoute && SIGNUP_ROUTES.has(normalizedRoute as SignupResumeRoute)
+    ? (normalizedRoute as SignupResumeRoute)
+    : DEFAULT_SIGNUP_ROUTE;
+}
+
+function hasDraftProgress(draft: SignupDraft): boolean {
+  return Boolean(
+    draft.email.trim() ||
+      draft.password ||
+      draft.firstName.trim() ||
+      draft.lastName.trim() ||
+      draft.Gender.trim() ||
+      draft.age != null ||
+      draft.gradYear != null ||
+      draft.major.trim() ||
+      draft.iceBreakerOne.trim() ||
+      draft.iceBreakerTwo.trim() ||
+      draft.iceBreakerThree.trim() ||
+      draft.hobbies.length > 0 ||
+      draft.photoUris.length > 0 ||
+      draft.locationSharingEnabled ||
+      draft.locationPermissionStatus !== "unknown",
+  );
+}
+
 export function SignupProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [draft, setDraft] = useState(emptySignupDraft);
+  const [resumeRoute, setResumeRoute] =
+    useState<SignupResumeRoute>(DEFAULT_SIGNUP_ROUTE);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -74,9 +148,10 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
         const saved = await AsyncStorage.getItem(SIGNUP_DRAFT_STORAGE_KEY);
         if (!saved || cancelled) return;
 
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved) as PersistedSignupState;
         if (!cancelled) {
-          setDraft(normalizeDraft(parsed));
+          setDraft(normalizeDraft(parsed?.draft));
+          setResumeRoute(normalizeResumeRoute(parsed?.resumeRoute));
         }
       } catch (error) {
         console.warn("Could not restore signup draft", error);
@@ -96,13 +171,22 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
+    const nextResumeRoute = normalizeRoutePath(pathname);
+    if (!nextResumeRoute) return;
 
-    AsyncStorage.setItem(SIGNUP_DRAFT_STORAGE_KEY, JSON.stringify(draft)).catch(
-      (error) => {
-        console.warn("Could not persist signup draft", error);
-      },
-    );
-  }, [draft, hydrated]);
+    setResumeRoute(nextResumeRoute as SignupResumeRoute);
+  }, [hydrated, pathname]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    AsyncStorage.setItem(
+      SIGNUP_DRAFT_STORAGE_KEY,
+      JSON.stringify({ draft, resumeRoute }),
+    ).catch((error) => {
+      console.warn("Could not persist signup draft", error);
+    });
+  }, [draft, hydrated, resumeRoute]);
 
   function updateDraft(partial: Partial<SignupDraft>) {
     setDraft((prev) => ({ ...prev, ...partial }));
@@ -110,6 +194,7 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
 
   function resetDraft() {
     setDraft(emptySignupDraft);
+    setResumeRoute(DEFAULT_SIGNUP_ROUTE);
     AsyncStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY).catch((error) => {
       console.warn("Could not clear signup draft", error);
     });
@@ -117,8 +202,21 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
 
   if (!hydrated) return null;
 
+  const hasProgress = hasDraftProgress(draft);
+  const shouldResumeSignup =
+    hasProgress || resumeRoute !== DEFAULT_SIGNUP_ROUTE;
+
   return (
-    <SignupContext.Provider value={{ draft, updateDraft, resetDraft }}>
+    <SignupContext.Provider
+      value={{
+        draft,
+        hasDraftProgress: hasProgress,
+        resumeRoute,
+        shouldResumeSignup,
+        updateDraft,
+        resetDraft,
+      }}
+    >
       {children}
     </SignupContext.Provider>
   );
