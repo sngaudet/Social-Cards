@@ -34,6 +34,11 @@ import {
   hobbiesToInputValue,
   parseHobbiesInput,
 } from "../../../src/lib/hobbies";
+import {
+  normalizePreConnectionVisibility,
+  PRE_CONNECTION_VISIBILITY_FIELDS,
+  PreConnectionVisibility,
+} from "../../../src/profile/visibility";
 
 type UserDoc = {
   email?: string;
@@ -49,6 +54,7 @@ type UserDoc = {
   hobbies?: string[] | string;
   photoURL?: string;
   photoUrls?: string[];
+  preConnectionVisibility?: PreConnectionVisibility;
   locationControl?: {
     sharingEnabled?: boolean;
     permissionStatus?: string;
@@ -90,6 +96,10 @@ export default function EditProfile() {
   const [ice2, setIce2] = useState("");
   const [ice3, setIce3] = useState("");
   const [hobbies, setHobbies] = useState("");
+  const [preConnectionVisibility, setPreConnectionVisibility] =
+    useState<PreConnectionVisibility>(
+      normalizePreConnectionVisibility(undefined),
+    );
 
   const [photoURL, setPhotoURL] = useState<string>("");
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
@@ -123,6 +133,7 @@ export default function EditProfile() {
       setIce2("");
       setIce3("");
       setHobbies("");
+      setPreConnectionVisibility(normalizePreConnectionVisibility(undefined));
       return;
     }
 
@@ -144,6 +155,9 @@ export default function EditProfile() {
     setIce2(d.iceBreakerTwo ?? "");
     setIce3(d.iceBreakerThree ?? "");
     setHobbies(hobbiesToInputValue(d.hobbies));
+    setPreConnectionVisibility(
+      normalizePreConnectionVisibility(d.preConnectionVisibility),
+    );
   }, []);
 
   useEffect(() => {
@@ -264,6 +278,7 @@ export default function EditProfile() {
         iceBreakerTwo: ice2.trim(),
         iceBreakerThree: ice3.trim(),
         hobbies: normalizedHobbies,
+        preConnectionVisibility,
 
         // profile photo
         photoURL: updatedPhotoURL,
@@ -285,6 +300,7 @@ export default function EditProfile() {
           iceBreakerThree: ice3.trim(),
           hobbies: normalizedHobbies,
           photoURL: updatedPhotoURL,
+          preConnectionVisibility,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -513,6 +529,30 @@ export default function EditProfile() {
             ? "-"
             : String(Math.round(locationControl.lastAccuracyM))}
         </Text>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.sectionTitle}>Visible Before Connection</Text>
+        <Text style={styles.helperText}>
+          Connected users can always see your full profile. These toggles only
+          control what non-connections can see first.
+        </Text>
+
+        {PRE_CONNECTION_VISIBILITY_FIELDS.map((field) => (
+          <View key={field.key} style={styles.visibilityRow}>
+            <Text style={styles.visibilityLabel}>{field.label}</Text>
+            <Switch
+              value={preConnectionVisibility[field.key]}
+              onValueChange={(value) =>
+                setPreConnectionVisibility((current) => ({
+                  ...current,
+                  [field.key]: value,
+                }))
+              }
+              disabled={saving || deleting}
+            />
+          </View>
+        ))}
 
         <View style={styles.divider} />
 
@@ -789,5 +829,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: "#666",
+  },
+  visibilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 6,
+  },
+  visibilityLabel: {
+    flex: 1,
+    fontSize: 14,
   },
 });

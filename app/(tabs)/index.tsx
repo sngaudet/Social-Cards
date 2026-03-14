@@ -15,13 +15,16 @@ import {
   sendConnectionRequest,
   subscribeToConnections,
 } from "../../src/connections/service";
-import { formatHobbies } from "../../src/lib/hobbies";
 import { showAlert } from "../../src/lib/showAlert";
 import {
   fetchNearbyUsers,
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
+import {
+  normalizePreConnectionVisibility,
+  PreConnectionVisibility,
+} from "../../src/profile/visibility";
 
 const emptyNearby: NearbyResponse = {
   users: [],
@@ -32,9 +35,34 @@ const emptyNearby: NearbyResponse = {
 const AUTO_REFRESH_MS = 5000;
 const AUTO_PING_MS = 30000;
 const MAX_PING_WAIT_MS = 1500;
+const HOBBY_PREVIEW_LIMIT = 4;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatPronouns(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  switch (normalized) {
+    case "male":
+      return "HE/HIM";
+    case "female":
+      return "SHE/HER";
+    case "nonbinary":
+      return "THEY/THEM";
+    case "mtf":
+      return "SHE/HER";
+    case "ftm":
+      return "HE/HIM";
+    case "genderfluid":
+      return "THEY/THEM";
+    case "agender":
+      return "THEY/THEM";
+    case "androgynous":
+      return "THEY/THEM";
+    default:
+      return normalized ? normalized.replaceAll("_", " ").toUpperCase() : "";
+  }
 }
 
 export default function HomeTab() {
@@ -233,91 +261,211 @@ export default function HomeTab() {
           </Text>
         </View>
       ) : (
-        nearby.users.map((user) => (
-          <View key={user.uid} style={styles.userCard}>
-            <View style={styles.userHeader}>
-              {user.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarText}>No Photo</Text>
-                </View>
-              )}
+        nearby.users.map((user) => {
+          const isConnected = connectedUids.has(user.uid);
+          const visibility = normalizePreConnectionVisibility(
+            user.preConnectionVisibility,
+          );
+          const canSeeField = (field: keyof PreConnectionVisibility) =>
+            isConnected || visibility[field];
+          const displayName =
+            [user.firstName, canSeeField("lastName") ? user.lastName : ""]
+              .filter(Boolean)
+              .join(" ")
+              .trim() || "Unknown";
+          const showMajor = canSeeField("major");
+          const showGender = canSeeField("Gender");
+          const showAge = canSeeField("age");
+          const showGradYear = canSeeField("gradYear");
+          const showHobbies = canSeeField("hobbies");
+          const showIceBreakerOne = canSeeField("iceBreakerOne");
+          const showIceBreakerTwo = canSeeField("iceBreakerTwo");
+          const showIceBreakerThree = canSeeField("iceBreakerThree");
+          const pronouns = formatPronouns(user.Gender);
+          const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
+          const primaryPrompt =
+            (showIceBreakerOne && user.iceBreakerOne) ||
+            (showIceBreakerTwo && user.iceBreakerTwo) ||
+            (showIceBreakerThree && user.iceBreakerThree) ||
+            "";
+          const secondaryPrompt =
+            (showIceBreakerTwo &&
+            user.iceBreakerTwo &&
+            user.iceBreakerTwo !== primaryPrompt
+              ? user.iceBreakerTwo
+              : "") ||
+            (showIceBreakerThree &&
+            user.iceBreakerThree &&
+            user.iceBreakerThree !== primaryPrompt
+              ? user.iceBreakerThree
+              : "");
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.userName}>
-                  {user.firstName || "Unknown"}
-                </Text>
-                <Text style={styles.subtleText}>
-                  {user.major || "Undeclared"}
-                </Text>
-                <Text style={styles.distanceText}>
-                  {user.distanceFt} ft away
-                </Text>
+          return (
+            <View key={user.uid} style={styles.userCard}>
+              <View style={styles.userHeader}>
+                {canSeeField("photoURL") && user.photoURL ? (
+                  <Image
+                    source={{ uri: user.photoURL }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarText}>
+                      {canSeeField("photoURL") ? "No Photo" : "Hidden"}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.userBody}>
+                  <View style={styles.headerTopRow}>
+                    <Text style={styles.userName}>{displayName}</Text>
+                    <Text style={styles.distancePill}>
+                      {user.distanceFt} ft away
+                    </Text>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    {showGender && pronouns ? (
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>Pronouns</Text>
+                        <Text style={styles.metaValue}>{pronouns}</Text>
+                      </View>
+                    ) : null}
+
+                    {showAge && user.age ? (
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>Age</Text>
+                        <Text style={styles.metaValue}>{user.age}</Text>
+                      </View>
+                    ) : null}
+
+                    {showGradYear && user.gradYear ? (
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>Exp Graduation</Text>
+                        <Text style={styles.metaValue}>{user.gradYear}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {showHobbies && hobbyPreview.length > 0 ? (
+                    <View style={styles.hobbiesBlock}>
+                      <Text style={styles.metaLabel}>Hobbies</Text>
+                      <View style={styles.hobbyWrap}>
+                        {hobbyPreview.map((hobby) => (
+                          <Text
+                            key={`${user.uid}-${hobby}`}
+                            style={styles.hobbyChip}
+                          >
+                            {hobby.toUpperCase()}
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {primaryPrompt ? (
+                    <View style={styles.promptBlock}>
+                      <Text style={styles.promptLabel}>
+                        Conversation Starter
+                      </Text>
+                      <Text style={styles.promptValue}>{primaryPrompt}</Text>
+                      {secondaryPrompt ? (
+                        <Text style={styles.promptSubValue}>
+                          {secondaryPrompt}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  <View style={styles.footerRow}>
+                    <View style={styles.footerInfo}>
+                      {showMajor ? (
+                        <>
+                          <Text style={styles.footerLabel}>Major</Text>
+                          <Text style={styles.footerValue}>
+                            {(user.major || "Undeclared").toUpperCase()}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.hiddenText}>
+                          This user hides most profile details until you
+                          connect.
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        style={styles.viewPillButton}
+                        onPress={() => openUserProfile(user.uid)}
+                      >
+                        <Text style={styles.viewPillButtonText}>
+                          View Profile
+                        </Text>
+                      </TouchableOpacity>
+
+                      {isConnected ? (
+                        <>
+                          <View style={styles.connectedPill}>
+                            <Text style={styles.connectedPillText}>
+                              Connected
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.connectPillButton}
+                            onPress={() =>
+                              openChat(connectionIdsByUid[user.uid], user.uid)
+                            }
+                          >
+                            <Text style={styles.connectPillButtonText}>
+                              Text
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.connectPillButton}
+                          onPress={() => handleConnect(user.uid)}
+                        >
+                          <Text style={styles.connectPillButtonText}>
+                            Connect
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </View>
               </View>
             </View>
-
-            <Text style={styles.label}>Hobbies</Text>
-            <Text style={styles.value}>{formatHobbies(user.hobbies)}</Text>
-
-            <Text style={styles.label}>Icebreaker prompts</Text>
-            <Text style={styles.value}>- {user.iceBreakerOne || "-"}</Text>
-            <Text style={styles.value}>- {user.iceBreakerTwo || "-"}</Text>
-            <Text style={styles.value}>- {user.iceBreakerThree || "-"}</Text>
-
-            <TouchableOpacity
-              style={styles.viewProfileButton}
-              onPress={() => openUserProfile(user.uid)}
-            >
-              <Text style={styles.viewProfileButtonText}>View Profile</Text>
-            </TouchableOpacity>
-
-            {connectedUids.has(user.uid) ? (
-              <View style={styles.connectedRow}>
-                <View style={styles.connectedBadge}>
-                  <Text style={styles.connectedBadgeText}>Connected</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.textButton}
-                  onPress={() =>
-                    openChat(connectionIdsByUid[user.uid], user.uid)
-                  }
-                >
-                  <Text style={styles.viewProfileButtonText}>Text</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={() => handleConnect(user.uid)}
-              >
-                <Text style={styles.viewProfileButtonText}>Connect</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ))
+          );
+        })
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { padding: 24, paddingBottom: 48, gap: 12 },
+  scroll: { flex: 1, backgroundColor: "#dfe7f6" },
+  content: { padding: 18, paddingBottom: 48, gap: 14 },
 
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 30,
+    fontWeight: "800",
     textAlign: "center",
+    color: "#101828",
   },
 
   summaryCard: {
     borderWidth: 1,
-    borderColor: "#dbeafe",
-    borderRadius: 12,
+    borderColor: "#d8e2f2",
+    borderRadius: 24,
     padding: 14,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#f9fbff",
     gap: 4,
+    shadowColor: "#9aa7c7",
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
   summaryText: {
@@ -346,122 +494,203 @@ const styles = StyleSheet.create({
 
   userCard: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: "#fff",
+    borderColor: "#e7edf9",
+    borderRadius: 28,
+    padding: 16,
+    backgroundColor: "#fffdfb",
+    shadowColor: "#b8c2d9",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   userHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
-    marginBottom: 10,
   },
 
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 72,
+    height: 72,
+    borderRadius: 10,
     backgroundColor: "#e5e7eb",
   },
 
   avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#f0f0f0",
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: "#edf1fa",
     alignItems: "center",
     justifyContent: "center",
+    padding: 6,
   },
 
   avatarText: {
     fontSize: 10,
     color: "#666",
+    textAlign: "center",
   },
 
-  userName: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  distanceText: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1d4ed8",
-  },
-
-  label: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 6,
-  },
-
-  value: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-
-  secondaryButton: {
-    marginTop: 8,
-    backgroundColor: "#111",
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-
-  secondaryButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  viewProfileButton: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-    backgroundColor: "#fac104",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-
-  connectButton: {
-    marginTop: 12,
-    alignSelf: "flex-start",
-    backgroundColor: "#2452ce",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  connectedRow: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
+  userBody: {
+    flex: 1,
     gap: 8,
   },
-  connectedBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#16a34a",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  connectedBadgeText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  textButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#2452ce",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+  userName: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#1f4aaa",
+    letterSpacing: 0.4,
   },
 
-  viewProfileButtonText: {
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  distancePill: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#1d4ed8",
+    backgroundColor: "#eef4ff",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  metaItem: {
+    minWidth: 72,
+  },
+  metaLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    color: "#303b52",
+    letterSpacing: 0.5,
+  },
+  metaValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 2,
+  },
+  hobbiesBlock: {
+    gap: 6,
+  },
+  hobbyWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  hobbyChip: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#263248",
+    backgroundColor: "#f6efe1",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  promptBlock: {
+    backgroundColor: "#f8f9fe",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  promptLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    color: "#5b6478",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  promptValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#161b26",
+    textAlign: "center",
+  },
+  promptSubValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4b5563",
+    textAlign: "center",
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: 12,
+    marginTop: 4,
+  },
+  footerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  footerLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    color: "#404a60",
+    letterSpacing: 0.5,
+  },
+  footerValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#161b26",
+  },
+  hiddenText: {
+    fontSize: 12,
+    color: "#666",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  viewPillButton: {
+    backgroundColor: "#ffd45f",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  connectPillButton: {
+    backgroundColor: "#7db1ff",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  connectedPill: {
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  viewPillButtonText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
+  },
+  connectedPillText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  connectPillButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });
