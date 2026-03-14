@@ -1,12 +1,25 @@
 import { useRouter } from "expo-router";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  signOut,
+  User,
+} from "firebase/auth";
+import {
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
 import React, { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
-import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
+import {
+  deleteUploadedProfilePhotoAsync,
+  uploadProfilePhotoAsync,
+} from "../../../src/lib/picture_upload";
 import { useSignup } from "../../../src/signup/context";
 
 export default function RegistrationCompletePage() {
@@ -57,20 +70,26 @@ export default function RegistrationCompletePage() {
       return;
     }
 
+    let createdUser: User | null = null;
+    const uploadedPhotoUrls: string[] = [];
+
     try {
       setSubmitting(true);
 
       const cred = await createUserWithEmailAndPassword(auth, email, password);
+      createdUser = cred.user;
 
-      const photoUrls: string[] = [];
       for (const uri of draft.photoUris ?? []) {
-        const url = await uploadProfilePhotoAsync(uri);
-        photoUrls.push(url);
+        const url = await uploadProfilePhotoAsync(uri, cred.user.uid);
+        uploadedPhotoUrls.push(url);
       }
 
-      const photoURL = photoUrls[0] ?? "";
+      const photoURL = uploadedPhotoUrls[0] ?? "";
+      const userRef = doc(db, "users", cred.user.uid);
+      const publicProfileRef = doc(db, "publicProfiles", cred.user.uid);
+      const batch = writeBatch(db);
 
-      await setDoc(doc(db, "users", cred.user.uid), {
+      batch.set(userRef, {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
@@ -83,7 +102,7 @@ export default function RegistrationCompletePage() {
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
         photoURL,
-        photoUrls,
+        photoUrls: uploadedPhotoUrls,
         locationControl: {
           sharingEnabled: draft.locationSharingEnabled,
           permissionStatus: draft.locationPermissionStatus,
@@ -97,7 +116,7 @@ export default function RegistrationCompletePage() {
         createdAt: serverTimestamp(),
       });
 
-      await setDoc(doc(db, "publicProfiles", cred.user.uid), {
+      batch.set(publicProfileRef, {
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
         Gender: draft.Gender ?? "",
@@ -112,9 +131,32 @@ export default function RegistrationCompletePage() {
         updatedAt: serverTimestamp(),
       });
 
+      await batch.commit();
+
       resetDraft();
       router.replace("/(tabs)");
     } catch (e: any) {
+      if (createdUser) {
+        const cleanupTasks: Promise<unknown>[] = [
+          deleteDoc(doc(db, "users", createdUser.uid)),
+          deleteDoc(doc(db, "publicProfiles", createdUser.uid)),
+          ...uploadedPhotoUrls.map((url) => deleteUploadedProfilePhotoAsync(url)),
+        ];
+
+        await Promise.allSettled(cleanupTasks);
+
+        try {
+          await deleteUser(createdUser);
+        } catch (cleanupError) {
+          console.warn("Could not roll back partially created auth user", cleanupError);
+          if (auth.currentUser?.uid === createdUser.uid) {
+            await signOut(auth).catch((signOutError) => {
+              console.warn("Could not sign out after failed signup cleanup", signOutError);
+            });
+          }
+        }
+      }
+
       const code = e?.code as string | undefined;
 
       if (code === "auth/email-already-in-use") {

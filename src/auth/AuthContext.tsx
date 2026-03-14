@@ -45,10 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
 
-    registerPushTokenIfPossible().catch((error) => {
+    registerPushTokenIfPossible({ promptIfNeeded: false }).catch((error) => {
       console.warn("Push token registration failed", error);
     });
-  }, [user?.uid]);
+  }, [user]);
 
   const value = useMemo(
     () => ({

@@ -1,4 +1,9 @@
-import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import {
+  deleteObject,
+  getDownloadURL,
+  ref,
+  uploadBytesResumable,
+} from "firebase/storage";
 import { auth, storage } from "../../firebaseConfig"; // adjust path to your firebaseConfig
 
 export async function uploadProfilePhotoAsync(
@@ -30,4 +35,10 @@ export async function uploadProfilePhotoAsync(
   });
 
   return downloadUrl;
+}
+
+export async function deleteUploadedProfilePhotoAsync(downloadUrl: string) {
+  if (!downloadUrl) return;
+
+  await deleteObject(ref(storage, downloadUrl));
 }
