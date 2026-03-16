@@ -19,6 +19,7 @@ import {
   subscribeToConnections,
   subscribeToIncomingRequests,
 } from "../../src/connections/service";
+import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { showAlert } from "../../src/lib/showAlert";
 
 type RequestWithProfile = ConnectionRequest & {
@@ -198,14 +199,19 @@ export default function ConnectionsPage() {
           requestsWithProfiles.map((request) => (
             <View key={request.id} style={styles.card}>
               <View style={styles.row}>
-                {request.fromUser?.photoURL ? (
+                {getAvatarImageSource(request.fromUser?.avatarId) ? (
+                  <Image
+                    source={getAvatarImageSource(request.fromUser?.avatarId)!}
+                    style={styles.avatar}
+                  />
+                ) : request.fromUser?.photoURL ? (
                   <Image
                     source={{ uri: request.fromUser.photoURL }}
                     style={styles.avatar}
                   />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>No Photo</Text>
+                    <Text style={styles.avatarText}>No Avatar</Text>
                   </View>
                 )}
 

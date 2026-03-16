@@ -26,6 +26,7 @@ export type NearbyUser = {
   gradYear?: number | string;
   major: string;
   hobbies: string[];
+  avatarId?: string;
   photoURL: string;
   iceBreakerOne: string;
   iceBreakerTwo: string;

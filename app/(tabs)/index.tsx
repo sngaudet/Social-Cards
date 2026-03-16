@@ -21,6 +21,7 @@ import {
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
+import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import {
   normalizePreConnectionVisibility,
   PreConnectionVisibility,
@@ -282,6 +283,7 @@ export default function HomeTab() {
           const showIceBreakerTwo = canSeeField("iceBreakerTwo");
           const showIceBreakerThree = canSeeField("iceBreakerThree");
           const pronouns = formatPronouns(user.Gender);
+          const avatarSource = getAvatarImageSource(user.avatarId);
           const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
           const primaryPrompt =
             (showIceBreakerOne && user.iceBreakerOne) ||
@@ -303,15 +305,19 @@ export default function HomeTab() {
           return (
             <View key={user.uid} style={styles.userCard}>
               <View style={styles.userHeader}>
-                {canSeeField("photoURL") && user.photoURL ? (
+                {isConnected && canSeeField("photoURL") && user.photoURL ? (
                   <Image
                     source={{ uri: user.photoURL }}
                     style={styles.avatar}
                   />
+                ) : !isConnected && avatarSource ? (
+                  <Image source={avatarSource} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarText}>
-                      {canSeeField("photoURL") ? "No Photo" : "Hidden"}
+                      {isConnected && canSeeField("photoURL")
+                        ? "No Photo"
+                        : "No Avatar"}
                     </Text>
                   </View>
                 )}

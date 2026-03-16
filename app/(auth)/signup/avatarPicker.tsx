@@ -13,24 +13,13 @@ import AvatarOptionTile from "../../../src/components/AvatarOptionTile";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
+import { AVATAR_IMAGE_OPTIONS } from "../../../src/lib/avatarImages";
 import { useSignup } from "../../../src/signup/context";
-
-// id + imageSource for all images in the images folder.
-const AVATAR_OPTIONS = [
-  {
-    id: "rainbow-unicorn-avatar",
-    imageSource: require("../../../src/images/Rainbow Unicorn Avatar.png"),
-  },
-  {
-    id: "catman",
-    imageSource: require("../../../src/images/catman.jpg"),
-  },
-] as const;
 
 const GRID_SIZE = 15;
 
 const AVATAR_CELLS = Array.from({ length: GRID_SIZE }, (_, index) => {
-  const option = AVATAR_OPTIONS[index];
+  const option = AVATAR_IMAGE_OPTIONS[index];
   return option
     ? option
     : {

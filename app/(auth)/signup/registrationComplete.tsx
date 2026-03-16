@@ -46,6 +46,7 @@ export default function RegistrationCompletePage() {
     if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
     if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
     if (hobbies.length === 0) fields.push("hobbies");
+    if (!draft.avatarId?.trim()) fields.push("avatar");
     return fields;
   }, [draft, hobbies]);
 
@@ -102,6 +103,7 @@ export default function RegistrationCompletePage() {
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
+        avatarId: draft.avatarId ?? "",
         photoURL,
         photoUrls: uploadedPhotoUrls,
         preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
@@ -129,6 +131,7 @@ export default function RegistrationCompletePage() {
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
+        avatarId: draft.avatarId ?? "",
         photoURL,
         preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
         updatedAt: serverTimestamp(),

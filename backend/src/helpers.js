@@ -307,6 +307,7 @@ function buildNearbyUserPayload(uid, userDoc, presence) {
     gradYear: userDoc?.gradYear ?? "",
     major: userDoc?.major || "",
     hobbies: normalizeStringArray(userDoc?.hobbies),
+    avatarId: userDoc?.avatarId || "",
     photoURL: userDoc?.photoURL || "",
     iceBreakerOne: userDoc?.iceBreakerOne || "",
     iceBreakerTwo: userDoc?.iceBreakerTwo || "",

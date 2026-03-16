@@ -27,6 +27,7 @@ type UserDoc = {
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
   hobbies?: string[] | string;
+  avatarId?: string;
   createdAt?: any; // Firestore Timestamp (or serverTimestamp placeholder)
   photoURL?: string;
   photoUrls?: string[];

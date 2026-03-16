@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { auth, db } from "../../firebaseConfig";
+import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { subscribeToConnections } from "../../src/connections/service";
 import { formatHobbies } from "../../src/lib/hobbies";
 import {
@@ -32,6 +33,7 @@ type UserDoc = {
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
   hobbies?: string[] | string;
+  avatarId?: string;
   photoURL?: string;
   preConnectionVisibility?: PreConnectionVisibility;
 };
@@ -147,6 +149,7 @@ export default function UserProfileView() {
     canSeeField("iceBreakerOne") ||
     canSeeField("iceBreakerTwo") ||
     canSeeField("iceBreakerThree");
+  const avatarSource = getAvatarImageSource(data?.avatarId);
   const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
 
   return (
@@ -159,15 +162,29 @@ export default function UserProfileView() {
     >
       <Text style={styles.title}>User Profile</Text>
 
-      {data?.photoURL && canSeeField("photoURL") ? (
+      {isConnected || currentUid === uid ? (
+        data?.photoURL && canSeeField("photoURL") ? (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+          </View>
+        ) : (
+          <View style={styles.imageContainer}>
+            <View style={styles.placeholderImage}>
+              <Text style={styles.placeholderText}>
+                {canSeeField("photoURL") ? "No Profile Photo" : "Hidden Before Connection"}
+              </Text>
+            </View>
+          </View>
+        )
+      ) : avatarSource ? (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+          <Image source={avatarSource} style={styles.profileImage} />
         </View>
       ) : (
         <View style={styles.imageContainer}>
           <View style={styles.placeholderImage}>
             <Text style={styles.placeholderText}>
-              {canSeeField("photoURL") ? "No Profile Photo" : "Hidden Before Connection"}
+              No Avatar
             </Text>
           </View>
         </View>

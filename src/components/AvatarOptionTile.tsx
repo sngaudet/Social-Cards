@@ -12,7 +12,7 @@ import {
 type AvatarOptionTileProps = {
   selected?: boolean;
   onPress?: () => void;
-  imageSource: ImageSourcePropType;
+  imageSource?: ImageSourcePropType;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -25,11 +25,13 @@ export default function AvatarOptionTile({
   return (
     <Pressable
       onPress={onPress}
+      disabled={!imageSource}
       style={({ pressed }) => [
         styles.tile,
+        !imageSource && styles.tileBlank,
         selected && styles.selectedGlow,
         selected ? styles.tileSelected : styles.tileUnselected,
-        pressed && styles.pressed,
+        pressed && !!imageSource && styles.pressed,
         style,
       ]}
     >
@@ -41,12 +43,16 @@ export default function AvatarOptionTile({
       >
         <View style={styles.innerBox}>
           <View style={styles.imageSurface}>
-            <Image
-              source={imageSource}
-              style={styles.image}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
+            {imageSource ? (
+              <Image
+                source={imageSource}
+                style={styles.image}
+                resizeMode="contain"
+                fadeDuration={0}
+              />
+            ) : (
+              <View style={styles.blankFill} />
+            )}
           </View>
         </View>
       </View>
@@ -75,6 +81,10 @@ const styles = StyleSheet.create({
   tileUnselected: {
     borderWidth: 0,
     padding: 0,
+  },
+
+  tileBlank: {
+    opacity: 0.55,
   },
 
   tileSelected: {
@@ -125,6 +135,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 14,
+  },
+
+  blankFill: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
+    backgroundColor: "#EEF2F6",
   },
 
   pressed: {

@@ -35,6 +35,7 @@ export type PublicUserProfile = {
   uid: string;
   firstName?: string;
   major?: string;
+  avatarId?: string;
   photoURL?: string;
 };
 
@@ -167,6 +168,7 @@ export async function getUserProfile(uid: string): Promise<PublicUserProfile> {
     uid,
     firstName: data.firstName ?? "",
     major: data.major ?? "",
+    avatarId: data.avatarId ?? "",
     photoURL: data.photoURL ?? "",
   };
 }
