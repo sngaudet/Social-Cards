@@ -13,6 +13,7 @@ type SignupResumeRoute =
   | "/(auth)/signup/profile"
   | "/(auth)/signup/icebreakers"
   | "/(auth)/signup/hobbies"
+  | "/(auth)/signup/avatarPicker"
   | "/(auth)/signup/pictures"
   | "/(auth)/signup/onboardingIntro"
   | "/(auth)/signup/onboardingPermission"
@@ -35,6 +36,7 @@ const SIGNUP_ROUTES = new Set<SignupResumeRoute>([
   "/(auth)/signup/profile",
   "/(auth)/signup/icebreakers",
   "/(auth)/signup/hobbies",
+  "/(auth)/signup/avatarPicker",
   "/(auth)/signup/pictures",
   "/(auth)/signup/onboardingIntro",
   "/(auth)/signup/onboardingPermission",
@@ -77,6 +79,7 @@ function normalizeLocationPermissionStatus(
 function normalizeDraft(value: unknown): SignupDraft {
   const raw = (value && typeof value === "object" ? value : {}) as Partial<SignupDraft> & {
     hobbies?: string[] | string;
+    avatarId?: unknown;
     photoUris?: unknown;
   };
 
@@ -100,6 +103,7 @@ function normalizeDraft(value: unknown): SignupDraft {
       raw.locationPermissionStatus,
     ),
     hobbies: normalizeHobbies(raw.hobbies),
+    avatarId: typeof raw.avatarId === "string" ? raw.avatarId : "",
     photoUris: Array.isArray(raw.photoUris)
       ? raw.photoUris.filter((item): item is string => typeof item === "string")
       : [],
@@ -127,6 +131,7 @@ function hasDraftProgress(draft: SignupDraft): boolean {
       draft.iceBreakerTwo.trim() ||
       draft.iceBreakerThree.trim() ||
       draft.hobbies.length > 0 ||
+      draft.avatarId.trim() ||
       draft.photoUris.length > 0 ||
       draft.locationSharingEnabled ||
       draft.locationPermissionStatus !== "unknown",

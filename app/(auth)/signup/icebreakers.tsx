@@ -87,7 +87,7 @@ export default function SignupIceBreakersStep() {
       iceBreakerThree: iceBreakerThree.trim(),
     });
 
-    router.replace("/(auth)/signup/hobbies");
+    router.push("/(auth)/signup/hobbies");
   };
 
   const renderCard = (key: IceKey) => {

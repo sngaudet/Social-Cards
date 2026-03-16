@@ -72,7 +72,7 @@ export default function SignupAccountStep() {
       return;
     }
     updateDraft({ email: cleanEmail, password });
-    router.push("/(auth)/signup/profile");
+    router.push("/(auth)/signup/icebreakers");
   };
 
   return (

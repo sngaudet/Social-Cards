@@ -1,5 +1,5 @@
 import { basketball, football, soccerBall } from "@lucide/lab";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import {
   Bike,
   BookOpen,
@@ -186,7 +186,7 @@ export default function SignupHobbiesStep() {
     }
 
     updateDraft({ hobbies });
-    router.replace("/(auth)/signup/pictures");
+    router.push("/(auth)/signup/profile" as Href);
   };
 
   return (

@@ -13,6 +13,8 @@ import {
   View,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import ProgressHeader from "../../../src/components/ProgressHeader";
+import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import SubButton from "../../../src/components/SubButton";
 import { useSignup } from "../../../src/signup/context"; // adjust if your path differs
 
@@ -74,11 +76,12 @@ export default function SignupPictures() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Upload Your Photos</Text>
-      <Text style={styles.subtitle}>
-        Choose one or more photos now. We’ll upload them after your account is
-        created.
-      </Text>
+      <ProgressHeader currentStep={7} />
+
+      <SignupScreenHeader
+        title="Upload Your Photos"
+        subtitle="Choose one or more photos now. We’ll upload them after your account is created."
+      />
 
       <PrimaryButton
         title={busy ? "Opening..." : "Upload Photo"}
@@ -114,19 +117,15 @@ export default function SignupPictures() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, alignItems: "center" },
-  title: { fontSize: 20, fontWeight: "700", marginBottom: 6 },
-  subtitle: {
-    fontSize: 14,
-    color: "#555",
-    textAlign: "center",
-    marginBottom: 14,
+  container: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    alignItems: "center",
   },
-
   uploadButton: {
     marginBottom: 4,
   },
-
   previewContainer: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -53,14 +53,14 @@ export default function SignupProfileStep() {
       major,
     });
 
-    router.push("/(auth)/signup/icebreakers");
+    router.push("/(auth)/signup/avatarPicker");
   };
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* Progress Bar */}
-<ProgressHeader currentStep={2} />
+<ProgressHeader currentStep={4} />
 
 
       {/* Header */}

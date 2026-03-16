@@ -7,6 +7,8 @@ export default function SignUpLayout() {
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="icebreakers" options={{ title: "Ice Breakers" }} />
       <Stack.Screen name="hobbies" options={{ title: "Hobbies" }} />
+      <Stack.Screen name="avatarPicker" options={{ title: "Avatar Picker" }} />
+      <Stack.Screen name="pictures" options={{ title: "Profile Pictures" }} />
       <Stack.Screen name="onboardingIntro" options={{ title: "Onboarding Intro" }} />
       <Stack.Screen
         name="onboardingPermission"

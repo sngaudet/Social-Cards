@@ -18,6 +18,7 @@ export type SignupDraft = {
   iceBreakerTwo: string;
   iceBreakerThree: string;
   hobbies: string[];
+  avatarId: string;
 
   photoUris: string[];
   locationSharingEnabled: boolean;
@@ -38,6 +39,7 @@ export const emptySignupDraft: SignupDraft = {
   iceBreakerTwo: "",
   iceBreakerThree: "",
   hobbies: [],
+  avatarId: "",
 
   photoUris: [],
   locationSharingEnabled: false,
