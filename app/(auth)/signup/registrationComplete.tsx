@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
