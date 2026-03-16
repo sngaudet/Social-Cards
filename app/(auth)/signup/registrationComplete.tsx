@@ -16,6 +16,7 @@ import { ScrollView, StyleSheet, Text } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
+import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import {
   deleteUploadedProfilePhotoAsync,
   uploadProfilePhotoAsync,
@@ -31,6 +32,10 @@ export default function RegistrationCompletePage() {
     () => normalizeHobbies(draft.hobbies),
     [draft.hobbies],
   );
+  const derivedAge = useMemo(
+    () => calculateAgeFromDateOfBirth(draft.dateOfBirth),
+    [draft.dateOfBirth],
+  );
 
   const missing = useMemo(() => {
     const fields: string[] = [];
@@ -38,10 +43,12 @@ export default function RegistrationCompletePage() {
     if (!draft.password) fields.push("password");
     if (!draft.firstName?.trim()) fields.push("first name");
     if (!draft.lastName?.trim()) fields.push("last name");
-    if (!draft.Gender?.trim()) fields.push("gender");
-    if (draft.age == null) fields.push("age");
+    if (!draft.dateOfBirth?.trim()) fields.push("date of birth");
+    if (!draft.bio?.trim()) fields.push("bio");
+    if (!draft.pronouns?.trim()) fields.push("pronouns");
     if (draft.gradYear == null) fields.push("grad year");
     if (!draft.major?.trim()) fields.push("major");
+    if (!draft.minor?.trim()) fields.push("minor");
     if (!draft.iceBreakerOne?.trim()) fields.push("ice breaker 1");
     if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
     if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
@@ -105,10 +112,13 @@ export default function RegistrationCompletePage() {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
-        Gender: draft.Gender ?? "",
-        age: draft.age ?? "",
+        dateOfBirth: draft.dateOfBirth ?? "",
+        bio: draft.bio ?? "",
+        pronouns: draft.pronouns ?? "",
+        age: derivedAge ?? "",
         gradYear: draft.gradYear ?? "",
         major: draft.major ?? "",
+        minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
@@ -133,10 +143,13 @@ export default function RegistrationCompletePage() {
       batch.set(publicProfileRef, {
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
-        Gender: draft.Gender ?? "",
-        age: draft.age ?? "",
+        dateOfBirth: draft.dateOfBirth ?? "",
+        bio: draft.bio ?? "",
+        pronouns: draft.pronouns ?? "",
+        age: derivedAge ?? "",
         gradYear: draft.gradYear ?? "",
         major: draft.major ?? "",
+        minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",

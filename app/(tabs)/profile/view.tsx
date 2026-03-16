@@ -14,15 +14,19 @@ import {
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import { formatHobbies } from "../../../src/lib/hobbies";
+import { formatDateOfBirth } from "../../../src/lib/profileFields";
 
 type UserDoc = {
   email?: string;
   firstName?: string;
   lastName?: string;
   Gender?: string;
-  age?: number | string;
+  dateOfBirth?: string;
+  bio?: string;
+  pronouns?: string;
   gradYear?: number | string;
   major?: string;
+  minor?: string;
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
@@ -164,17 +168,23 @@ export default function ViewProfile() {
             {pretty(data.firstName)} {pretty(data.lastName)}
           </Text>
 
-          <Text style={styles.label}>Gender</Text>
-          <Text style={styles.value}>{pretty(data.Gender)}</Text>
+          <Text style={styles.label}>Date of Birth</Text>
+          <Text style={styles.value}>{formatDateOfBirth(data.dateOfBirth ?? "")}</Text>
 
-          <Text style={styles.label}>Age</Text>
-          <Text style={styles.value}>{pretty(data.age)}</Text>
+          <Text style={styles.label}>Pronouns</Text>
+          <Text style={styles.value}>{pretty(data.pronouns ?? data.Gender)}</Text>
 
           <Text style={styles.label}>Graduation Year</Text>
           <Text style={styles.value}>{pretty(data.gradYear)}</Text>
 
           <Text style={styles.label}>Major</Text>
           <Text style={styles.value}>{pretty(data.major)}</Text>
+
+          <Text style={styles.label}>Minor</Text>
+          <Text style={styles.value}>{pretty(data.minor)}</Text>
+
+          <Text style={styles.label}>Bio</Text>
+          <Text style={styles.value}>{pretty(data.bio)}</Text>
 
           <View style={styles.divider} />
 

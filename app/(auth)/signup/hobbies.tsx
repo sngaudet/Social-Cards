@@ -186,7 +186,7 @@ export default function SignupHobbiesStep() {
     }
 
     updateDraft({ hobbies });
-    router.push("/(auth)/signup/profile" as Href);
+    router.push("/(auth)/signup/personalProfile" as Href);
   };
 
   return (

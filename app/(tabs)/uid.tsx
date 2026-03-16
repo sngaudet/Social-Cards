@@ -17,6 +17,7 @@ import { auth, db } from "../../firebaseConfig";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { subscribeToConnections } from "../../src/connections/service";
 import { formatHobbies } from "../../src/lib/hobbies";
+import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
   normalizePreConnectionVisibility,
   PreConnectionVisibility,
@@ -26,9 +27,12 @@ type UserDoc = {
   firstName?: string;
   lastName?: string;
   Gender?: string;
-  age?: number | string;
+  dateOfBirth?: string;
+  bio?: string;
+  pronouns?: string;
   gradYear?: number | string;
   major?: string;
+  minor?: string;
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
@@ -141,15 +145,18 @@ export default function UserProfileView() {
     .join(" ")
     .trim();
   const hasVisibleBasics =
-    canSeeField("Gender") ||
-    canSeeField("age") ||
+    canSeeField("pronouns") ||
+    canSeeField("dateOfBirth") ||
     canSeeField("gradYear") ||
-    canSeeField("major");
+    canSeeField("major") ||
+    canSeeField("minor") ||
+    canSeeField("bio");
   const hasVisibleIceBreakers =
     canSeeField("iceBreakerOne") ||
     canSeeField("iceBreakerTwo") ||
     canSeeField("iceBreakerThree");
   const avatarSource = getAvatarImageSource(data?.avatarId);
+  const ageFromDateOfBirth = calculateAgeFromDateOfBirth(data?.dateOfBirth ?? "");
   const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
 
   return (
@@ -203,17 +210,17 @@ export default function UserProfileView() {
 
           {hasVisibleBasics ? (
             <>
-              {canSeeField("Gender") ? (
+              {canSeeField("pronouns") ? (
                 <>
-                  <Text style={styles.label}>Gender</Text>
-                  <Text style={styles.value}>{pretty(data.Gender)}</Text>
+                  <Text style={styles.label}>Pronouns</Text>
+                  <Text style={styles.value}>{pretty(data.pronouns ?? data.Gender)}</Text>
                 </>
               ) : null}
 
-              {canSeeField("age") ? (
+              {canSeeField("dateOfBirth") ? (
                 <>
                   <Text style={styles.label}>Age</Text>
-                  <Text style={styles.value}>{pretty(data.age)}</Text>
+                  <Text style={styles.value}>{ageFromDateOfBirth ?? "-"}</Text>
                 </>
               ) : null}
 
@@ -228,6 +235,20 @@ export default function UserProfileView() {
                 <>
                   <Text style={styles.label}>Major</Text>
                   <Text style={styles.value}>{pretty(data.major)}</Text>
+                </>
+              ) : null}
+
+              {canSeeField("minor") ? (
+                <>
+                  <Text style={styles.label}>Minor</Text>
+                  <Text style={styles.value}>{pretty(data.minor)}</Text>
+                </>
+              ) : null}
+
+              {canSeeField("bio") ? (
+                <>
+                  <Text style={styles.label}>Bio</Text>
+                  <Text style={styles.value}>{pretty(data.bio)}</Text>
                 </>
               ) : null}
             </>

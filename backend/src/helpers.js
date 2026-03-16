@@ -70,14 +70,26 @@ function normalizePreConnectionVisibility(value) {
       typeof record.photoURL === "boolean" ? record.photoURL : false,
     lastName:
       typeof record.lastName === "boolean" ? record.lastName : false,
-    Gender:
-      typeof record.Gender === "boolean" ? record.Gender : true,
-    age:
-      typeof record.age === "boolean" ? record.age : true,
+    pronouns:
+      typeof record.pronouns === "boolean"
+        ? record.pronouns
+        : typeof record.Gender === "boolean"
+          ? record.Gender
+          : true,
+    dateOfBirth:
+      typeof record.dateOfBirth === "boolean"
+        ? record.dateOfBirth
+        : typeof record.age === "boolean"
+          ? record.age
+          : true,
     gradYear:
       typeof record.gradYear === "boolean" ? record.gradYear : true,
     major:
       typeof record.major === "boolean" ? record.major : true,
+    minor:
+      typeof record.minor === "boolean" ? record.minor : true,
+    bio:
+      typeof record.bio === "boolean" ? record.bio : true,
     iceBreakerOne:
       typeof record.iceBreakerOne === "boolean" ? record.iceBreakerOne : true,
     iceBreakerTwo:
@@ -302,10 +314,12 @@ function buildNearbyUserPayload(uid, userDoc, presence) {
     preConnectionVisibility: normalizePreConnectionVisibility(
       userDoc?.preConnectionVisibility,
     ),
-    Gender: userDoc?.Gender || "",
-    age: userDoc?.age ?? "",
+    pronouns: userDoc?.pronouns || userDoc?.Gender || "",
+    dateOfBirth: userDoc?.dateOfBirth || "",
     gradYear: userDoc?.gradYear ?? "",
     major: userDoc?.major || "",
+    minor: userDoc?.minor || "",
+    bio: userDoc?.bio || "",
     hobbies: normalizeStringArray(userDoc?.hobbies),
     avatarId: userDoc?.avatarId || "",
     photoURL: userDoc?.photoURL || "",

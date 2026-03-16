@@ -21,10 +21,12 @@ export type NearbyUser = {
   firstName: string;
   lastName?: string;
   preConnectionVisibility?: PreConnectionVisibility;
-  Gender?: string;
-  age?: number | string;
+  pronouns?: string;
+  dateOfBirth?: string;
   gradYear?: number | string;
   major: string;
+  minor?: string;
+  bio?: string;
   hobbies: string[];
   avatarId?: string;
   photoURL: string;

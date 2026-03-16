@@ -10,10 +10,12 @@ export type SignupDraft = {
 
   firstName: string;
   lastName: string;
-  Gender: string;
-  age: number | null;
+  dateOfBirth: string;
+  bio: string;
+  pronouns: string;
   gradYear: number | null;
   major: string;
+  minor: string;
   iceBreakerOne: string;
   iceBreakerTwo: string;
   iceBreakerThree: string;
@@ -31,10 +33,12 @@ export const emptySignupDraft: SignupDraft = {
 
   firstName: "",
   lastName: "",
-  Gender: "",
-  age: null,
+  dateOfBirth: "",
+  bio: "",
+  pronouns: "",
   gradYear: null,
   major: "",
+  minor: "",
   iceBreakerOne: "",
   iceBreakerTwo: "",
   iceBreakerThree: "",

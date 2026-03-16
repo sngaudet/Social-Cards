@@ -34,7 +34,10 @@ export type ConnectionDoc = {
 export type PublicUserProfile = {
   uid: string;
   firstName?: string;
+  pronouns?: string;
   major?: string;
+  minor?: string;
+  bio?: string;
   avatarId?: string;
   photoURL?: string;
 };
@@ -167,7 +170,10 @@ export async function getUserProfile(uid: string): Promise<PublicUserProfile> {
   return {
     uid,
     firstName: data.firstName ?? "",
+    pronouns: data.pronouns ?? data.Gender ?? "",
     major: data.major ?? "",
+    minor: data.minor ?? "",
+    bio: data.bio ?? "",
     avatarId: data.avatarId ?? "",
     photoURL: data.photoURL ?? "",
   };

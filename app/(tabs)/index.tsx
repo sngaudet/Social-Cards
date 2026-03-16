@@ -22,6 +22,7 @@ import {
   sendForegroundPing,
 } from "../../src/location/service";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
+import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
   normalizePreConnectionVisibility,
   PreConnectionVisibility,
@@ -275,14 +276,15 @@ export default function HomeTab() {
               .join(" ")
               .trim() || "Unknown";
           const showMajor = canSeeField("major");
-          const showGender = canSeeField("Gender");
-          const showAge = canSeeField("age");
+          const showPronouns = canSeeField("pronouns");
+          const showDateOfBirth = canSeeField("dateOfBirth");
           const showGradYear = canSeeField("gradYear");
           const showHobbies = canSeeField("hobbies");
           const showIceBreakerOne = canSeeField("iceBreakerOne");
           const showIceBreakerTwo = canSeeField("iceBreakerTwo");
           const showIceBreakerThree = canSeeField("iceBreakerThree");
-          const pronouns = formatPronouns(user.Gender);
+          const pronouns = formatPronouns(user.pronouns);
+          const ageFromDateOfBirth = calculateAgeFromDateOfBirth(user.dateOfBirth ?? "");
           const avatarSource = getAvatarImageSource(user.avatarId);
           const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
           const primaryPrompt =
@@ -331,17 +333,17 @@ export default function HomeTab() {
                   </View>
 
                   <View style={styles.metaRow}>
-                    {showGender && pronouns ? (
+                    {showPronouns && pronouns ? (
                       <View style={styles.metaItem}>
                         <Text style={styles.metaLabel}>Pronouns</Text>
                         <Text style={styles.metaValue}>{pronouns}</Text>
                       </View>
                     ) : null}
 
-                    {showAge && user.age ? (
+                    {showDateOfBirth && ageFromDateOfBirth != null ? (
                       <View style={styles.metaItem}>
                         <Text style={styles.metaLabel}>Age</Text>
-                        <Text style={styles.metaValue}>{user.age}</Text>
+                        <Text style={styles.metaValue}>{ageFromDateOfBirth}</Text>
                       </View>
                     ) : null}
 

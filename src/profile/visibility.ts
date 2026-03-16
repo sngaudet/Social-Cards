@@ -1,10 +1,12 @@
 export type PreConnectionVisibility = {
   photoURL: boolean;
   lastName: boolean;
-  Gender: boolean;
-  age: boolean;
+  pronouns: boolean;
+  dateOfBirth: boolean;
   gradYear: boolean;
   major: boolean;
+  minor: boolean;
+  bio: boolean;
   iceBreakerOne: boolean;
   iceBreakerTwo: boolean;
   iceBreakerThree: boolean;
@@ -14,10 +16,12 @@ export type PreConnectionVisibility = {
 export const DEFAULT_PRE_CONNECTION_VISIBILITY: PreConnectionVisibility = {
   photoURL: false,
   lastName: false,
-  Gender: true,
-  age: true,
+  pronouns: true,
+  dateOfBirth: true,
   gradYear: true,
   major: true,
+  minor: true,
+  bio: true,
   iceBreakerOne: true,
   iceBreakerTwo: true,
   iceBreakerThree: true,
@@ -30,10 +34,12 @@ export const PRE_CONNECTION_VISIBILITY_FIELDS: {
 }[] = [
   { key: "photoURL", label: "Profile Photo" },
   { key: "lastName", label: "Last Name" },
-  { key: "Gender", label: "Gender" },
-  { key: "age", label: "Age" },
+  { key: "pronouns", label: "Pronouns" },
+  { key: "dateOfBirth", label: "Date of Birth" },
   { key: "gradYear", label: "Graduation Year" },
   { key: "major", label: "Major" },
+  { key: "minor", label: "Minor" },
+  { key: "bio", label: "Bio" },
   { key: "iceBreakerOne", label: "Ideal Weekend" },
   { key: "iceBreakerTwo", label: "Favorite Food Prompt" },
   { key: "iceBreakerThree", label: "Fun Fact" },
@@ -57,14 +63,18 @@ export function normalizePreConnectionVisibility(
       typeof record.lastName === "boolean"
         ? record.lastName
         : DEFAULT_PRE_CONNECTION_VISIBILITY.lastName,
-    Gender:
-      typeof record.Gender === "boolean"
-        ? record.Gender
-        : DEFAULT_PRE_CONNECTION_VISIBILITY.Gender,
-    age:
-      typeof record.age === "boolean"
-        ? record.age
-        : DEFAULT_PRE_CONNECTION_VISIBILITY.age,
+    pronouns:
+      typeof record.pronouns === "boolean"
+        ? record.pronouns
+        : typeof (record as Record<string, unknown>).Gender === "boolean"
+          ? ((record as Record<string, unknown>).Gender as boolean)
+          : DEFAULT_PRE_CONNECTION_VISIBILITY.pronouns,
+    dateOfBirth:
+      typeof record.dateOfBirth === "boolean"
+        ? record.dateOfBirth
+        : typeof (record as Record<string, unknown>).age === "boolean"
+          ? ((record as Record<string, unknown>).age as boolean)
+          : DEFAULT_PRE_CONNECTION_VISIBILITY.dateOfBirth,
     gradYear:
       typeof record.gradYear === "boolean"
         ? record.gradYear
@@ -73,6 +83,14 @@ export function normalizePreConnectionVisibility(
       typeof record.major === "boolean"
         ? record.major
         : DEFAULT_PRE_CONNECTION_VISIBILITY.major,
+    minor:
+      typeof record.minor === "boolean"
+        ? record.minor
+        : DEFAULT_PRE_CONNECTION_VISIBILITY.minor,
+    bio:
+      typeof record.bio === "boolean"
+        ? record.bio
+        : DEFAULT_PRE_CONNECTION_VISIBILITY.bio,
     iceBreakerOne:
       typeof record.iceBreakerOne === "boolean"
         ? record.iceBreakerOne
