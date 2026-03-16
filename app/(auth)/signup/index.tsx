@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { Href, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -28,13 +28,36 @@ function showAlert(title: string, message?: string) {
 
 export default function SignupAccountStep() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    errorTitle?: string | string[];
+    errorMessage?: string | string[];
+  }>();
   const { draft, updateDraft } = useSignup();
+  const handledErrorKeyRef = useRef<string | null>(null);
 
   const [email, setEmail] = useState(draft.email ?? "");
   const [password, setPassword] = useState(draft.password ?? "");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    const errorTitle = Array.isArray(params.errorTitle)
+      ? params.errorTitle[0]
+      : params.errorTitle;
+    const errorMessage = Array.isArray(params.errorMessage)
+      ? params.errorMessage[0]
+      : params.errorMessage;
+
+    if (!errorTitle) return;
+
+    const errorKey = `${errorTitle}::${errorMessage ?? ""}`;
+    if (handledErrorKeyRef.current === errorKey) return;
+    handledErrorKeyRef.current = errorKey;
+
+    showAlert(errorTitle, errorMessage);
+    router.replace("/(auth)/signup" as Href);
+  }, [params.errorMessage, params.errorTitle, router]);
 
 
   const getPasswordStrength = () => {

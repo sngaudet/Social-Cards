@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
@@ -50,11 +50,21 @@ export default function RegistrationCompletePage() {
     return fields;
   }, [draft, hobbies]);
 
+  const redirectToSignupWithError = (title: string, message: string) => {
+    router.replace({
+      pathname: "/(auth)/signup",
+      params: {
+        errorTitle: title,
+        errorMessage: message,
+      },
+    } as Href);
+  };
+
   const handleSubmit = async () => {
     if (missing.length > 0) {
-      Alert.alert(
+      redirectToSignupWithError(
         "Missing info",
-        `Please go back and fill: ${missing.join(", ")}.`,
+        `Please finish: ${missing.join(", ")}.`,
       );
       return;
     }
@@ -63,12 +73,12 @@ export default function RegistrationCompletePage() {
     const password = draft.password;
 
     if (!email.includes("@")) {
-      Alert.alert("Invalid email", "Enter a valid email address.");
+      redirectToSignupWithError("Invalid email", "Enter a valid email address.");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Weak password", "Use at least 6 characters.");
+      redirectToSignupWithError("Weak password", "Use at least 6 characters.");
       return;
     }
 
@@ -166,13 +176,22 @@ export default function RegistrationCompletePage() {
       const code = e?.code as string | undefined;
 
       if (code === "auth/email-already-in-use") {
-        Alert.alert("Email already in use", "Try logging in instead.");
+        redirectToSignupWithError(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
       } else if (code === "auth/invalid-email") {
-        Alert.alert("Invalid email", "Check your email address and try again.");
+        redirectToSignupWithError(
+          "Invalid email",
+          "Check your email address and try again.",
+        );
       } else if (code === "auth/weak-password") {
-        Alert.alert("Weak password", "Use at least 6 characters.");
+        redirectToSignupWithError(
+          "Weak password",
+          "Use at least 6 characters.",
+        );
       } else {
-        Alert.alert("Error", e?.message ?? "Signup failed.");
+        redirectToSignupWithError("Error", e?.message ?? "Signup failed.");
       }
     } finally {
       setSubmitting(false);
