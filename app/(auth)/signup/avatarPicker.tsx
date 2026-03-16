@@ -15,6 +15,7 @@ import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
+// id + iamgeSource for all images in the images folder.
 const AVATAR_OPTIONS = [
   {
     id: "rainbow-unicorn-avatar",
@@ -23,14 +24,15 @@ const AVATAR_OPTIONS = [
 ] as const;
 
 const GRID_SIZE = 15;
+
 const AVATAR_CELLS = Array.from({ length: GRID_SIZE }, (_, index) => {
   const option = AVATAR_OPTIONS[index];
   return option
     ? option
     : {
-        id: `blank-${index}`,
-        imageSource: undefined,
-      };
+      id: `blank-${index}`,
+      imageSource: undefined,
+    };
 });
 
 function showAlert(title: string, message?: string) {
@@ -65,8 +67,8 @@ export default function SignupAvatarPickerStep() {
       <ProgressHeader currentStep={6} />
 
       <SignupScreenHeader
-        title="Pick an avatar"
-        subtitle="Choose a default look for your profile before you add photos."
+        title="Pick your avatar"
+        subtitle="This is what others see before you connect. You can reveal your real photo later."
       />
 
       <View style={styles.grid}>
@@ -78,9 +80,9 @@ export default function SignupAvatarPickerStep() {
             onPress={
               option.imageSource
                 ? () => {
-                    setSelectedAvatarId(option.id);
-                    updateDraft({ avatarId: option.id });
-                  }
+                  setSelectedAvatarId(option.id);
+                  updateDraft({ avatarId: option.id });
+                }
                 : undefined
             }
           />

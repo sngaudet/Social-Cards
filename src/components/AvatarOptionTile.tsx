@@ -3,38 +3,37 @@ import {
   Image,
   ImageSourcePropType,
   Pressable,
+  StyleProp,
   StyleSheet,
   View,
+  ViewStyle,
 } from "react-native";
 
 type AvatarOptionTileProps = {
-  imageSource?: ImageSourcePropType;
   selected?: boolean;
   onPress?: () => void;
+  imageSource: ImageSourcePropType;
+  style?: StyleProp<ViewStyle>;
 };
 
 export default function AvatarOptionTile({
-  imageSource,
   selected = false,
   onPress,
+  imageSource,
+  style,
 }: AvatarOptionTileProps) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={!imageSource}
       style={({ pressed }) => [
         styles.tile,
-        !imageSource && styles.tileBlank,
         selected ? styles.tileSelected : styles.tileUnselected,
-        pressed && !!imageSource && styles.pressed,
+        pressed && styles.pressed,
+        style,
       ]}
     >
-      <View style={styles.inner}>
-        {imageSource ? (
-          <Image source={imageSource} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={styles.blankFill} />
-        )}
+      <View style={styles.innerBox}>
+        <Image source={imageSource} style={styles.image} resizeMode="contain" />
       </View>
     </Pressable>
   );
@@ -42,36 +41,32 @@ export default function AvatarOptionTile({
 
 const styles = StyleSheet.create({
   tile: {
-    width: "31%",
-    aspectRatio: 1,
-    borderRadius: 22,
+    width: 122,
+    height: 122,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1.25,
+    backgroundColor: "#F6F7F9",
   },
 
   tileUnselected: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D8E0EA",
+    borderWidth: 1,
+    borderColor: "#D9DEE5",
   },
 
   tileSelected: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#7DD3FC",
-    borderWidth: 3,
+    borderWidth: 2,
+    borderColor: "#78C8F8",
   },
 
-  tileBlank: {
-    backgroundColor: "#F8FAFC",
-  },
-
-  inner: {
+  innerBox: {
+    width: 86,
+    height: 86,
+    borderRadius: 20,
+    backgroundColor: "#E9EDF2",
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    width: "100%",
-    height: "100%",
-    borderRadius: 18,
-    overflow: "hidden",
   },
 
   image: {
@@ -81,12 +76,5 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.96,
-    transform: [{ scale: 0.985 }],
-  },
-
-  blankFill: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#EEF2F6",
   },
 });
