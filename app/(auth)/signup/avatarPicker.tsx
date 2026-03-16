@@ -15,11 +15,15 @@ import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
-// id + iamgeSource for all images in the images folder.
+// id + imageSource for all images in the images folder.
 const AVATAR_OPTIONS = [
   {
     id: "rainbow-unicorn-avatar",
     imageSource: require("../../../src/images/Rainbow Unicorn Avatar.png"),
+  },
+  {
+    id: "catman",
+    imageSource: require("../../../src/images/catman.jpg"),
   },
 ] as const;
 
