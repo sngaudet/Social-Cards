@@ -2,14 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 type ProgressHeaderProps = {
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
-  totalSteps?: 6;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  totalSteps?: 7;
   title?: string;
 };
 
 export default function ProgressHeader({
   currentStep,
-  totalSteps = 6,
+  totalSteps = 7,
   title = "Account Setup",
 }: ProgressHeaderProps) {
   const progressPercent = (currentStep / totalSteps) * 100;

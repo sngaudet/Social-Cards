@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import React from "react";
 import {
   Image,
@@ -37,7 +37,9 @@ export default function WelcomePage(){
               title="Get Started"
               style={styles.getStartedButton}
               onPress={() =>
-                router.push(shouldResumeSignup ? resumeRoute : "/(auth)/signup")
+                router.push(
+                  (shouldResumeSignup ? resumeRoute : "/(auth)/signup") as Href,
+                )
               }
             />
 

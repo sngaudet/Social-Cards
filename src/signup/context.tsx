@@ -7,12 +7,15 @@ import {
   emptySignupDraft,
 } from "./types";
 import { normalizeHobbies } from "../lib/hobbies";
+import { normalizeDateOfBirth } from "../lib/profileFields";
 
 type SignupResumeRoute =
   | "/(auth)/signup"
-  | "/(auth)/signup/profile"
+  | "/(auth)/signup/personalProfile"
+  | "/(auth)/signup/academicProfile"
   | "/(auth)/signup/icebreakers"
   | "/(auth)/signup/hobbies"
+  | "/(auth)/signup/avatarPicker"
   | "/(auth)/signup/pictures"
   | "/(auth)/signup/onboardingIntro"
   | "/(auth)/signup/onboardingPermission"
@@ -32,9 +35,11 @@ const SIGNUP_DRAFT_STORAGE_KEY = "icebreakers_signup_draft_v1";
 const DEFAULT_SIGNUP_ROUTE: SignupResumeRoute = "/(auth)/signup";
 const SIGNUP_ROUTES = new Set<SignupResumeRoute>([
   "/(auth)/signup",
-  "/(auth)/signup/profile",
+  "/(auth)/signup/personalProfile",
+  "/(auth)/signup/academicProfile",
   "/(auth)/signup/icebreakers",
   "/(auth)/signup/hobbies",
+  "/(auth)/signup/avatarPicker",
   "/(auth)/signup/pictures",
   "/(auth)/signup/onboardingIntro",
   "/(auth)/signup/onboardingPermission",
@@ -77,29 +82,36 @@ function normalizeLocationPermissionStatus(
 function normalizeDraft(value: unknown): SignupDraft {
   const raw = (value && typeof value === "object" ? value : {}) as Partial<SignupDraft> & {
     hobbies?: string[] | string;
+    avatarId?: unknown;
     photoUris?: unknown;
+    Gender?: unknown;
   };
 
   return {
     ...emptySignupDraft,
     ...raw,
-    age:
-      typeof raw.age === "number"
-        ? raw.age
-        : raw.age == null
-          ? null
-          : Number(raw.age) || null,
     gradYear:
       typeof raw.gradYear === "number"
         ? raw.gradYear
         : raw.gradYear == null
           ? null
           : Number(raw.gradYear) || null,
+    dateOfBirth: normalizeDateOfBirth(raw.dateOfBirth),
+    bio: typeof raw.bio === "string" ? raw.bio : "",
+    pronouns:
+      typeof raw.pronouns === "string"
+        ? raw.pronouns
+        : typeof raw.Gender === "string"
+          ? raw.Gender
+          : "",
+    major: typeof raw.major === "string" ? raw.major : "",
+    minor: typeof raw.minor === "string" ? raw.minor : "",
     locationSharingEnabled: raw.locationSharingEnabled === true,
     locationPermissionStatus: normalizeLocationPermissionStatus(
       raw.locationPermissionStatus,
     ),
     hobbies: normalizeHobbies(raw.hobbies),
+    avatarId: typeof raw.avatarId === "string" ? raw.avatarId : "",
     photoUris: Array.isArray(raw.photoUris)
       ? raw.photoUris.filter((item): item is string => typeof item === "string")
       : [],
@@ -119,14 +131,17 @@ function hasDraftProgress(draft: SignupDraft): boolean {
       draft.password ||
       draft.firstName.trim() ||
       draft.lastName.trim() ||
-      draft.Gender.trim() ||
-      draft.age != null ||
+      draft.dateOfBirth.trim() ||
+      draft.bio.trim() ||
+      draft.pronouns.trim() ||
       draft.gradYear != null ||
       draft.major.trim() ||
+      draft.minor.trim() ||
       draft.iceBreakerOne.trim() ||
       draft.iceBreakerTwo.trim() ||
       draft.iceBreakerThree.trim() ||
       draft.hobbies.length > 0 ||
+      draft.avatarId.trim() ||
       draft.photoUris.length > 0 ||
       draft.locationSharingEnabled ||
       draft.locationPermissionStatus !== "unknown",

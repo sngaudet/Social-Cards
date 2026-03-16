@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
@@ -12,10 +12,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
+import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import {
   deleteUploadedProfilePhotoAsync,
   uploadProfilePhotoAsync,
@@ -31,6 +32,10 @@ export default function RegistrationCompletePage() {
     () => normalizeHobbies(draft.hobbies),
     [draft.hobbies],
   );
+  const derivedAge = useMemo(
+    () => calculateAgeFromDateOfBirth(draft.dateOfBirth),
+    [draft.dateOfBirth],
+  );
 
   const missing = useMemo(() => {
     const fields: string[] = [];
@@ -38,22 +43,35 @@ export default function RegistrationCompletePage() {
     if (!draft.password) fields.push("password");
     if (!draft.firstName?.trim()) fields.push("first name");
     if (!draft.lastName?.trim()) fields.push("last name");
-    if (!draft.Gender?.trim()) fields.push("gender");
-    if (draft.age == null) fields.push("age");
+    if (!draft.dateOfBirth?.trim()) fields.push("date of birth");
+    if (!draft.bio?.trim()) fields.push("bio");
+    if (!draft.pronouns?.trim()) fields.push("pronouns");
     if (draft.gradYear == null) fields.push("grad year");
     if (!draft.major?.trim()) fields.push("major");
+    if (!draft.minor?.trim()) fields.push("minor");
     if (!draft.iceBreakerOne?.trim()) fields.push("ice breaker 1");
     if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
     if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
     if (hobbies.length === 0) fields.push("hobbies");
+    if (!draft.avatarId?.trim()) fields.push("avatar");
     return fields;
   }, [draft, hobbies]);
 
+  const redirectToSignupWithError = (title: string, message: string) => {
+    router.replace({
+      pathname: "/(auth)/signup",
+      params: {
+        errorTitle: title,
+        errorMessage: message,
+      },
+    } as Href);
+  };
+
   const handleSubmit = async () => {
     if (missing.length > 0) {
-      Alert.alert(
+      redirectToSignupWithError(
         "Missing info",
-        `Please go back and fill: ${missing.join(", ")}.`,
+        `Please finish: ${missing.join(", ")}.`,
       );
       return;
     }
@@ -62,12 +80,12 @@ export default function RegistrationCompletePage() {
     const password = draft.password;
 
     if (!email.includes("@")) {
-      Alert.alert("Invalid email", "Enter a valid email address.");
+      redirectToSignupWithError("Invalid email", "Enter a valid email address.");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Weak password", "Use at least 6 characters.");
+      redirectToSignupWithError("Weak password", "Use at least 6 characters.");
       return;
     }
 
@@ -94,14 +112,18 @@ export default function RegistrationCompletePage() {
         email: cred.user.email,
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
-        Gender: draft.Gender ?? "",
-        age: draft.age ?? "",
+        dateOfBirth: draft.dateOfBirth ?? "",
+        bio: draft.bio ?? "",
+        pronouns: draft.pronouns ?? "",
+        age: derivedAge ?? "",
         gradYear: draft.gradYear ?? "",
         major: draft.major ?? "",
+        minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
+        avatarId: draft.avatarId ?? "",
         photoURL,
         photoUrls: uploadedPhotoUrls,
         preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
@@ -121,14 +143,18 @@ export default function RegistrationCompletePage() {
       batch.set(publicProfileRef, {
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
-        Gender: draft.Gender ?? "",
-        age: draft.age ?? "",
+        dateOfBirth: draft.dateOfBirth ?? "",
+        bio: draft.bio ?? "",
+        pronouns: draft.pronouns ?? "",
+        age: derivedAge ?? "",
         gradYear: draft.gradYear ?? "",
         major: draft.major ?? "",
+        minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerThree: draft.iceBreakerThree ?? "",
         hobbies,
+        avatarId: draft.avatarId ?? "",
         photoURL,
         preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
         updatedAt: serverTimestamp(),
@@ -163,13 +189,22 @@ export default function RegistrationCompletePage() {
       const code = e?.code as string | undefined;
 
       if (code === "auth/email-already-in-use") {
-        Alert.alert("Email already in use", "Try logging in instead.");
+        redirectToSignupWithError(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
       } else if (code === "auth/invalid-email") {
-        Alert.alert("Invalid email", "Check your email address and try again.");
+        redirectToSignupWithError(
+          "Invalid email",
+          "Check your email address and try again.",
+        );
       } else if (code === "auth/weak-password") {
-        Alert.alert("Weak password", "Use at least 6 characters.");
+        redirectToSignupWithError(
+          "Weak password",
+          "Use at least 6 characters.",
+        );
       } else {
-        Alert.alert("Error", e?.message ?? "Signup failed.");
+        redirectToSignupWithError("Error", e?.message ?? "Signup failed.");
       }
     } finally {
       setSubmitting(false);

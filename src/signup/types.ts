@@ -10,14 +10,17 @@ export type SignupDraft = {
 
   firstName: string;
   lastName: string;
-  Gender: string;
-  age: number | null;
+  dateOfBirth: string;
+  bio: string;
+  pronouns: string;
   gradYear: number | null;
   major: string;
+  minor: string;
   iceBreakerOne: string;
   iceBreakerTwo: string;
   iceBreakerThree: string;
   hobbies: string[];
+  avatarId: string;
 
   photoUris: string[];
   locationSharingEnabled: boolean;
@@ -30,14 +33,17 @@ export const emptySignupDraft: SignupDraft = {
 
   firstName: "",
   lastName: "",
-  Gender: "",
-  age: null,
+  dateOfBirth: "",
+  bio: "",
+  pronouns: "",
   gradYear: null,
   major: "",
+  minor: "",
   iceBreakerOne: "",
   iceBreakerTwo: "",
   iceBreakerThree: "",
   hobbies: [],
+  avatarId: "",
 
   photoUris: [],
   locationSharingEnabled: false,

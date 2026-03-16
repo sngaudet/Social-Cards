@@ -1,4 +1,4 @@
-import { Redirect } from "expo-router";
+import { Href, Redirect } from "expo-router";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../src/auth/AuthContext";
@@ -21,7 +21,7 @@ export default function Index() {
   }
 
   if (shouldResumeSignup) {
-    return <Redirect href={resumeRoute} />;
+    return <Redirect href={resumeRoute as Href} />;
   }
 
   return <Redirect href="/welcome" />;

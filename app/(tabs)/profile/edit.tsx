@@ -35,6 +35,10 @@ import {
   parseHobbiesInput,
 } from "../../../src/lib/hobbies";
 import {
+  calculateAgeFromDateOfBirth,
+  normalizeDateOfBirth,
+} from "../../../src/lib/profileFields";
+import {
   normalizePreConnectionVisibility,
   PRE_CONNECTION_VISIBILITY_FIELDS,
   PreConnectionVisibility,
@@ -45,9 +49,12 @@ type UserDoc = {
   firstName?: string;
   lastName?: string;
   Gender?: string;
-  age?: number | string;
+  dateOfBirth?: string;
+  bio?: string;
+  pronouns?: string;
   gradYear?: number | string;
   major?: string;
+  minor?: string;
   iceBreakerOne?: string;
   iceBreakerTwo?: string;
   iceBreakerThree?: string;
@@ -88,10 +95,12 @@ export default function EditProfile() {
   // editable fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState("");
-  const [age, setAge] = useState<number | null>(null);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [bio, setBio] = useState("");
+  const [pronouns, setPronouns] = useState("");
   const [gradYear, setGradYear] = useState<number | null>(null);
   const [major, setMajor] = useState("");
+  const [minor, setMinor] = useState("");
   const [ice1, setIce1] = useState("");
   const [ice2, setIce2] = useState("");
   const [ice3, setIce3] = useState("");
@@ -125,10 +134,12 @@ export default function EditProfile() {
       // doc missing: keep everything blank
       setFirstName("");
       setLastName("");
-      setGender("");
-      setAge(null);
+      setDateOfBirth("");
+      setBio("");
+      setPronouns("");
       setGradYear(null);
       setMajor("");
+      setMinor("");
       setIce1("");
       setIce2("");
       setIce3("");
@@ -146,10 +157,12 @@ export default function EditProfile() {
 
     setFirstName(d.firstName ?? "");
     setLastName(d.lastName ?? "");
-    setGender(d.Gender ?? "");
-    setAge(toIntOrNull(d.age));
+    setDateOfBirth(normalizeDateOfBirth(d.dateOfBirth));
+    setBio(d.bio ?? "");
+    setPronouns(d.pronouns ?? d.Gender ?? "");
     setGradYear(toIntOrNull(d.gradYear));
     setMajor(d.major ?? "");
+    setMinor(d.minor ?? "");
 
     setIce1(d.iceBreakerOne ?? "");
     setIce2(d.iceBreakerTwo ?? "");
@@ -221,12 +234,16 @@ export default function EditProfile() {
       Alert.alert("Missing fields", "Please enter your first and last name.");
       return false;
     }
-    if (!gender.trim()) {
-      Alert.alert("Missing fields", "Please select a gender.");
+    if (!normalizeDateOfBirth(dateOfBirth)) {
+      Alert.alert("Invalid date", "Please enter a valid date of birth.");
       return false;
     }
-    if (age == null || age < 18 || age > 80) {
-      Alert.alert("Invalid age", "Please select a valid age.");
+    if (!bio.trim()) {
+      Alert.alert("Missing fields", "Please enter a short bio.");
+      return false;
+    }
+    if (!pronouns.trim()) {
+      Alert.alert("Missing fields", "Please select your pronouns.");
       return false;
     }
     if (gradYear == null) {
@@ -235,6 +252,10 @@ export default function EditProfile() {
     }
     if (!major.trim()) {
       Alert.alert("Missing fields", "Please enter your major.");
+      return false;
+    }
+    if (!minor.trim()) {
+      Alert.alert("Missing fields", "Please enter your minor.");
       return false;
     }
     if (!ice1.trim() || !ice2.trim() || !ice3.trim()) {
@@ -263,16 +284,21 @@ export default function EditProfile() {
       }
 
       const normalizedHobbies = parseHobbiesInput(hobbies);
+      const normalizedDateOfBirth = normalizeDateOfBirth(dateOfBirth);
+      const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
 
       await updateDoc(doc(db, "users", uid), {
         email: auth.currentUser?.email ?? email,
 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        Gender: gender.trim(),
-        age: age,
+        dateOfBirth: normalizedDateOfBirth,
+        bio: bio.trim(),
+        pronouns: pronouns.trim(),
+        age: derivedAge,
         gradYear: gradYear,
         major: major.trim(),
+        minor: minor.trim(),
 
         iceBreakerOne: ice1.trim(),
         iceBreakerTwo: ice2.trim(),
@@ -291,10 +317,13 @@ export default function EditProfile() {
         {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          Gender: gender.trim(),
-          age: age,
+          dateOfBirth: normalizedDateOfBirth,
+          bio: bio.trim(),
+          pronouns: pronouns.trim(),
+          age: derivedAge,
           gradYear: gradYear,
           major: major.trim(),
+          minor: minor.trim(),
           iceBreakerOne: ice1.trim(),
           iceBreakerTwo: ice2.trim(),
           iceBreakerThree: ice3.trim(),
@@ -572,36 +601,38 @@ export default function EditProfile() {
           style={styles.input}
         />
 
-        <Text style={styles.label}>Gender</Text>
+        <Text style={styles.label}>Date of Birth</Text>
+        <TextInput
+          value={dateOfBirth}
+          onChangeText={(value) => setDateOfBirth(value)}
+          style={styles.input}
+          placeholder="YYYY-MM-DD"
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.label}>Bio</Text>
+        <TextInput
+          value={bio}
+          onChangeText={(value) => setBio(value.slice(0, 140))}
+          style={[styles.input, styles.multiline]}
+          multiline
+          textAlignVertical="top"
+        />
+
+        <Text style={styles.label}>Pronouns</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={gender}
-            onValueChange={(v) => setGender(String(v))}
+            selectedValue={pronouns}
+            onValueChange={(v) => setPronouns(String(v))}
           >
-            <Picker.Item label="Select gender..." value="" />
-            <Picker.Item label="Male" value="male" />
-            <Picker.Item label="Female" value="female" />
-            <Picker.Item label="MTF (Trans Woman)" value="mtf" />
-            <Picker.Item label="FTM (Trans Man)" value="ftm" />
-            <Picker.Item label="Androgynous" value="androgynous" />
-            <Picker.Item label="Non-binary" value="nonbinary" />
-            <Picker.Item label="Genderfluid" value="genderfluid" />
-            <Picker.Item label="Agender" value="agender" />
+            <Picker.Item label="Select pronouns..." value="" />
+            <Picker.Item label="He / Him" value="he/him" />
+            <Picker.Item label="She / Her" value="she/her" />
+            <Picker.Item label="They / Them" value="they/them" />
+            <Picker.Item label="He / They" value="he/they" />
+            <Picker.Item label="She / They" value="she/they" />
             <Picker.Item label="Other" value="other" />
             <Picker.Item label="Prefer not to say" value="prefer_not_to_say" />
-          </Picker>
-        </View>
-
-        <Text style={styles.label}>Age</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={age}
-            onValueChange={(v) => setAge(v === null ? null : Number(v))}
-          >
-            <Picker.Item label="Select age..." value={null} />
-            {Array.from({ length: 63 }, (_, i) => 18 + i).map((n) => (
-              <Picker.Item key={n} label={String(n)} value={n} />
-            ))}
           </Picker>
         </View>
 
@@ -620,6 +651,9 @@ export default function EditProfile() {
 
         <Text style={styles.label}>Major</Text>
         <TextInput value={major} onChangeText={setMajor} style={styles.input} />
+
+        <Text style={styles.label}>Minor</Text>
+        <TextInput value={minor} onChangeText={setMinor} style={styles.input} />
 
         <View style={styles.divider} />
 
