@@ -14,7 +14,9 @@ import {
   ConnectionDoc,
   ConnectionRequest,
   declineConnectionRequest,
+  getConnectionExpiresAt,
   getUserProfile,
+  isConnectionActive,
   PublicUserProfile,
   subscribeToConnections,
   subscribeToIncomingRequests,
@@ -165,11 +167,8 @@ export default function ConnectionsPage() {
     }
   };
 
-  const openChat = (connectionId: string, otherUid: string) => {
-    router.push({
-      pathname: "/(tabs)/chat/[connectionId]",
-      params: { connectionId, otherUid },
-    });
+  const openMessages = () => {
+    router.push("/(tabs)/message_cur");
   };
 
   if (!currentUid) {
@@ -255,7 +254,7 @@ export default function ConnectionsPage() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Accepted Connections</Text>
+        <Text style={styles.sectionTitle}>Connection History</Text>
 
         {connectionsWithProfiles.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -290,12 +289,30 @@ export default function ConnectionsPage() {
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.messageButton}
-                onPress={() => openChat(connection.id, connection.otherUid)}
-              >
-                <Text style={styles.buttonText}>Text</Text>
-              </TouchableOpacity>
+              <View style={styles.connectionMeta}>
+                <Text style={styles.subtleText}>
+                  {isConnectionActive(connection)
+                    ? `Current until ${getConnectionExpiresAt(connection)?.toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }) ?? "unknown"}`
+                    : `Expired ${getConnectionExpiresAt(connection)?.toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }) ?? "unknown"}`}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.messageButton}
+                  onPress={openMessages}
+                >
+                  <Text style={styles.buttonText}>
+                    {isConnectionActive(connection) ? "Open in Messages" : "See in Messages"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}
@@ -410,6 +427,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
+  },
+  connectionMeta: {
+    gap: 8,
   },
   disabledButton: {
     opacity: 0.6,

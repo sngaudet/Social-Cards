@@ -11,6 +11,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
+import { isConnectionActive } from "../connections/service";
 
 export type ChatMessage = {
   id: string;
@@ -64,6 +65,21 @@ export async function sendMessage(
 
   const trimmed = text.trim();
   if (!trimmed) throw new Error("Message cannot be empty.");
+
+  const connectionSnap = await getDoc(doc(db, "connections", connectionId));
+  if (!connectionSnap.exists()) {
+    throw new Error("Connection not found.");
+  }
+
+  const connection = connectionSnap.data();
+  const members = Array.isArray(connection.users) ? connection.users : [];
+  if (!members.includes(currentUid)) {
+    throw new Error("You are not part of this connection.");
+  }
+
+  if (!isConnectionActive(connection)) {
+    throw new Error("This connection has expired.");
+  }
 
   await addDoc(collection(db, "connections", connectionId, "messages"), {
     senderUid: currentUid,

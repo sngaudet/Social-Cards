@@ -9,10 +9,13 @@ import {
   QuerySnapshot,
   serverTimestamp,
   setDoc,
-    updateDoc,
-    where,
+  Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
+
+export const CONNECTION_DURATION_MS = 3 * 60 * 60 * 1000;
 
 export type ConnectionRequestStatus = "pending" | "accepted" | "declined";
 
@@ -29,6 +32,7 @@ export type ConnectionDoc = {
   id: string;
   users: string[];
   createdAt?: any;
+  expiresAt?: any;
 };
 
 export type PublicUserProfile = {
@@ -88,6 +92,9 @@ export async function acceptConnectionRequest(
   await setDoc(doc(db, "connections", connectionDocId(fromUid, toUid)), {
     users: sortedPair(fromUid, toUid),
     createdAt: serverTimestamp(),
+    expiresAt: Timestamp.fromDate(
+      new Date(Date.now() + CONNECTION_DURATION_MS),
+    ),
   });
 }
 
@@ -150,11 +157,44 @@ export function subscribeToConnections(
         id: docSnap.id,
         users: data.users ?? [],
         createdAt: data.createdAt,
+        expiresAt: data.expiresAt,
       };
     });
 
     callback(connections);
   });
+}
+
+function getDateFromTimestamp(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === "function") return value.toDate();
+  return null;
+}
+
+export function getConnectionCreatedAt(connection: Pick<ConnectionDoc, "createdAt">): Date | null {
+  return getDateFromTimestamp(connection.createdAt);
+}
+
+export function getConnectionExpiresAt(
+  connection: Pick<ConnectionDoc, "createdAt" | "expiresAt">,
+): Date | null {
+  const explicitExpiresAt = getDateFromTimestamp(connection.expiresAt);
+  if (explicitExpiresAt) return explicitExpiresAt;
+
+  const createdAt = getConnectionCreatedAt(connection);
+  if (!createdAt) return null;
+
+  return new Date(createdAt.getTime() + CONNECTION_DURATION_MS);
+}
+
+export function isConnectionActive(
+  connection: Pick<ConnectionDoc, "createdAt" | "expiresAt">,
+  now = new Date(),
+): boolean {
+  const expiresAt = getConnectionExpiresAt(connection);
+  if (!expiresAt) return true;
+  return expiresAt.getTime() > now.getTime();
 }
 
 export async function getUserProfile(uid: string): Promise<PublicUserProfile> {

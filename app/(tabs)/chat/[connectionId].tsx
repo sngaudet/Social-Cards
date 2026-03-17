@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -10,8 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../../../firebaseConfig";
-import { getUserProfile, PublicUserProfile } from "../../../src/connections/service";
+import { auth, db } from "../../../firebaseConfig";
+import {
+  getConnectionExpiresAt,
+  getUserProfile,
+  isConnectionActive,
+  PublicUserProfile,
+} from "../../../src/connections/service";
 import {
   ChatMessage,
   getConnectionMembers,
@@ -36,6 +42,8 @@ export default function ConnectionChatPage() {
   const [sending, setSending] = useState(false);
   const [otherUid, setOtherUid] = useState(params.otherUid ?? "");
   const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(null);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   useEffect(() => {
     if (!connectionId || !currentUid) return;
@@ -55,6 +63,29 @@ export default function ConnectionChatPage() {
       cancelled = true;
     };
   }, [connectionId, currentUid]);
+
+  useEffect(() => {
+    if (!connectionId) return;
+
+    return onSnapshot(doc(db, "connections", connectionId), (snapshot) => {
+      if (!snapshot.exists()) {
+        setExpiresAt(null);
+        return;
+      }
+
+      setExpiresAt(getConnectionExpiresAt(snapshot.data()));
+    });
+  }, [connectionId]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNowMs(Date.now());
+    }, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!otherUid) return;
@@ -81,6 +112,10 @@ export default function ConnectionChatPage() {
   const title = useMemo(() => {
     return otherProfile?.firstName || otherUid || "Chat";
   }, [otherProfile, otherUid]);
+  const isActive = useMemo(
+    () => isConnectionActive({ expiresAt }, new Date(nowMs)),
+    [expiresAt, nowMs],
+  );
 
   const handleSend = async () => {
     try {
@@ -109,6 +144,14 @@ export default function ConnectionChatPage() {
     >
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
+        <Text style={styles.statusText}>
+          {isActive
+            ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              }) ?? "unknown"}`
+            : "This connection has expired. You can still read previous messages."}
+        </Text>
       </View>
 
       <FlatList
@@ -140,14 +183,15 @@ export default function ConnectionChatPage() {
           style={styles.input}
           value={draft}
           onChangeText={setDraft}
-          placeholder="Type a message..."
+          placeholder={isActive ? "Type a message..." : "Chat expired"}
           multiline
           maxLength={2000}
+          editable={isActive && !sending}
         />
         <TouchableOpacity
-          style={[styles.sendButton, sending && styles.disabledButton]}
+          style={[styles.sendButton, (sending || !isActive) && styles.disabledButton]}
           onPress={handleSend}
-          disabled={sending}
+          disabled={sending || !isActive}
         >
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
@@ -175,6 +219,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
+  },
+  statusText: {
+    fontSize: 13,
+    color: "#546075",
+    marginTop: 6,
   },
   messagesList: {
     paddingHorizontal: 16,

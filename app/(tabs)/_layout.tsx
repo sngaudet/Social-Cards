@@ -19,7 +19,7 @@ function AnimatedIcon({
       friction: 4,
       useNativeDriver: true,
     }).start();
-  }, [focused]);
+  }, [focused, scale]);
 
   return (
     <Animated.View
@@ -134,6 +134,7 @@ export default function TabDisplay() {
         }}
       />
 
+      <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
       <Tabs.Screen name="uid" options={{ href: null }} />
     </Tabs>
   );

@@ -12,6 +12,9 @@ import {
 } from "react-native";
 import { auth } from "../../firebaseConfig";
 import {
+  getUserProfile,
+  isConnectionActive,
+  PublicUserProfile,
   sendConnectionRequest,
   subscribeToConnections,
 } from "../../src/connections/service";
@@ -77,6 +80,9 @@ export default function HomeTab() {
   const [connectedUids, setConnectedUids] = useState<Set<string>>(new Set());
   const [connectionIdsByUid, setConnectionIdsByUid] = useState<
     Record<string, string>
+  >({});
+  const [nearbyProfileFallbacks, setNearbyProfileFallbacks] = useState<
+    Record<string, PublicUserProfile>
   >({});
   const periodicRefreshBusyRef = useRef(false);
   const lastPingAtRef = useRef(0);
@@ -153,6 +159,7 @@ export default function HomeTab() {
       const nextIds: Record<string, string> = {};
 
       for (const connection of connections) {
+        if (!isConnectionActive(connection)) continue;
         const otherUid = connection.users.find((uid) => uid !== currentUid);
         if (otherUid) {
           next.add(otherUid);
@@ -203,6 +210,43 @@ export default function HomeTab() {
       };
     }, [loadNearby]),
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFallbackProfiles = async () => {
+      const usersNeedingFallback = nearby.users.filter(
+        (user) => !user.avatarId?.trim(),
+      );
+
+      if (usersNeedingFallback.length === 0) {
+        if (!cancelled) {
+          setNearbyProfileFallbacks({});
+        }
+        return;
+      }
+
+      const uniqueUids = Array.from(
+        new Set(usersNeedingFallback.map((user) => user.uid)),
+      );
+
+      const entries = await Promise.all(
+        uniqueUids.map(async (uid) => [uid, await getUserProfile(uid)] as const),
+      );
+
+      if (!cancelled) {
+        setNearbyProfileFallbacks(Object.fromEntries(entries));
+      }
+    };
+
+    loadFallbackProfiles().catch((error) => {
+      console.warn("Could not load nearby avatar fallbacks", error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nearby.users]);
 
   const onRefresh = useCallback(async () => {
     try {
@@ -283,9 +327,12 @@ export default function HomeTab() {
           const showIceBreakerOne = canSeeField("iceBreakerOne");
           const showIceBreakerTwo = canSeeField("iceBreakerTwo");
           const showIceBreakerThree = canSeeField("iceBreakerThree");
+          const showPhotoBeforeConnection = canSeeField("photoURL");
+          const fallbackProfile = nearbyProfileFallbacks[user.uid];
+          const effectiveAvatarId = user.avatarId || fallbackProfile?.avatarId;
           const pronouns = formatPronouns(user.pronouns);
           const ageFromDateOfBirth = calculateAgeFromDateOfBirth(user.dateOfBirth ?? "");
-          const avatarSource = getAvatarImageSource(user.avatarId);
+          const avatarSource = getAvatarImageSource(effectiveAvatarId);
           const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
           const primaryPrompt =
             (showIceBreakerOne && user.iceBreakerOne) ||
@@ -307,20 +354,30 @@ export default function HomeTab() {
           return (
             <View key={user.uid} style={styles.userCard}>
               <View style={styles.userHeader}>
-                {isConnected && canSeeField("photoURL") && user.photoURL ? (
+                {isConnected && showPhotoBeforeConnection && user.photoURL ? (
                   <Image
                     source={{ uri: user.photoURL }}
                     style={styles.avatar}
                   />
-                ) : !isConnected && avatarSource ? (
+                ) : avatarSource ? (
                   <Image source={avatarSource} style={styles.avatar} />
+                ) : !isConnected && showPhotoBeforeConnection && user.photoURL ? (
+                  <Image
+                    source={{ uri: user.photoURL }}
+                    style={styles.avatar}
+                  />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarText}>
-                      {isConnected && canSeeField("photoURL")
+                      {isConnected && showPhotoBeforeConnection
                         ? "No Photo"
                         : "No Avatar"}
                     </Text>
+                    {__DEV__ ? (
+                      <Text style={styles.avatarDebugText}>
+                        avatarId: {effectiveAvatarId?.trim() || "missing"}
+                      </Text>
+                    ) : null}
                   </View>
                 )}
 
@@ -537,6 +594,12 @@ const styles = StyleSheet.create({
 
   avatarText: {
     fontSize: 10,
+    color: "#666",
+    textAlign: "center",
+  },
+  avatarDebugText: {
+    marginTop: 6,
+    fontSize: 9,
     color: "#666",
     textAlign: "center",
   },
