@@ -1,166 +1,403 @@
 import { useRouter } from "expo-router";
-// import { View } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { auth } from "../../firebaseConfig";
+import {
+  ConnectionDoc,
+  getConnectionExpiresAt,
+  getUserProfile,
+  isConnectionActive,
+  PublicUserProfile,
+  subscribeToConnections,
+} from "../../src/connections/service";
+import { getAvatarImageSource } from "../../src/lib/avatarImages";
 
+type InboxConnection = ConnectionDoc & {
+  otherUid: string;
+  otherUser?: PublicUserProfile;
+};
 
+function formatDateTime(value: Date | null): string {
+  if (!value) return "Unknown";
+  return value.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-export default function Onboarding(){
-    const router = useRouter();
-    // const onLogin = () => {
-    //     router.replace("/(auth)/signup/hobbies");
-    // }
-    const [curIsPressed, setCurIsPressed] = useState(true)
-    const [oldIsPressed, setOldIsPressed] = useState(false)
+export default function MessagesPage() {
+  const router = useRouter();
+  const currentUid = auth.currentUser?.uid;
+  const [showCurrent, setShowCurrent] = useState(true);
+  const [connections, setConnections] = useState<ConnectionDoc[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, PublicUserProfile>>({});
 
-    const whenCurPressed = () => hitNewButton()
-    const whenOldPressed = () => hitOldButton()
-    
-    // useEffect(() =>{
-    //     if(curIsPressed == true){
-    //         setOldIsPressed(false)
-    //     }
-    //     else if(oldIsPressed == true){
-    //         setCurIsPressed(false)
-    //     }
-    // })
+  useEffect(() => {
+    if (!currentUid) return;
+    return subscribeToConnections(currentUid, setConnections);
+  }, [currentUid]);
 
+  useEffect(() => {
+    let cancelled = false;
 
-    const hitNewButton= () => {
-        setCurIsPressed(true)
-        setOldIsPressed(false)
-    }
+    const loadProfiles = async () => {
+      if (!currentUid) return;
 
-    const hitOldButton= () => {
-        setOldIsPressed(true)
-        setCurIsPressed(false)
-    }
+      const otherUids = Array.from(
+        new Set(
+          connections.map(
+            (connection) =>
+              connection.users.find((uid) => uid !== currentUid) ?? "",
+          ),
+        ),
+      ).filter(Boolean);
+
+      const entries = await Promise.all(
+        otherUids.map(async (uid) => [uid, await getUserProfile(uid)] as const),
+      );
+
+      if (!cancelled) {
+        setProfiles(Object.fromEntries(entries));
+      }
+    };
+
+    loadProfiles().catch((error) => {
+      console.warn("Failed to load message profiles", error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connections, currentUid]);
+
+  const connectionsWithProfiles = useMemo<InboxConnection[]>(() => {
+    if (!currentUid) return [];
+
+    return connections
+      .map((connection) => {
+        const otherUid = connection.users.find((uid) => uid !== currentUid) ?? "";
+        return {
+          ...connection,
+          otherUid,
+          otherUser: profiles[otherUid],
+        };
+      })
+      .filter((connection) => Boolean(connection.otherUid))
+      .sort((a, b) => {
+        const aExpiresAt = getConnectionExpiresAt(a)?.getTime() ?? 0;
+        const bExpiresAt = getConnectionExpiresAt(b)?.getTime() ?? 0;
+        return bExpiresAt - aExpiresAt;
+      });
+  }, [connections, currentUid, profiles]);
+
+  const currentConnections = useMemo(
+    () => connectionsWithProfiles.filter((connection) => isConnectionActive(connection)),
+    [connectionsWithProfiles],
+  );
+  const pastConnections = useMemo(
+    () => connectionsWithProfiles.filter((connection) => !isConnectionActive(connection)),
+    [connectionsWithProfiles],
+  );
+
+  const visibleConnections = showCurrent ? currentConnections : pastConnections;
+
+  const openChat = (connectionId: string, otherUid: string) => {
+    router.push({
+      pathname: "/(tabs)/chat/[connectionId]",
+      params: { connectionId, otherUid },
+    });
+  };
+
+  if (!currentUid) {
     return (
-        <ScrollView contentContainerStyle = {styles.content} >
-            {/* this is how to reference an image */}
-
-            <Text style={styles.title}>Messages</Text>
-            {/* <Text style={styles.title}>Nearby intro Cards, {"\n"} not a map</Text> */}
-
-            {/* <Text style={styles.thirdText}>See who is nearby. Your location is {"\n"}
-              private, but is needed to make {"\n"}
-              connections with other users.</Text> */}
-            
-                <View style={styles.sideButtons}>
-                    <TouchableOpacity
-                        style={[styles.primaryButton, curIsPressed==true ? styles.clickedButton : styles.notClickedButton]}
-                        onPress={whenCurPressed}>
-                            <Text>Current Connections</Text>        
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.primaryButton, oldIsPressed==true ? styles.clickedButton : styles.notClickedButton]}
-                        onPress={whenOldPressed}>
-                            <Text>Old Connections</Text>        
-                    </TouchableOpacity>
-                    {/* <PrimaryButton
-                    title="Current Connections"
-                    style={styles.primaryButton}
-                    onPress={() => router.replace("/(auth)/signup/onboardingPermission")}
-                    />
-                
-                    <PrimaryButton
-                    title="Past Connections"
-                    style={styles.primaryButton}
-                    onPress={() => router.replace("/(auth)/signup/onboardingPermission")}
-                    /> */}
-                </View>
-            
-
-        </ScrollView>
+      <View style={styles.centered}>
+        <Text style={styles.title}>Messages</Text>
+        <Text style={styles.subtleText}>You must be logged in.</Text>
+      </View>
     );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Messages</Text>
+      <Text style={styles.subtitle}>
+        Current connections can chat for 3 hours. Past connections stay here as read-only history.
+      </Text>
+
+      <View style={styles.toggleRow}>
+        <TouchableOpacity
+          style={[styles.toggleButton, showCurrent && styles.toggleButtonActive]}
+          onPress={() => setShowCurrent(true)}
+        >
+          <Text
+            style={[
+              styles.toggleButtonText,
+              showCurrent && styles.toggleButtonTextActive,
+            ]}
+          >
+            Current ({currentConnections.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleButton, !showCurrent && styles.toggleButtonActive]}
+          onPress={() => setShowCurrent(false)}
+        >
+          <Text
+            style={[
+              styles.toggleButtonText,
+              !showCurrent && styles.toggleButtonTextActive,
+            ]}
+          >
+            Past ({pastConnections.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {visibleConnections.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>
+            {showCurrent ? "No current connections" : "No past connections"}
+          </Text>
+          <Text style={styles.subtleText}>
+            {showCurrent
+              ? "When you accept a connection, it will appear here until the chat window expires."
+              : "Expired connections will stay here so you can remember who you met."}
+          </Text>
+        </View>
+      ) : (
+        visibleConnections.map((connection) => {
+          const expiresAt = getConnectionExpiresAt(connection);
+          const active = isConnectionActive(connection);
+          const avatarSource = getAvatarImageSource(connection.otherUser?.avatarId);
+
+          return (
+            <View key={connection.id} style={styles.card}>
+              <View style={styles.row}>
+                {connection.otherUser?.photoURL ? (
+                  <Image
+                    source={{ uri: connection.otherUser.photoURL }}
+                    style={styles.avatar}
+                  />
+                ) : avatarSource ? (
+                  <Image source={avatarSource} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarText}>No Photo</Text>
+                  </View>
+                )}
+
+                <View style={styles.cardBody}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.nameText}>
+                      {connection.otherUser?.firstName || connection.otherUid}
+                    </Text>
+                    <View
+                      style={[styles.statusPill, active ? styles.activePill : styles.pastPill]}
+                    >
+                      <Text style={styles.statusPillText}>
+                        {active ? "Current" : "Past"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.subtleText}>
+                    {connection.otherUser?.major || "No major listed"}
+                  </Text>
+                  <Text style={styles.uidText}>UID: {connection.otherUid}</Text>
+                  <Text style={styles.timeText}>
+                    {active
+                      ? `Chat expires ${formatDateTime(expiresAt)}`
+                      : `Connection expired ${formatDateTime(expiresAt)}`}
+                  </Text>
+                </View>
+              </View>
+
+              {active ? (
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => openChat(connection.id, connection.otherUid)}
+                >
+                  <Text style={styles.primaryButtonText}>Open Chat</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.disabledButton}>
+                  <Text style={styles.disabledButtonText}>Chat Unavailable</Text>
+                </View>
+              )}
+            </View>
+          );
+        })
+      )}
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#D9E0F0',},
-  content: { 
-    padding: 24,
-    paddingBottom: 48, 
+  centered: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    // backgroundColor: '#D9E0F0', 
+    backgroundColor: "#D9E0F0",
+    padding: 24,
   },
-  sideButtons:{
-    flex:1,
-    flexDirection: "row",
-    // justifyContent: "space-between"
+  content: {
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+    gap: 16,
   },
   title: {
-    fontSize: 38,
-    fontWeight: "600",
-    marginBottom: 44,
+    fontSize: 34,
+    fontWeight: "700",
     textAlign: "center",
+    marginTop: 8,
   },
-  input: {
+  subtitle: {
+    fontSize: 14,
+    color: "#556070",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  toggleButton: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#b7c4d9",
+    alignItems: "center",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#2452ce",
+  },
+  toggleButtonText: {
+    color: "#20304d",
+    fontWeight: "700",
+  },
+  toggleButtonTextActive: {
+    color: "#fff",
+  },
+  emptyCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: "#ddd",
+    gap: 4,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
     padding: 14,
-    marginBottom: 36,
+    borderWidth: 1,
+    borderColor: "#d6dce8",
+    gap: 12,
   },
-  primaryButton: {
-    marginBottom: 12,
-    paddingHorizontal: 20,
-    marginHorizontal: 10,
-    borderRadius: 8,
-    borderColor: "black",
-    borderBottomWidth: 3,
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  
-  secondaryButton: { 
-    padding: 16, 
-    borderRadius: 8, 
-    textAlign: "center",
-    marginBottom: 30, 
+  avatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#e5e7eb",
   },
-  secondaryText: { 
-    color: "#666", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
-  thirdText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 300
-  },
-
-  imageWrap: {
-    width: 400,
-    height: 400,
-    borderRadius: 25,
-    padding: 20,
+  avatarPlaceholder: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#f0f0f0",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 30,
-    backgroundColor: "#F3F7FF", // solid, not gradient
-    shadowColor: "#8AB4FF",
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
   },
-
-  welcomeLogo: {
-    width: 300,
-    height: 300,
+  avatarText: {
+    fontSize: 10,
+    color: "#666",
+    textAlign: "center",
   },
-
-  clickedButton:{
-    backgroundColor:"#407fd7"
+  cardBody: {
+    flex: 1,
+    gap: 2,
   },
-  notClickedButton:{
-    backgroundColor:"#b0c1d8"
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  nameText: {
+    fontSize: 18,
+    fontWeight: "700",
+    flex: 1,
+  },
+  subtleText: {
+    fontSize: 13,
+    color: "#666",
+  },
+  uidText: {
+    fontSize: 12,
+    color: "#7a8290",
+  },
+  timeText: {
+    fontSize: 12,
+    color: "#2452ce",
+    marginTop: 4,
+  },
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  activePill: {
+    backgroundColor: "#dcfce7",
+  },
+  pastPill: {
+    backgroundColor: "#e5e7eb",
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#243042",
+  },
+  primaryButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2452ce",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  disabledButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#d5d9e2",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  disabledButtonText: {
+    color: "#596273",
+    fontWeight: "700",
   },
 });

@@ -65,13 +65,28 @@ export default function UserProfileView() {
       return;
     }
 
-    const snap = await getDoc(doc(db, "publicProfiles", uid));
-    if (!snap.exists()) {
+    const publicProfileRef = doc(db, "publicProfiles", uid);
+    const userRef = doc(db, "users", uid);
+    const [publicProfileSnap, userSnap] = await Promise.all([
+      getDoc(publicProfileRef),
+      getDoc(userRef),
+    ]);
+
+    if (!publicProfileSnap.exists() && !userSnap.exists()) {
       setData(null);
       return;
     }
 
-    setData(snap.data() as UserDoc);
+    const publicProfileData = publicProfileSnap.exists()
+      ? (publicProfileSnap.data() as UserDoc)
+      : {};
+    const userData = userSnap.exists() ? (userSnap.data() as UserDoc) : {};
+
+    setData({
+      ...userData,
+      ...publicProfileData,
+      avatarId: publicProfileData.avatarId ?? userData.avatarId,
+    });
   }, [uid]);
 
   useEffect(() => {
@@ -156,6 +171,7 @@ export default function UserProfileView() {
     canSeeField("iceBreakerTwo") ||
     canSeeField("iceBreakerThree");
   const avatarSource = getAvatarImageSource(data?.avatarId);
+  const showPhoto = canSeeField("photoURL");
   const ageFromDateOfBirth = calculateAgeFromDateOfBirth(data?.dateOfBirth ?? "");
   const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
 
@@ -170,15 +186,19 @@ export default function UserProfileView() {
       <Text style={styles.title}>User Profile</Text>
 
       {isConnected || currentUid === uid ? (
-        data?.photoURL && canSeeField("photoURL") ? (
+        data?.photoURL && showPhoto ? (
           <View style={styles.imageContainer}>
             <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+          </View>
+        ) : avatarSource ? (
+          <View style={styles.imageContainer}>
+            <Image source={avatarSource} style={styles.profileImage} />
           </View>
         ) : (
           <View style={styles.imageContainer}>
             <View style={styles.placeholderImage}>
               <Text style={styles.placeholderText}>
-                {canSeeField("photoURL") ? "No Profile Photo" : "Hidden Before Connection"}
+                {showPhoto ? "No Profile Photo" : "Hidden Before Connection"}
               </Text>
             </View>
           </View>
@@ -187,12 +207,21 @@ export default function UserProfileView() {
         <View style={styles.imageContainer}>
           <Image source={avatarSource} style={styles.profileImage} />
         </View>
+      ) : data?.photoURL && showPhoto ? (
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+        </View>
       ) : (
         <View style={styles.imageContainer}>
           <View style={styles.placeholderImage}>
             <Text style={styles.placeholderText}>
               No Avatar
             </Text>
+            {__DEV__ ? (
+              <Text style={styles.debugText}>
+                avatarId: {data?.avatarId?.trim() || "missing"}
+              </Text>
+            ) : null}
           </View>
         </View>
       )}
@@ -374,5 +403,12 @@ const styles = StyleSheet.create({
 
   placeholderText: {
     color: "#999",
+  },
+  debugText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "#666",
+    textAlign: "center",
+    paddingHorizontal: 12,
   },
 });
