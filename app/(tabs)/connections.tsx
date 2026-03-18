@@ -167,8 +167,34 @@ export default function ConnectionsPage() {
     }
   };
 
-  const openMessages = () => {
-    router.push("/(tabs)/message_cur");
+  const openMessages = (connectionId: string, otherUid: string) => {
+    router.push({
+      pathname: "/(tabs)/chat/[connectionId]",
+      params: { connectionId, otherUid },
+    });
+  };
+
+  const renderConnectionHistoryAvatar = (connection: ConnectionWithProfile) => {
+    const avatarSource = getAvatarImageSource(connection.otherUser?.avatarId);
+
+    if (connection.otherUser?.photoURL) {
+      return (
+        <Image
+          source={{ uri: connection.otherUser.photoURL }}
+          style={styles.avatar}
+        />
+      );
+    }
+
+    if (avatarSource) {
+      return <Image source={avatarSource} style={styles.avatar} />;
+    }
+
+    return (
+      <View style={styles.avatarPlaceholder}>
+        <Text style={styles.avatarText}>No Photo</Text>
+      </View>
+    );
   };
 
   if (!currentUid) {
@@ -267,16 +293,7 @@ export default function ConnectionsPage() {
           connectionsWithProfiles.map((connection) => (
             <View key={connection.id} style={styles.card}>
               <View style={styles.row}>
-                {connection.otherUser?.photoURL ? (
-                  <Image
-                    source={{ uri: connection.otherUser.photoURL }}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>No Photo</Text>
-                  </View>
-                )}
+                {renderConnectionHistoryAvatar(connection)}
 
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nameText}>
@@ -306,7 +323,9 @@ export default function ConnectionsPage() {
 
                 <TouchableOpacity
                   style={styles.messageButton}
-                  onPress={openMessages}
+                  onPress={() =>
+                    openMessages(connection.id, connection.otherUid)
+                  }
                 >
                   <Text style={styles.buttonText}>
                     {isConnectionActive(connection) ? "Open in Messages" : "See in Messages"}
