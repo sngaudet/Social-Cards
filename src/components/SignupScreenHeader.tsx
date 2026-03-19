@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 type SignupScreenHeaderProps = {
   title: string;
@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.3,
     color: "#0B1533",
     maxWidth: 300,
+    textAlign: "center",
   },
 
   subtitle: {
@@ -46,5 +47,6 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: "#64748B",
     maxWidth: 330,
+    textAlign: "center",
   },
 });
