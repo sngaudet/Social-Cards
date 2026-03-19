@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
+import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { formatHobbies } from "../../../src/lib/hobbies";
 import { formatDateOfBirth } from "../../../src/lib/profileFields";
 
@@ -105,6 +106,8 @@ export default function ViewProfile() {
     }
   }, [loadProfile]);
 
+  const avatarSource = getAvatarImageSource(data?.avatarId);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -127,6 +130,10 @@ export default function ViewProfile() {
       {data?.photoURL ? (
         <View style={styles.imageContainer}>
           <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+        </View>
+      ) : avatarSource ? (
+        <View style={styles.imageContainer}>
+          <Image source={avatarSource} style={styles.profileImage} />
         </View>
       ) : (
         <View style={styles.imageContainer}>

@@ -1,9 +1,3 @@
-import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
-import {
-  getLocationControlStatus,
-  LocationControlStatus,
-  setLocationSharingEnabled,
-} from "../../../src/location/service";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -13,7 +7,7 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
-  updateDoc
+  updateDoc,
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -34,10 +28,16 @@ import {
   hobbiesToInputValue,
   parseHobbiesInput,
 } from "../../../src/lib/hobbies";
+import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
 import {
   calculateAgeFromDateOfBirth,
   normalizeDateOfBirth,
 } from "../../../src/lib/profileFields";
+import {
+  getLocationControlStatus,
+  LocationControlStatus,
+  setLocationSharingEnabled,
+} from "../../../src/location/service";
 import {
   normalizePreConnectionVisibility,
   PRE_CONNECTION_VISIBILITY_FIELDS,
@@ -509,7 +509,8 @@ export default function EditProfile() {
             </Text>
           ) : (
             <Text style={styles.helperText}>
-              Tap “Choose Photo” to update your profile picture.
+              Tap “Choose Photo” to change or set your profile picture. Users
+              without a photo will have their avatar displayed instead.
             </Text>
           )}
         </View>
@@ -529,7 +530,9 @@ export default function EditProfile() {
 
         <View style={styles.locationRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Share my location for nearby matches</Text>
+            <Text style={styles.label}>
+              Share my location for nearby matches
+            </Text>
             <Text style={styles.helperText}>
               Background/minimized updates are supported. iOS force-closed
               behavior is best effort.
