@@ -1,12 +1,18 @@
+import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -24,6 +30,7 @@ import {
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
+import { reportUser } from "../../src/reporting/service";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
@@ -41,6 +48,16 @@ const AUTO_REFRESH_MS = 5000;
 const AUTO_PING_MS = 30000;
 const MAX_PING_WAIT_MS = 1500;
 const HOBBY_PREVIEW_LIMIT = 4;
+const REPORT_DETAILS_MAX_LENGTH = 1000;
+const REPORT_REASON_OPTIONS = [
+  "Harassment or bullying",
+  "Spam or scam",
+  "Inappropriate profile content",
+  "Impersonation or fake account",
+  "Hate speech or discrimination",
+  "Threatening behavior",
+  "Other",
+];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -81,6 +98,10 @@ export default function HomeTab() {
   const [connectionIdsByUid, setConnectionIdsByUid] = useState<
     Record<string, string>
   >({});
+  const [reportingUid, setReportingUid] = useState<string | null>(null);
+  const [reportModalUser, setReportModalUser] = useState<NearbyResponse["users"][number] | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
   const [nearbyProfileFallbacks, setNearbyProfileFallbacks] = useState<
     Record<string, PublicUserProfile>
   >({});
@@ -99,6 +120,90 @@ export default function HomeTab() {
       );
     }
   }, []);
+
+  const closeReportModal = useCallback(() => {
+    if (reportingUid) return;
+    setReportModalUser(null);
+    setReportReason("");
+    setReportDetails("");
+  }, [reportingUid]);
+
+  const submitReport = useCallback(async (
+    reportedUid: string,
+    reason: string,
+    details?: string,
+  ) => {
+    setReportingUid(reportedUid);
+
+    try {
+      await reportUser(reportedUid, reason, details);
+      showAlert("Report submitted", "Thanks. Your report has been saved.");
+      setReportModalUser(null);
+      setReportReason("");
+      setReportDetails("");
+    } catch (e: any) {
+      const code = e?.code ? ` (${e.code})` : "";
+      showAlert(
+        "Could not submit report",
+        `${e?.message ?? "Unknown error"}${code}`,
+      );
+    } finally {
+      setReportingUid((current) => (current === reportedUid ? null : current));
+    }
+  }, []);
+
+  const openReportModal = useCallback((user: NearbyResponse["users"][number]) => {
+    if (reportingUid === user.uid) return;
+    setReportModalUser(user);
+    setReportReason("");
+    setReportDetails("");
+  }, [reportingUid]);
+
+  const handleSubmitReport = useCallback(() => {
+    if (!reportModalUser) return;
+
+    const trimmedReason = reportReason.trim();
+    const trimmedDetails = reportDetails.trim();
+
+    if (!trimmedReason) {
+      showAlert("Missing reason", "Please enter a short reason for the report.");
+      return;
+    }
+
+    const confirmSubmit = () => {
+      submitReport(
+        reportModalUser.uid,
+        trimmedReason,
+        trimmedDetails || undefined,
+      ).catch(() => {});
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = globalThis.confirm?.(
+        "Are you sure you want to submit this report?",
+      );
+      if (confirmed) {
+        confirmSubmit();
+      }
+      return;
+    }
+
+    Alert.alert(
+      "Submit report?",
+      "Are you sure you want to send this report?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Submit",
+          style: "destructive",
+          onPress: confirmSubmit,
+        },
+      ],
+    );
+  }, [reportDetails, reportModalUser, reportReason, submitReport]);
 
   const loadNearby = useCallback(
     async (options?: { includePing?: boolean }) => {
@@ -281,33 +386,34 @@ export default function HomeTab() {
   }
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <Text style={styles.title}>Nearby Icebreakers</Text>
+    <>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <Text style={styles.title}>Nearby Icebreakers</Text>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryText}>
-          Within 300 ft: {nearby.crowdCount}
-        </Text>
-        <Text style={styles.subtleText}>
-          Updated: {new Date(nearby.asOf).toLocaleTimeString()}
-        </Text>
-      </View>
-
-      {nearby.users.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No one nearby right now</Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryText}>
+            Within 300 ft: {nearby.crowdCount}
+          </Text>
           <Text style={styles.subtleText}>
-            Keep location sharing on and pull to refresh.
+            Updated: {new Date(nearby.asOf).toLocaleTimeString()}
           </Text>
         </View>
-      ) : (
-        nearby.users.map((user) => {
+
+        {nearby.users.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No one nearby right now</Text>
+            <Text style={styles.subtleText}>
+              Keep location sharing on and pull to refresh.
+            </Text>
+          </View>
+        ) : (
+          nearby.users.map((user) => {
           const isConnected = connectedUids.has(user.uid);
           const visibility = normalizePreConnectionVisibility(
             user.preConnectionVisibility,
@@ -497,21 +603,217 @@ export default function HomeTab() {
                           </Text>
                         </TouchableOpacity>
                       )}
+
+                      <TouchableOpacity
+                        style={[
+                          styles.reportPillButton,
+                          reportingUid === user.uid && styles.disabledPillButton,
+                        ]}
+                        onPress={() => openReportModal(user)}
+                        disabled={reportingUid === user.uid}
+                      >
+                        <Text style={styles.reportPillButtonText}>
+                          {reportingUid === user.uid ? "Reporting..." : "Report"}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
               </View>
             </View>
           );
-        })
-      )}
-    </ScrollView>
+          })
+        )}
+      </ScrollView>
+      <Modal
+        visible={!!reportModalUser}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.reportModalRoot}
+        >
+          <Pressable style={styles.reportBackdrop} onPress={closeReportModal} />
+          <View style={styles.reportModalCard}>
+            <Text style={styles.reportModalTitle}>Report user</Text>
+            <Text style={styles.reportModalSubtitle}>
+              {reportModalUser
+                ? `Tell us what happened with ${reportModalUser.firstName || "this user"}.`
+                : "Tell us what happened."}
+            </Text>
+
+            <Text style={styles.reportFieldLabel}>Reason</Text>
+            <View style={styles.reportReasonPickerWrap}>
+              <Picker
+                selectedValue={reportReason}
+                onValueChange={(value) => setReportReason(String(value))}
+                enabled={!reportingUid}
+                style={styles.reportReasonPicker}
+                dropdownIconColor="#7F1D1D"
+              >
+                <Picker.Item label="Select a reason..." value="" />
+                {REPORT_REASON_OPTIONS.map((reason) => (
+                  <Picker.Item key={reason} label={reason} value={reason} />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.reportDetailsHeader}>
+              <Text style={styles.reportFieldLabel}>Details</Text>
+              <Text style={styles.reportCharacterCount}>
+                {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
+              </Text>
+            </View>
+            <TextInput
+              value={reportDetails}
+              onChangeText={(value) => setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))}
+              placeholder="Add any context that would help explain the issue."
+              placeholderTextColor="#9CA3AF"
+              style={styles.reportDetailsInput}
+              multiline
+              textAlignVertical="top"
+              maxLength={REPORT_DETAILS_MAX_LENGTH}
+              editable={!reportingUid}
+            />
+
+            <View style={styles.reportActionRow}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={closeReportModal}
+                disabled={!!reportingUid}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.reportSubmitButton,
+                  reportingUid && styles.disabledPillButton,
+                ]}
+                onPress={handleSubmitReport}
+                disabled={!!reportingUid}
+              >
+                <Text style={styles.reportSubmitButtonText}>
+                  {reportingUid ? "Submitting..." : "Submit report"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "#dfe7f6" },
   content: { padding: 18, paddingBottom: 48, gap: 14 },
+  reportModalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  reportBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+  },
+  reportModalCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "#fffdfb",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  reportModalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  reportModalSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#4B5563",
+  },
+  reportFieldLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    color: "#374151",
+    letterSpacing: 0.4,
+  },
+  reportReasonInput: {
+    borderWidth: 1,
+    borderColor: "#F3D1D1",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#FFF7F7",
+  },
+  reportReasonPickerWrap: {
+    borderWidth: 1,
+    borderColor: "#F3D1D1",
+    borderRadius: 14,
+    backgroundColor: "#FFF7F7",
+    overflow: "hidden",
+  },
+  reportReasonPicker: {
+    color: "#111827",
+  },
+  reportDetailsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  reportCharacterCount: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  reportDetailsInput: {
+    minHeight: 140,
+    borderWidth: 1,
+    borderColor: "#F3D1D1",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#111827",
+    backgroundColor: "#FFF7F7",
+  },
+  reportActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+  reportCancelButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#E5E7EB",
+  },
+  reportCancelButtonText: {
+    color: "#374151",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  reportSubmitButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#B91C1C",
+  },
+  reportSubmitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
 
   title: {
     fontSize: 30,
@@ -743,13 +1045,27 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
+  reportPillButton: {
+    backgroundColor: "#dc2626",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
   connectedPill: {
     backgroundColor: "#22c55e",
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 999,
   },
+  disabledPillButton: {
+    opacity: 0.65,
+  },
   viewPillButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  reportPillButtonText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "800",
