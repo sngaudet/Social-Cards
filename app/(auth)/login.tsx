@@ -1,6 +1,7 @@
-import { Link, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -10,8 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import PrimaryButton from "../../src/components/PrimaryButton";
 import { auth } from "../../firebaseConfig";
+import PrimaryButton from "../../src/components/PrimaryButton";
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -23,9 +24,39 @@ function showAlert(title: string, message?: string) {
 
 export default function Login() {
   const router = useRouter();
+  
+  const params = useLocalSearchParams();
+  console.log("Current Params:", params);
+  const [removeMessage, setRemoveMessage] = useState('')
+
+  // const curRoute = useRoute()
+  // const curNav = useNavigation()
+  // const [displayRemove, setDisplayRemove] = useState(false)
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  
+
+  useEffect ( () => {
+    const checkStoredMessage = async () => {
+        const wasDeleted = await AsyncStorage.getItem('accountDeleted');
+
+        if (wasDeleted === 'true'){
+          setRemoveMessage("Your account has been successfully deleted!")
+        
+          await AsyncStorage.removeItem('accountDeleted');
+        }
+    };
+    
+    if(params?.showMessage === 'DeletedAccount'){
+      setRemoveMessage("Your account has been sucessfully deleted");
+    }
+
+    checkStoredMessage();
+  }, [params.showMessage]
+  );
+
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -83,6 +114,9 @@ export default function Login() {
       <TouchableOpacity onPress={() => router.replace("/")}>
         <Text style={styles.backLinkText}>Back</Text>
       </TouchableOpacity>
+      
+      {removeMessage ? <Text style={styles.goodText}>{removeMessage}</Text> : null}
+
     </View>
   );
 }
@@ -131,6 +165,13 @@ const styles = StyleSheet.create({
 
   backLinkText: {
     color: "#444",
+    textAlign: "center",
+    marginTop: 16,
+  },
+  
+  goodText:{
+    color: "black",
+    backgroundColor: "rgba(41, 235, 106, 0.99)",
     textAlign: "center",
     marginTop: 16,
   },

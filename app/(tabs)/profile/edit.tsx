@@ -1,7 +1,7 @@
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { deleteUser, onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -87,7 +87,7 @@ export default function EditProfile() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // const [deleting, setDeleting] = useState(false);
 
   const [uid, setUid] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -348,89 +348,89 @@ export default function EditProfile() {
     }
   };
 
-  // ===== Delete account (Firestore doc + Auth user) =====
+  // // ===== Delete account (Firestore doc + Auth user) =====
 
-  const confirmDeleteAccount = () => {
-    if (Platform.OS === "web") {
-      const first = (globalThis as any).confirm?.(
-        "Delete account?\nThis will permanently delete your profile.",
-      );
-      if (!first) return Promise.resolve(false);
+  // const confirmDeleteAccount = () => {
+  //   if (Platform.OS === "web") {
+  //     const first = (globalThis as any).confirm?.(
+  //       "Delete account?\nThis will permanently delete your profile.",
+  //     );
+  //     if (!first) return Promise.resolve(false);
 
-      const second = (globalThis as any).confirm?.(
-        "This cannot be undone. Delete your account?",
-      );
-      return Promise.resolve(Boolean(second));
-    }
+  //     const second = (globalThis as any).confirm?.(
+  //       "This cannot be undone. Delete your account?",
+  //     );
+  //     return Promise.resolve(Boolean(second));
+  //   }
 
-    return new Promise<boolean>((resolve) => {
-      Alert.alert(
-        "Delete account?",
-        "This will permanently delete your account.",
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => resolve(true),
-          },
-        ],
-      );
-    });
-  };
+  //   return new Promise<boolean>((resolve) => {
+  //     Alert.alert(
+  //       "Delete account?",
+  //       "This will permanently delete your account.",
+  //       [
+  //         { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+  //         {
+  //           text: "Delete",
+  //           style: "destructive",
+  //           onPress: () => resolve(true),
+  //         },
+  //       ],
+  //     );
+  //   });
+  // };
 
   // const deleteFirestoreProfile = async (userId: string) => {
   //   // If you later store more collections (matches/chats/photos), you’ll delete those here too.
   //   await deleteDoc(doc(db, "users", userId));
   // };
 
-  const onDeleteAccount = async () => {
-    if (!uid) return;
+  // const onDeleteAccount = async () => {
+  //   if (!uid) return;
 
-    const confirmed = await confirmDeleteAccount();
-    if (!confirmed) return;
+  //   const confirmed = await confirmDeleteAccount();
+  //   if (!confirmed) return;
 
-    const user: User | null = auth.currentUser;
-    if (!user) {
-      router.replace("/(auth)/login");
-      return;
-    }
+  //   const user: User | null = auth.currentUser;
+  //   if (!user) {
+  //     router.replace("/(auth)/login");
+  //     return;
+  //   }
 
-    try {
-      setDeleting(true);
+  //   try {
+  //     setDeleting(true);
 
-      //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
-      //   await deleteFirestoreProfile(uid);
+  //     //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
+  //     //   await deleteFirestoreProfile(uid);
 
-      // 2) Delete Auth user
-      await deleteUser(user);
+  //     // 2) Delete Auth user
+  //     await deleteUser(user);
 
-      Alert.alert("Account deleted", "Your account has been deleted.", [
-        { text: "OK", onPress: () => router.replace("/(auth)/login") },
-      ]);
-    } catch (e: any) {
-      const code = e?.code as string | undefined;
+  //     Alert.alert("Account deleted", "Your account has been deleted.", [
+  //       { text: "OK", onPress: () => router.replace("/(auth)/login") },
+  //     ]);
+  //   } catch (e: any) {
+  //     const code = e?.code as string | undefined;
 
-      if (code === "auth/requires-recent-login") {
-        Alert.alert(
-          "Please log in again",
-          "For security, please log in again and then try deleting your account.",
-        );
-        // optional: sign out and send them to login
-        try {
-          await signOut(auth);
-        } catch {}
-        router.replace("/(auth)/login");
-      } else {
-        Alert.alert(
-          "Delete failed",
-          e?.message ?? "Please log in again and try deleting your account.",
-        );
-      }
-    } finally {
-      setDeleting(false);
-    }
-  };
+  //     if (code === "auth/requires-recent-login") {
+  //       Alert.alert(
+  //         "Please log in again",
+  //         "For security, please log in again and then try deleting your account.",
+  //       );
+  //       // optional: sign out and send them to login
+  //       try {
+  //         await signOut(auth);
+  //       } catch {}
+  //       router.replace("/(auth)/login");
+  //     } else {
+  //       Alert.alert(
+  //         "Delete failed",
+  //         e?.message ?? "Please log in again and try deleting your account.",
+  //       );
+  //     }
+  //   } finally {
+  //     setDeleting(false);
+  //   }
+  // };
 
   const onToggleLocationSharing = async (nextValue: boolean) => {
     try {
@@ -493,10 +493,12 @@ export default function EditProfile() {
           <TouchableOpacity
             style={[
               styles.secondaryOutlineButton,
-              (saving || deleting) && styles.disabledButton,
+              (saving) && styles.disabledButton,
+              // (saving || deleting) && styles.disabledButton,
             ]}
             onPress={pickNewPhoto}
-            disabled={saving || deleting}
+            // disabled={saving || deleting}
+            disabled={saving}
           >
             <Text style={styles.secondaryOutlineText}>
               {newPhotoUri ? "Change Selected Photo" : "Choose Photo"}
@@ -541,7 +543,8 @@ export default function EditProfile() {
           <Switch
             value={locationControl?.sharingEnabled ?? true}
             onValueChange={onToggleLocationSharing}
-            disabled={locationBusy || saving || deleting}
+            // disabled={locationBusy || saving || deleting}
+            disabled={locationBusy || saving}
           />
         </View>
 
@@ -581,7 +584,8 @@ export default function EditProfile() {
                   [field.key]: value,
                 }))
               }
-              disabled={saving || deleting}
+              // disabled={saving || deleting}
+              disabled={saving}
             />
           </View>
         ))}
@@ -707,17 +711,19 @@ export default function EditProfile() {
       <TouchableOpacity
         style={[
           styles.primaryButton,
-          (saving || deleting) && styles.disabledButton,
+          // (saving || deleting) && styles.disabledButton,
+          (saving) && styles.disabledButton,
         ]}
         onPress={onSave}
-        disabled={saving || deleting}
+        // disabled={saving || deleting}
+        disabled={saving}
       >
         <Text style={styles.primaryText}>
           {saving ? "Saving..." : "Save Changes"}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={[
           styles.dangerButton,
           (saving || deleting) && styles.disabledButton,
@@ -728,7 +734,7 @@ export default function EditProfile() {
         <Text style={styles.dangerText}>
           {deleting ? "Deleting..." : "Delete Account"}
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </ScrollView>
   );
 }
