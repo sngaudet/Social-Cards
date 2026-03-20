@@ -1,5 +1,7 @@
 // app/(auth)/signup/pictures.tsx
 import { Feather } from "@expo/vector-icons";
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -55,7 +57,7 @@ export default function SignupPictures() {
 
       setImages(nextImages);
       updateDraft({ photoUris: nextImages });
-      router.push("/(auth)/signup/onboardingIntro");
+      //    router.push("/(auth)/signup/onboardingIntro");
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to pick image.");
     } finally {
@@ -77,34 +79,77 @@ export default function SignupPictures() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <ProgressHeader currentStep={7} />
-
+ 
+      
       <SignupScreenHeader
-        title="Upload Your Photos"
-        subtitle="Choose one or more photos now. We’ll upload them after your account is created."
+        title="Put a face to the name"
+        subtitle="Help people recognize you on campus when you decide to connect."
       />
+
+
+      <View style={styles.uploadContainer}>
+        {images.length === 0 ? (
+          <View style={styles.placeholder}>
+            <Feather name="image" size={40} color="#999" />
+            <Text style={styles.placeholderText}>Upload a photo</Text>
+          </View>      
+        ) : (
+          <View style={styles.previewContainer}>
+            {images.map((uri) => (
+              <View key={uri} style={styles.thumbWrap}>
+                <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                <TouchableOpacity
+                  onPress={() => removeImage(uri)}
+                  style={styles.removeBadge}
+                  accessibilityLabel="Remove photo"
+                >
+                  <Text style={styles.removeBadgeText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}   
+          </View>
+        )}
+        </View>
+
+        <View style={styles.privacyCard}>
+        
+          <View style={styles.permissionRow}>
+            {/* <Ionicons name="notifications-outline" size={26} color="#9C27B0" /> */}
+            <FontAwesome6 name="user-lock" size={24} color="#f4e071" />
+
+            <View style={styles.privacyInfo}> 
+              <Text style={styles.privacyTitle}>Privacy First</Text>
+              <Text style={styles.privacyDescription}>
+                Your photos is <Text style={{color: "blue"}}>hidden by default</Text>, it is only {"\n"}
+                revealed after you match and both agree to connect.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        
 
       <PrimaryButton
-        title={busy ? "Opening..." : "Upload Photo"}
-        leftIcon={<Feather name="upload" size={18} color="#FFFFFF" />}
+        //title={busy ? "Opening..." : "Upload Photo"}
+        title = {
+          images.length === 0 ? (busy ? "Opening..." : "Upload Photo") : "Keep Photo"
+        }
+        //leftIcon={<Feather name="upload" size={18} color="#FFFFFF" />}
+        leftIcon={
+          images.length === 0 ? <Feather name="upload" size={18} color="#FFFFFF" /> : undefined
+        }
         style={styles.uploadButton}
-        onPress={pickImage}
+        //onPress={pickImage}
+        onPress={() => {
+          if (images.length === 0){
+            pickImage();
+          } 
+          else {
+            router.push("/(auth)/signup/onboardingIntro");
+          }
+        }}
         disabled={busy}
       />
-
-      <View style={styles.previewContainer}>
-        {images.map((uri) => (
-          <View key={uri} style={styles.thumbWrap}>
-            <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-            <TouchableOpacity
-              onPress={() => removeImage(uri)}
-              style={styles.removeBadge}
-              accessibilityLabel="Remove photo"
-            >
-              <Text style={styles.removeBadgeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
 
       <SubButton
         title="Not Now"
@@ -138,7 +183,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
 
-  image: { width: 110, height: 110, borderRadius: 10 },
+  //image: { width: 110, height: 110, borderRadius: 10 },
+  image: { width: 175, height: 175, borderRadius: 10 },
 
   removeBadge: {
     position: "absolute",
@@ -155,5 +201,64 @@ const styles = StyleSheet.create({
 
   skipButton: {
     marginTop: 8,
+  },
+
+  uploadContainer: {    
+    //width: "100%",
+    width: 180,
+    //maxWidth: 180,
+    height: 180,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#ccc",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 20,
+    //overflow: "hidden",
+  },
+
+  placeholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.6,
+  },
+  placeholderText: {
+    marginTop: 8,
+    color: "#999",
+    fontSize: 16,
+  },
+
+
+  permissionRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+
+
+  privacyInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  privacyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+
+  privacyDescription: {
+    fontSize: 14,
+    color: "#666",
+  },
+
+  privacyCard: {
+    width: "100%",
+    maxWidth: 350,
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 18,
+    marginBottom: 20,
   },
 });
