@@ -1,4 +1,4 @@
-import { Href, Redirect } from "expo-router";
+import { Href, Redirect, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../src/auth/AuthContext";
@@ -8,6 +8,9 @@ export default function Index() {
   const { user, initializing } = useAuth();
   const { resumeRoute, shouldResumeSignup } = useSignup();
 
+    const params = useLocalSearchParams();
+    console.log("Current Params while in index:", params);
+
   if (initializing) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -16,8 +19,13 @@ export default function Index() {
     );
   }
 
+  if(params.showMessage === 'DeletedAccount'){
+    return <Redirect href={{ pathname: "/(auth)/login", params }} />;
+  }
+
   if (user) {
-    return <Redirect href="/(tabs)" />;
+    // return <Redirect href="/(tabs)" />;
+    return <Redirect href={{ pathname: "/(tabs)", params }} />;
   }
 
   if (shouldResumeSignup) {

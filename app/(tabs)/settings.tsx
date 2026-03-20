@@ -1,11 +1,14 @@
-import { signOut } from "firebase/auth";
+import { useRouter } from "expo-router";
+import { deleteUser, signOut, User } from "firebase/auth";
 import React, { useState } from "react";
 import {
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
 } from "react-native";
 
 import { auth } from "../../firebaseConfig";
@@ -14,8 +17,15 @@ import { auth } from "../../firebaseConfig";
 
 export default function SettingsPage(){
     // const router = useRouter();
-    const [isVisible, setIsVisible] = useState(false)
+    const router = useRouter();
     
+    const [isVisible, setIsVisible] = useState(false)
+    const [deleting, setDeleting] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [uid, setUid] = useState<string | null>(null);
+    
+    // 1. Add a piece of state at the top of your component
+    const [isProcessingDeletion, setIsProcessingDeletion] = useState(false);
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");
     // }
@@ -26,6 +36,104 @@ export default function SettingsPage(){
     const toggleQ1 = () => {
         setIsVisible(prev => !prev);
     };
+
+
+
+    // ===== Delete account (Firestore doc + Auth user) =====
+    
+    const confirmDeleteAccount = () => {
+        if (Platform.OS === "web") {
+          const first = (globalThis as any).confirm?.(
+            "Delete account?\nThis will permanently delete your profile.",
+          );
+          if (!first) return Promise.resolve(false);
+    
+          const second = (globalThis as any).confirm?.(
+            "This cannot be undone. Delete your account?",
+          );
+          return Promise.resolve(Boolean(second));
+        }
+    
+        return new Promise<boolean>((resolve) => {
+          Alert.alert(
+            "Delete account?",
+            "This will permanently delete your account.",
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: () => resolve(true),
+              },
+            ],
+          );
+        });
+    };
+
+
+    const onDeleteAccount = async () => {
+        // if (!uid) return;
+    
+        const confirmed = await confirmDeleteAccount();
+        if (!confirmed) return;
+    
+        const user: User | null = auth.currentUser;
+        if (!user) {
+          // router.replace("/(auth)/login");
+          // router.replace({pathname: '/(auth)/login', params: { showMessage: 'DeletedAccount' },});
+          router.replace({
+            pathname: "/(auth)/login", 
+            params: { showMessage: 'DeletedAccount' }}
+          );
+          return;
+        }
+    
+        try {
+          setDeleting(true);
+          
+          // 2. SET THE FLAG: This tells the rest of the app to stay quiet
+          setIsProcessingDeletion(true);
+          //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
+          //   await deleteFirestoreProfile(uid);
+          
+          // 2) Delete Auth user
+          await deleteUser(user);
+    
+          await signOut(auth);
+          // Alert.alert("Account deleted", "Your account has been deleted.", [
+          //   { text: "OK", onPress: () => router.replace("/(auth)/login") },
+          // ]);
+          
+          Alert.alert("Account deleted", "Your account has been deleted.", [
+            { text: "OK", onPress: () => router.replace({pathname: "/", params: { showMessage: 'DeletedAccount' }}) },
+          ]);
+          // 4. RESET THE FLAG: After we've safely arrived
+          setIsProcessingDeletion(false);
+
+        } catch (e: any) {
+          const code = e?.code as string | undefined;
+    
+          if (code === "auth/requires-recent-login") {
+            Alert.alert(
+              "Please log in again",
+              "For security, please log in again and then try deleting your account.",
+            );
+            // optional: sign out and send them to login
+            try {
+              await signOut(auth);
+            } catch {}
+            router.replace("/(auth)/login");
+          } else {
+            Alert.alert(
+              "Delete failed",
+              e?.message ?? "Please log in again and try deleting your account.",
+            );
+          }
+        } finally {
+          setDeleting(false);
+        }
+    };
+
     
     return (
         <ScrollView contentContainerStyle = {styles.content} >
@@ -60,6 +168,19 @@ export default function SettingsPage(){
             <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
                 <Text style={styles.secondaryButtonText}>Log Out</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+                    style={[
+                      styles.dangerButton,
+                      (saving || deleting) && styles.disabledButton,
+                    ]}
+                    onPress={onDeleteAccount}
+                    disabled={saving || deleting}
+                  >
+                    <Text style={styles.dangerText}>
+                      {deleting ? "Deleting..." : "Delete Account"}
+                    </Text>
+              </TouchableOpacity>
 
             {/* <TouchableOpacity style={styles.primaryButton} 
                 onPress={() => router.replace("/(auth)/signup/onboardingPermission")}>
@@ -178,4 +299,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 17,
   },
+    dangerButton: {
+    marginTop: 12,
+    backgroundColor: "#ef4444",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  dangerText: { color: "white", fontWeight: "800" },
+  disabledButton: { opacity: 0.6 },
 });
