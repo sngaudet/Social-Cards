@@ -4,6 +4,7 @@ import {
   doc,
   DocumentData,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   QuerySnapshot,
@@ -60,6 +61,32 @@ export async function sendConnectionRequest(toUid: string): Promise<void> {
 
   if (!fromUid) throw new Error("You must be logged in.");
   if (fromUid === toUid) throw new Error("You cannot connect with yourself.");
+
+  const outgoingPendingQuery = query(
+    collection(db, "connectionRequests"),
+    where("fromUid", "==", fromUid),
+    where("toUid", "==", toUid),
+    where("status", "==", "pending"),
+  );
+  const incomingPendingQuery = query(
+    collection(db, "connectionRequests"),
+    where("fromUid", "==", toUid),
+    where("toUid", "==", fromUid),
+    where("status", "==", "pending"),
+  );
+
+  const [outgoingPendingSnap, incomingPendingSnap] = await Promise.all([
+    getDocs(outgoingPendingQuery),
+    getDocs(incomingPendingQuery),
+  ]);
+
+  if (!outgoingPendingSnap.empty) {
+    throw new Error("You already sent this user a connection request.");
+  }
+
+  if (!incomingPendingSnap.empty) {
+    throw new Error("This user has already sent you a connection request.");
+  }
 
   await addDoc(collection(db, "connectionRequests"), {
     fromUid,
