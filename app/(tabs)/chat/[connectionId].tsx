@@ -1,10 +1,14 @@
+import { Picker } from "@react-native-picker/picker";
 import { useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -25,6 +29,18 @@ import {
   subscribeToMessages,
 } from "../../../src/chat/service";
 import { showAlert } from "../../../src/lib/showAlert";
+import { reportUser } from "../../../src/reporting/service";
+
+const REPORT_DETAILS_MAX_LENGTH = 1000;
+const REPORT_REASON_OPTIONS = [
+  "Harassment or bullying",
+  "Spam or scam",
+  "Inappropriate profile content",
+  "Impersonation or fake account",
+  "Hate speech or discrimination",
+  "Threatening behavior",
+  "Other",
+];
 
 function formatTimestamp(value: any): string {
   if (!value?.toDate) return "";
@@ -44,6 +60,10 @@ export default function ConnectionChatPage() {
   const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(null);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [reporting, setReporting] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
 
   useEffect(() => {
     if (!connectionId || !currentUid) return;
@@ -129,6 +149,79 @@ export default function ConnectionChatPage() {
     }
   };
 
+  const closeReportModal = useCallback(() => {
+    if (reporting) return;
+    setReportModalVisible(false);
+    setReportReason("");
+    setReportDetails("");
+  }, [reporting]);
+
+  const openReportModal = useCallback(() => {
+    if (!otherUid || reporting) return;
+    setReportModalVisible(true);
+    setReportReason("");
+    setReportDetails("");
+  }, [otherUid, reporting]);
+
+  const submitReport = useCallback(async () => {
+    if (!otherUid) return;
+
+    const trimmedReason = reportReason.trim();
+    const trimmedDetails = reportDetails.trim();
+
+    if (!trimmedReason) {
+      showAlert("Missing reason", "Please choose a reason for the report.");
+      return;
+    }
+
+    const confirmSubmit = async () => {
+      try {
+        setReporting(true);
+        await reportUser(otherUid, trimmedReason, trimmedDetails || undefined);
+        showAlert("Report submitted", "Thanks. Your report has been saved.");
+        setReportModalVisible(false);
+        setReportReason("");
+        setReportDetails("");
+      } catch (e: any) {
+        const code = e?.code ? ` (${e.code})` : "";
+        showAlert(
+          "Could not submit report",
+          `${e?.message ?? "Unknown error"}${code}`,
+        );
+      } finally {
+        setReporting(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = globalThis.confirm?.(
+        "Are you sure you want to submit this report?",
+      );
+      if (confirmed) {
+        confirmSubmit().catch(() => {});
+      }
+      return;
+    }
+
+    Alert.alert(
+      "Submit report?",
+      "Are you sure you want to send this report?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Submit",
+          style: "destructive",
+          onPress: () => {
+            confirmSubmit().catch(() => {});
+          },
+        },
+      ],
+    );
+  }, [otherUid, reportDetails, reportReason]);
+
   if (!connectionId || !currentUid) {
     return (
       <View style={styles.centered}>
@@ -143,7 +236,18 @@ export default function ConnectionChatPage() {
       behavior={Platform.select({ ios: "padding", android: undefined })}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.title}>{title}</Text>
+          <TouchableOpacity
+            style={[styles.reportButton, reporting && styles.disabledButton]}
+            onPress={openReportModal}
+            disabled={reporting || !otherUid}
+          >
+            <Text style={styles.reportButtonText}>
+              {reporting ? "Reporting..." : "Report"}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.statusText}>
           {isActive
             ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
@@ -196,6 +300,80 @@ export default function ConnectionChatPage() {
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
       </View>
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.reportModalRoot}
+        >
+          <Pressable style={styles.reportBackdrop} onPress={closeReportModal} />
+          <View style={styles.reportModalCard}>
+            <Text style={styles.reportModalTitle}>Report user</Text>
+            <Text style={styles.reportModalSubtitle}>
+              Tell us what happened with {otherProfile?.firstName || otherUid || "this user"}.
+            </Text>
+
+            <Text style={styles.reportFieldLabel}>Reason</Text>
+            <View style={styles.reportReasonPickerWrap}>
+              <Picker
+                selectedValue={reportReason}
+                onValueChange={(value) => setReportReason(String(value))}
+                enabled={!reporting}
+                style={styles.reportReasonPicker}
+                dropdownIconColor="#7F1D1D"
+              >
+                <Picker.Item label="Select a reason..." value="" />
+                {REPORT_REASON_OPTIONS.map((reason) => (
+                  <Picker.Item key={reason} label={reason} value={reason} />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.reportDetailsHeader}>
+              <Text style={styles.reportFieldLabel}>Details</Text>
+              <Text style={styles.reportCharacterCount}>
+                {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
+              </Text>
+            </View>
+            <TextInput
+              value={reportDetails}
+              onChangeText={(value) => setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))}
+              placeholder="Add any context that would help explain the issue."
+              placeholderTextColor="#9CA3AF"
+              style={styles.reportDetailsInput}
+              multiline
+              textAlignVertical="top"
+              maxLength={REPORT_DETAILS_MAX_LENGTH}
+              editable={!reporting}
+            />
+
+            <View style={styles.reportActionRow}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={closeReportModal}
+                disabled={reporting}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reportSubmitButton, reporting && styles.disabledButton]}
+                onPress={() => {
+                  submitReport().catch(() => {});
+                }}
+                disabled={reporting}
+              >
+                <Text style={styles.reportSubmitButtonText}>
+                  {reporting ? "Submitting..." : "Submit report"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -216,9 +394,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 8,
   },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
+  },
+  reportButton: {
+    backgroundColor: "#dc2626",
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  reportButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
   },
   statusText: {
     fontSize: 13,
@@ -294,5 +489,100 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: "#fff",
     fontWeight: "700",
+  },
+  reportModalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  reportBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+  },
+  reportModalCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "#fffdfb",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  reportModalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  reportModalSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#4B5563",
+  },
+  reportFieldLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    color: "#374151",
+    letterSpacing: 0.4,
+  },
+  reportReasonPickerWrap: {
+    borderWidth: 1,
+    borderColor: "#F3D1D1",
+    borderRadius: 14,
+    backgroundColor: "#FFF7F7",
+    overflow: "hidden",
+  },
+  reportReasonPicker: {
+    color: "#111827",
+  },
+  reportDetailsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  reportCharacterCount: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  reportDetailsInput: {
+    minHeight: 140,
+    borderWidth: 1,
+    borderColor: "#F3D1D1",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#111827",
+    backgroundColor: "#FFF7F7",
+  },
+  reportActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+  reportCancelButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#E5E7EB",
+  },
+  reportCancelButtonText: {
+    color: "#374151",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  reportSubmitButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#B91C1C",
+  },
+  reportSubmitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });
