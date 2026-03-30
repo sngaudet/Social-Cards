@@ -56,6 +56,11 @@ function buildEmptyNearbyResponse() {
   };
 }
 
+// this trims report text input and keeps missing values predictable
+function getTrimmedString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 // this saves a phone push token for the logged in user
 const location_registerPushToken = onCall(
   { region: REGION },
@@ -68,25 +73,25 @@ const location_registerPushToken = onCall(
     }
 
     if (platform !== "ios" && platform !== "android") {
-      throw new HttpsError("invalid-argument", "platform must be ios or android.");
+      throw new HttpsError(
+        "invalid-argument",
+        "platform must be ios or android.",
+      );
     }
 
     if (typeof expoPushToken !== "string" || !expoPushToken.trim()) {
       throw new HttpsError("invalid-argument", "expoPushToken is required.");
     }
 
-    await getUserRef(uid)
-      .collection("devices")
-      .doc(deviceId)
-      .set(
-        {
-          expoPushToken: expoPushToken.trim(),
-          platform,
-          enabled: true,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+    await getUserRef(uid).collection("devices").doc(deviceId).set(
+      {
+        expoPushToken: expoPushToken.trim(),
+        platform,
+        enabled: true,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
 
     return { ok: true };
   }),
@@ -99,7 +104,10 @@ const location_setSharing = onCall(
     const { sharingEnabled, permissionStatus } = request.data || {};
 
     if (typeof sharingEnabled !== "boolean") {
-      throw new HttpsError("invalid-argument", "sharingEnabled must be boolean.");
+      throw new HttpsError(
+        "invalid-argument",
+        "sharingEnabled must be boolean.",
+      );
     }
 
     if (!ALLOWED_PERMISSION_STATUS.has(permissionStatus)) {
@@ -122,11 +130,17 @@ const location_setSharing = onCall(
     // this clears live location right away when sharing is off
     if (!sharingEnabled) {
       const db = getDb();
-      await db.collection("presence").doc(uid).delete().catch(() => {});
+      await db
+        .collection("presence")
+        .doc(uid)
+        .delete()
+        .catch(() => {});
     }
 
     const userSnap = await userRef.get();
-    const lastLocationAt = getTimestampValue(userSnap.data()?.locationStatus?.lastLocationAt);
+    const lastLocationAt = getTimestampValue(
+      userSnap.data()?.locationStatus?.lastLocationAt,
+    );
 
     return {
       sharingEnabled,
@@ -152,8 +166,12 @@ const location_getControlStatus = onCall(
 
     const data = userSnap.data() || {};
     const sharingEnabled = data.locationControl?.sharingEnabled !== false;
-    const permissionStatus = normalizePermissionStatus(data.locationControl?.permissionStatus);
-    const lastLocationAt = getTimestampValue(data.locationStatus?.lastLocationAt);
+    const permissionStatus = normalizePermissionStatus(
+      data.locationControl?.permissionStatus,
+    );
+    const lastLocationAt = getTimestampValue(
+      data.locationStatus?.lastLocationAt,
+    );
     const lastAccuracyM =
       typeof data.locationStatus?.lastAccuracyM === "number"
         ? data.locationStatus.lastAccuracyM
@@ -195,24 +213,25 @@ const location_upsertPing = onCall(
     // this keeps one live location record per user
     const now = nowDate();
     const updatedAt = timestampFromDate(now);
-    const expiresAt = timestampFromDate(
-      new Date(now.getTime() + FRESHNESS_MS),
-    );
+    const expiresAt = timestampFromDate(new Date(now.getTime() + FRESHNESS_MS));
 
     const db = getDb();
-    await db.collection("presence").doc(uid).set(
-      {
-        uid,
-        lat,
-        lng,
-        geohash: geohashForLocation([lat, lng]),
-        accuracyM,
-        source,
-        updatedAt,
-        expiresAt,
-      },
-      { merge: true },
-    );
+    await db
+      .collection("presence")
+      .doc(uid)
+      .set(
+        {
+          uid,
+          lat,
+          lng,
+          geohash: geohashForLocation([lat, lng]),
+          accuracyM,
+          source,
+          updatedAt,
+          expiresAt,
+        },
+        { merge: true },
+      );
 
     // this also saves quick status fields on user profile
     await userRef.set(
@@ -224,7 +243,9 @@ const location_upsertPing = onCall(
         },
         locationControl: {
           sharingEnabled: true,
-          permissionStatus: normalizePermissionStatus(user.locationControl?.permissionStatus),
+          permissionStatus: normalizePermissionStatus(
+            user.locationControl?.permissionStatus,
+          ),
           updatedAt,
         },
       },
@@ -234,12 +255,12 @@ const location_upsertPing = onCall(
     // this checks sender and nearby users for crowd alerts
     const radiusM = toMeters(DEFAULT_RADIUS_FT);
     // this keeps crowd alerts on strict distance
-    const aroundSender = await queryNearbyPresence(
-      { lat, lng },
-      radiusM,
-      { useAccuracyBuffer: false },
+    const aroundSender = await queryNearbyPresence({ lat, lng }, radiusM, {
+      useAccuracyBuffer: false,
+    });
+    const nearbyWithoutSender = aroundSender.filter(
+      (presence) => presence.uid !== uid,
     );
-    const nearbyWithoutSender = aroundSender.filter((presence) => presence.uid !== uid);
 
     const impactedUsers = [
       { uid, lat, lng },
@@ -268,13 +289,13 @@ const location_getNearby = onCall(
       return buildEmptyNearbyResponse();
     }
 
-    const nearbyPresence = await queryNearbyPresence(
-      callerPresence,
-      radiusM,
-      { useAccuracyBuffer: true },
-    );
+    const nearbyPresence = await queryNearbyPresence(callerPresence, radiusM, {
+      useAccuracyBuffer: true,
+    });
     const filtered = nearbyPresence.filter((presence) => presence.uid !== uid);
-    const userMap = await getUsersByUids(filtered.map((presence) => presence.uid));
+    const userMap = await getUsersByUids(
+      filtered.map((presence) => presence.uid),
+    );
 
     // this skips missing profiles and sorts by distance
     const users = filtered
@@ -294,11 +315,77 @@ const location_getNearby = onCall(
   }),
 );
 
+// this saves a moderation report about another user
+const reportUser = onCall(
+  // region relates to the firebase region
+  // timeoutSeconds is how long the function has to do its work, if it longer it fails, nothing to do with user typing
+  { region: REGION, timeoutSeconds: 60 },
+  withAuth(async (uid, request) => {
+    const reportedUid = getTrimmedString(request.data?.reportedUid);
+    const reason = getTrimmedString(request.data?.reason);
+    const details = getTrimmedString(request.data?.details);
+
+    if (!reportedUid) {
+      throw new HttpsError("invalid-argument", "reportedUid is required.");
+    }
+
+    if (reportedUid === uid) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Users cannot report themselves.",
+      );
+    }
+
+    if (!reason) {
+      throw new HttpsError("invalid-argument", "reason is required.");
+    }
+
+    if (reason.length > 100) {
+      throw new HttpsError(
+        "invalid-argument",
+        "reason must be 100 characters or less.",
+      );
+    }
+
+    if (details.length > 1000) {
+      throw new HttpsError(
+        "invalid-argument",
+        "details must be 1000 characters or less.",
+      );
+    }
+
+    const reportedUserSnap = await getUserRef(reportedUid).get();
+    if (!reportedUserSnap.exists) {
+      throw new HttpsError("not-found", "Reported user does not exist.");
+    }
+
+    const db = getDb();
+    const reportRef = db.collection("reports").doc();
+
+    await reportRef.set({
+      reportId: reportRef.id,
+      reporterUid: uid,
+      reportedUid,
+      reason,
+      details,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      ok: true,
+      reportId: reportRef.id,
+    };
+  }),
+);
+
 module.exports = {
   location_registerPushToken,
   location_setSharing,
   location_getControlStatus,
   location_upsertPing,
   location_getNearby,
+  reportUser,
   connection_requestCreated,
 };
