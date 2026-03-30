@@ -130,9 +130,7 @@ function getInitialPronouns(value: string | undefined) {
 function getAcademicProgramInitialValue(value: string) {
   if (!value.trim()) return undefined;
 
-  const matchingOption = ACADEMIC_PROGRAM_OPTIONS.find(
-    (option) => option.title === value,
-  );
+  const matchingOption = findAcademicProgramByTitle(value);
 
   return (
     matchingOption ??
@@ -148,6 +146,18 @@ function isPresetAcademicProgram(value: string) {
   );
 }
 
+function findAcademicProgramByTitle(value: string) {
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return ACADEMIC_PROGRAM_OPTIONS.find(
+    (option) => option.title?.trim().toLowerCase() === normalizedValue,
+  );
+}
+
 export default function SignupAcademicProfileStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
@@ -158,7 +168,9 @@ export default function SignupAcademicProfileStep() {
     initialPronouns.rightPronoun,
   );
   const [major, setMajor] = useState(draft.major ?? "");
+  const [majorSearchText, setMajorSearchText] = useState(draft.major ?? "");
   const [minor, setMinor] = useState(draft.minor ?? "");
+  const [minorSearchText, setMinorSearchText] = useState(draft.minor ?? "");
   const [isCustomMajor, setIsCustomMajor] = useState(
     Boolean(draft.major?.trim()) && !isPresetAcademicProgram(draft.major ?? ""),
   );
@@ -173,6 +185,40 @@ export default function SignupAcademicProfileStep() {
     const start = 2026;
     return Array.from({ length: 25 }, (_, i) => start + i);
   }, []);
+
+  const commitPresetAcademicProgram = (
+    field: "major" | "minor",
+    item?: AutocompleteDropdownItem | null,
+  ) => {
+    const nextValue = item?.title ?? "";
+
+    if (field === "major") {
+      setMajor(nextValue);
+      setMajorSearchText(nextValue);
+      return;
+    }
+
+    setMinor(nextValue);
+    setMinorSearchText(nextValue);
+  };
+
+  const handleAcademicProgramBlur = (field: "major" | "minor") => {
+    const typedValue = field === "major" ? majorSearchText : minorSearchText;
+    const committedValue = field === "major" ? major : minor;
+    const matchingOption = findAcademicProgramByTitle(typedValue);
+
+    if (matchingOption && matchingOption.id !== OTHER_PROGRAM_OPTION_ID) {
+      commitPresetAcademicProgram(field, matchingOption);
+      return;
+    }
+
+    if (field === "major") {
+      setMajorSearchText(committedValue);
+      return;
+    }
+
+    setMinorSearchText(committedValue);
+  };
 
   const onNext = () => {
     if (!major.trim() || gradYear == null) {
@@ -283,12 +329,17 @@ export default function SignupAcademicProfileStep() {
                 if (item?.id === OTHER_PROGRAM_OPTION_ID) {
                   setIsCustomMajor(true);
                   setMajor("");
+                  setMajorSearchText("");
                   return;
                 }
 
-                setMajor(item?.title ?? "");
+                commitPresetAcademicProgram("major", item);
               }}
-              onChangeText={setMajor}
+              onChangeText={setMajorSearchText}
+              onClear={() => {
+                setMajor("");
+                setMajorSearchText("");
+              }}
               clearOnFocus={false}
               closeOnBlur={true}
               closeOnSubmit={true}
@@ -303,9 +354,10 @@ export default function SignupAcademicProfileStep() {
               textInputProps={{
                 placeholder: "Choose a major or select Other",
                 placeholderTextColor: "#9CA3AF",
-                value: major,
+                value: majorSearchText,
                 autoCapitalize: "words",
                 autoCorrect: false,
+                onBlur: () => handleAcademicProgramBlur("major"),
                 style: styles.autocompleteInput,
               }}
               RightIconComponent={
@@ -359,12 +411,17 @@ export default function SignupAcademicProfileStep() {
                 if (item?.id === OTHER_PROGRAM_OPTION_ID) {
                   setIsCustomMinor(true);
                   setMinor("");
+                  setMinorSearchText("");
                   return;
                 }
 
-                setMinor(item?.title ?? "");
+                commitPresetAcademicProgram("minor", item);
               }}
-              onChangeText={setMinor}
+              onChangeText={setMinorSearchText}
+              onClear={() => {
+                setMinor("");
+                setMinorSearchText("");
+              }}
               clearOnFocus={false}
               closeOnBlur={true}
               closeOnSubmit={true}
@@ -379,9 +436,10 @@ export default function SignupAcademicProfileStep() {
               textInputProps={{
                 placeholder: "Choose a minor or select Other",
                 placeholderTextColor: "#9CA3AF",
-                value: minor,
+                value: minorSearchText,
                 autoCapitalize: "words",
                 autoCorrect: false,
+                onBlur: () => handleAcademicProgramBlur("minor"),
                 style: styles.autocompleteInput,
               }}
               RightIconComponent={
@@ -489,7 +547,7 @@ const styles = StyleSheet.create({
   autocompleteInput: {
     fontSize: 18,
     lineHeight: 24,
-    color: "#6B7280",
+    color: "#000000",
     paddingLeft: 10,
   },
   autocompleteRightButtons: {
@@ -508,7 +566,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     lineHeight: 24,
-    color: "#6B7280",
+    color: "#000000",
     paddingLeft: 10,
     paddingVertical: 12,
   },
