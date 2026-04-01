@@ -23,8 +23,8 @@ import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
-const LEFT_PRONOUN_OPTIONS = ["she", "he", "they"] as const;
-const RIGHT_PRONOUN_OPTIONS = ["her", "him", "they", "them"] as const;
+const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them"] as const;
+// const RIGHT_PRONOUN_OPTIONS = ["her", "him", "they", "them"] as const;
 const OTHER_PROGRAM_OPTION_ID = "other";
 const ACADEMIC_PROGRAM_OPTIONS: AutocompleteDropdownItem[] = [
   { id: "computer-science", title: "Computer Science" },
@@ -106,26 +106,48 @@ function showAlert(title: string, message?: string) {
     Alert.alert(title, message);
   }
 }
+/////////////
+/////////////
+/////////////
+// function getInitialPronouns(value: string | undefined) {
+//   const [left, right] = (value ?? "").split("/");
+//   const normalizedLeft = LEFT_PRONOUN_OPTIONS.includes(
+//     left as (typeof LEFT_PRONOUN_OPTIONS)[number],
+//   )
+//     ? left
+//     : "she";
+//   const normalizedRight = RIGHT_PRONOUN_OPTIONS.includes(
+//     right as (typeof RIGHT_PRONOUN_OPTIONS)[number],
+//   )
+//     ? right
+//     : normalizedLeft === "he"
+//       ? "him"
+//       : normalizedLeft === "they"
+//         ? "them"
+//         : "her";
 
+//   return { leftPronoun: normalizedLeft, rightPronoun: normalizedRight };
+// }
 function getInitialPronouns(value: string | undefined) {
-  const [left, right] = (value ?? "").split("/");
+  const [left, right] = (value ?? "").split("/")[0];
   const normalizedLeft = LEFT_PRONOUN_OPTIONS.includes(
     left as (typeof LEFT_PRONOUN_OPTIONS)[number],
   )
     ? left
     : "she";
-  const normalizedRight = RIGHT_PRONOUN_OPTIONS.includes(
-    right as (typeof RIGHT_PRONOUN_OPTIONS)[number],
-  )
-    ? right
-    : normalizedLeft === "he"
-      ? "him"
-      : normalizedLeft === "they"
-        ? "them"
-        : "her";
+  // const normalizedRight = RIGHT_PRONOUN_OPTIONS.includes(
+  //   right as (typeof RIGHT_PRONOUN_OPTIONS)[number],
+  // )
+  //   ? right
+  //   : normalizedLeft === "he"
+  //     ? "him"
+  //     : normalizedLeft === "they"
+  //       ? "them"
+  //       : "her";
 
-  return { leftPronoun: normalizedLeft, rightPronoun: normalizedRight };
+  return { leftPronoun: normalizedLeft};
 }
+
 
 function getAcademicProgramInitialValue(value: string) {
   if (!value.trim()) return undefined;
@@ -164,9 +186,9 @@ export default function SignupAcademicProfileStep() {
   const initialPronouns = getInitialPronouns(draft.pronouns);
 
   const [leftPronoun, setLeftPronoun] = useState(initialPronouns.leftPronoun);
-  const [rightPronoun, setRightPronoun] = useState(
-    initialPronouns.rightPronoun,
-  );
+  // const [rightPronoun, setRightPronoun] = useState(
+  //   initialPronouns.rightPronoun,
+  // );
   const [major, setMajor] = useState(draft.major ?? "");
   const [majorSearchText, setMajorSearchText] = useState(draft.major ?? "");
   const [minor, setMinor] = useState(draft.minor ?? "");
@@ -227,7 +249,8 @@ export default function SignupAcademicProfileStep() {
     }
 
     updateDraft({
-      pronouns: `${leftPronoun}/${rightPronoun}`,
+      // pronouns: `${leftPronoun}/${rightPronoun}`,
+      pronouns: `${leftPronoun}`,
       major: major.trim(),
       minor: minor.trim(),
       gradYear,
@@ -268,7 +291,7 @@ export default function SignupAcademicProfileStep() {
               ))}
             </Picker>
           </View>
-          <View style={styles.pronounDivider}>
+          {/* <View style={styles.pronounDivider}>
             <Text style={styles.pronounDividerText}>/</Text>
           </View>
           <View style={styles.pronounPickerColumn}>
@@ -287,7 +310,7 @@ export default function SignupAcademicProfileStep() {
                 />
               ))}
             </Picker>
-          </View>
+          </View> */}
         </SignupFormField>
 
         <SignupFormField
