@@ -72,9 +72,7 @@ const ACADEMIC_PROGRAM_OPTIONS: AutocompleteDropdownItem[] = [
   { id: "anthropology", title: "Anthropology" },
   { id: "international-relations", title: "International Relations" },
   { id: "nursing", title: "Nursing" },
-  { id: "biology", title: "Biology" },
   { id: "public-health", title: "Public Health" },
-  { id: "biology", title: "Biology" },
   { id: "kinesiology", title: "Kinesiology" },
   { id: "nutrition", title: "Nutrition" },
   { id: "pharmacy", title: "Pharmacy" },
@@ -145,9 +143,8 @@ function getInitialPronouns(value: string | undefined) {
   //       ? "them"
   //       : "her";
 
-  return { leftPronoun: normalizedLeft};
+  return { leftPronoun: normalizedLeft };
 }
-
 
 function getAcademicProgramInitialValue(value: string) {
   if (!value.trim()) return undefined;
@@ -374,6 +371,7 @@ export default function SignupAcademicProfileStep() {
               inputContainerStyle={styles.autocompleteInputContainer}
               rightButtonsContainerStyle={styles.autocompleteRightButtons}
               suggestionsListContainerStyle={styles.suggestionsListContainer}
+              suggestionsListTextStyle={styles.suggestionsListText}
               textInputProps={{
                 placeholder: "Choose a major or select Other",
                 placeholderTextColor: "#9CA3AF",
@@ -456,6 +454,7 @@ export default function SignupAcademicProfileStep() {
               inputContainerStyle={styles.autocompleteInputContainer}
               rightButtonsContainerStyle={styles.autocompleteRightButtons}
               suggestionsListContainerStyle={styles.suggestionsListContainer}
+              suggestionsListTextStyle={styles.suggestionsListText}
               textInputProps={{
                 placeholder: "Choose a minor or select Other",
                 placeholderTextColor: "#9CA3AF",
@@ -610,6 +609,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#CFE2FF",
     backgroundColor: "#FFFFFF",
+  },
+  suggestionsListText: {
+    color: "#0B1533",
+    fontSize: 18,
   },
   picker: {
     flex: 1,
