@@ -1,3 +1,4 @@
+import { FirebaseError } from "firebase/app";
 import {
   collection,
   doc,
@@ -77,15 +78,30 @@ function isStoredRelationshipStatus(
   );
 }
 
+function isMissingRelationshipPermissionError(error: unknown): boolean {
+  return error instanceof FirebaseError && error.code === "permission-denied";
+}
+
 export async function getRelationshipStatusForPair(
   uid1: string,
   uid2: string,
 ): Promise<RelationshipStatus> {
-  const snap = await getDoc(doc(db, "relationships", relationshipDocId(uid1, uid2)));
-  if (!snap.exists()) return "none";
+  try {
+    const snap = await getDoc(
+      doc(db, "relationships", relationshipDocId(uid1, uid2)),
+    );
+    if (!snap.exists()) return "none";
 
-  const status = snap.data()?.status;
-  return isStoredRelationshipStatus(status) ? status : "none";
+    const status = snap.data()?.status;
+    return isStoredRelationshipStatus(status) ? status : "none";
+  } catch (error) {
+    // this treats missing pair docs as no relationship instead of surfacing
+    // a permission error from the rules' existing-doc read guard.
+    if (isMissingRelationshipPermissionError(error)) {
+      return "none";
+    }
+    throw error;
+  }
 }
 
 export async function getRelationshipStatus(

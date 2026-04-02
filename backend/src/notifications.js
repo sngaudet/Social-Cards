@@ -33,6 +33,7 @@ async function sendExpoPush(tokens, title, body, data = {}) {
     to,
     channelId: "default",
     sound: "default",
+    priority: "high",
     title,
     body,
     data,
