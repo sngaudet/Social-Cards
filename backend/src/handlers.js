@@ -28,6 +28,7 @@ const {
 const {
   maybeSendCrowdAlert,
   connection_requestCreated,
+  connection_messageCreated,
 } = require("./notifications");
 
 // this gives a user doc reference from a uid
@@ -396,4 +397,5 @@ module.exports = {
   location_getNearby,
   reportUser,
   connection_requestCreated,
+  connection_messageCreated,
 };

@@ -3,6 +3,7 @@ import { Redirect, Tabs } from "expo-router";
 import React, { ReactNode, useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthContext";
+import NotificationCoordinator from "../../src/notifications/NotificationCoordinator";
 
 function AnimatedIcon({
   focused,
@@ -53,89 +54,92 @@ export default function TabDisplay() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
+    <>
+      <NotificationCoordinator />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
 
-        tabBarStyle: {
-        height: 80,
-        paddingTop: 10,
-        backgroundColor: "#DADDE5",
-        borderTopWidth: 0,
-        overflow: "visible",
-    },
+          tabBarStyle: {
+          height: 80,
+          paddingTop: 10,
+          backgroundColor: "#DADDE5",
+          borderTopWidth: 0,
+          overflow: "visible",
+      },
 
-        tabBarLabelStyle: {
-          fontSize: 12,
-          marginTop: 4,
-        },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            marginTop: 4,
+          },
 
-        tabBarActiveTintColor: "#333",
-        tabBarInactiveTintColor: "#555",
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedIcon focused={focused}>
-              <Ionicons name="star" size={22} color={color} />
-            </AnimatedIcon>
-          ),
+          tabBarActiveTintColor: "#333",
+          tabBarInactiveTintColor: "#555",
         }}
-      />
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ focused, color }) => (
+              <AnimatedIcon focused={focused}>
+                <Ionicons name="star" size={22} color={color} />
+              </AnimatedIcon>
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="message_cur"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedIcon focused={focused}>
-              <Feather name="message-circle" size={22} color={color} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="message_cur"
+          options={{
+            title: "Messages",
+            tabBarIcon: ({ focused, color }) => (
+              <AnimatedIcon focused={focused}>
+                <Feather name="message-circle" size={22} color={color} />
+              </AnimatedIcon>
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedIcon focused={focused}>
-              <Feather name="user" size={22} color={color} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ focused, color }) => (
+              <AnimatedIcon focused={focused}>
+                <Feather name="user" size={22} color={color} />
+              </AnimatedIcon>
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="connections"
-        options={{
-          title: "Connections",
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedIcon focused={focused}>
-              <Feather name="menu" size={22} color={color} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="connections"
+          options={{
+            title: "Connections",
+            tabBarIcon: ({ focused, color }) => (
+              <AnimatedIcon focused={focused}>
+                <Feather name="menu" size={22} color={color} />
+              </AnimatedIcon>
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedIcon focused={focused}>
-              <Ionicons name="settings-outline" size={22} color={color} />
-            </AnimatedIcon>
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Settings",
+            tabBarIcon: ({ focused, color }) => (
+              <AnimatedIcon focused={focused}>
+                <Ionicons name="settings-outline" size={22} color={color} />
+              </AnimatedIcon>
+            ),
+          }}
+        />
 
-      <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
-      <Tabs.Screen name="uid" options={{ href: null }} />
-    </Tabs>
+        <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
+        <Tabs.Screen name="uid" options={{ href: null }} />
+      </Tabs>
+    </>
   );
 }

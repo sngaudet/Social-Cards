@@ -84,6 +84,18 @@ function buildConnectionRequestBody(firstName) {
   return "You received a new connection request.";
 }
 
+// this formats a clear chat message push body
+function buildChatMessageBody(firstName, text) {
+  const cleanText = typeof text === "string" ? text.trim() : "";
+  const preview =
+    cleanText.length > 80 ? `${cleanText.slice(0, 77).trimEnd()}...` : cleanText;
+
+  if (firstName && preview) return `${firstName}: ${preview}`;
+  if (firstName) return `${firstName} sent you a message.`;
+  if (preview) return preview;
+  return "You received a new message.";
+}
+
 // this builds a simple key so we do not repeat the same alert
 function makeAlertFingerprint(subjectUid, nearbyUsers) {
   const sample = nearbyUsers
@@ -193,7 +205,69 @@ const connection_requestCreated = onDocumentCreated(
   },
 );
 
+// this sends one push when a new chat message is created
+const connection_messageCreated = onDocumentCreated(
+  {
+    region: REGION,
+    document: "connections/{connectionId}/messages/{messageId}",
+  },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const db = getDb();
+    const connectionId =
+      typeof event.params.connectionId === "string"
+        ? event.params.connectionId.trim()
+        : "";
+    const messageId =
+      typeof event.params.messageId === "string"
+        ? event.params.messageId.trim()
+        : "";
+    const senderUid = typeof data.senderUid === "string" ? data.senderUid.trim() : "";
+    const text = typeof data.text === "string" ? data.text : "";
+
+    if (!connectionId || !messageId || !senderUid) {
+      logger.warn("Skipping malformed chat message notification", {
+        connectionId,
+        messageId,
+        senderUid,
+      });
+      return;
+    }
+
+    const connectionSnap = await db.collection("connections").doc(connectionId).get();
+    if (!connectionSnap.exists) return;
+
+    const members = Array.isArray(connectionSnap.data()?.users)
+      ? connectionSnap
+          .data()
+          .users.filter((uid) => typeof uid === "string" && uid.trim())
+      : [];
+    const recipientUids = members.filter((uid) => uid !== senderUid);
+
+    if (!recipientUids.length) return;
+
+    const senderName = await getUserFirstName(senderUid);
+    const title = senderName ? `New message from ${senderName}` : "New message";
+    const body = buildChatMessageBody(senderName, text);
+
+    for (const recipientUid of recipientUids) {
+      const tokens = await getPushTokens(recipientUid);
+      if (!tokens.length) continue;
+
+      await sendExpoPush(tokens, title, body, {
+        type: "chat_message",
+        connectionId,
+        messageId,
+        senderUid,
+      });
+    }
+  },
+);
+
 module.exports = {
   maybeSendCrowdAlert,
   connection_requestCreated,
+  connection_messageCreated,
 };

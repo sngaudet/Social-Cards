@@ -7,6 +7,7 @@ import { FirebaseError } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 import { app, auth } from "../../firebaseConfig";
+import { shouldShowForegroundPushAlert } from "../notifications/runtime";
 import { PreConnectionVisibility } from "../profile/visibility";
 
 export type LocationPermissionStatus =
@@ -140,13 +141,19 @@ if (Platform.OS !== "web") {
   void getNotificationsModule()
     .then((Notifications) => {
       Notifications?.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
+        handleNotification: async (notification) => {
+          const shouldShowAlert = shouldShowForegroundPushAlert(
+            notification.request.content.data as Record<string, unknown> | undefined,
+          );
+
+          return {
+          shouldShowAlert,
+          shouldPlaySound: shouldShowAlert,
           shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
+          shouldShowBanner: shouldShowAlert,
+          shouldShowList: shouldShowAlert,
+        };
+        },
       });
     })
     .catch((error) => {
