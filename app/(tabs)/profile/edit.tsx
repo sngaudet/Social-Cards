@@ -374,11 +374,13 @@ export default function EditProfile() {
       setNewPhotoUri(null);
       setHobbies(hobbiesToInputValue(normalizedHobbies));
 
-      Alert.alert("Saved", "Your profile has been updated.");
-    } catch (e: any) {
-      Alert.alert("Save failed", e?.message ?? "Unknown error");
-    } finally {
-      setSaving(false);
+      Alert.alert("Saved", "Your profile has been updated.", [
+    { text: "OK", onPress: () => router.replace("/profile/view") },
+  ]);
+} catch (e: any) {
+  Alert.alert("Save failed", e?.message ?? "Unknown error");
+} finally {
+  setSaving(false);
     }
   };
 
