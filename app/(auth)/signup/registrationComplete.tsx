@@ -60,7 +60,6 @@ export default function RegistrationCompletePage() {
     if (!draft.pronouns?.trim()) fields.push("pronouns");
     if (draft.gradYear == null) fields.push("grad year");
     if (!draft.major?.trim()) fields.push("major");
-    if (!draft.minor?.trim()) fields.push("minor");
     if (completedIceBreakers < 3) fields.push("3 icebreakers");
     if (hobbies.length === 0) fields.push("hobbies");
     if (!draft.avatarId?.trim()) fields.push("avatar");
