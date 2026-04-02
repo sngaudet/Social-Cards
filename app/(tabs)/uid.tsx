@@ -15,7 +15,10 @@ import {
 
 import { auth, db } from "../../firebaseConfig";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
-import { subscribeToConnections } from "../../src/connections/service";
+import {
+  getRelationshipStatusForPair,
+  subscribeToConnections,
+} from "../../src/connections/service";
 import { formatHobbies } from "../../src/lib/hobbies";
 import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
@@ -66,37 +69,54 @@ export default function UserProfileView() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<UserDoc | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [profileUnavailable, setProfileUnavailable] = useState(false);
   const currentUid = auth.currentUser?.uid;
 
   const loadProfile = useCallback(async () => {
     if (!uid) {
       setData(null);
+      setProfileUnavailable(false);
       return;
     }
 
-    const publicProfileRef = doc(db, "publicProfiles", uid);
-    const userRef = doc(db, "users", uid);
-    const [publicProfileSnap, userSnap] = await Promise.all([
-      getDoc(publicProfileRef),
-      getDoc(userRef),
-    ]);
+    if (currentUid && currentUid !== uid) {
+      const relationshipStatus = await getRelationshipStatusForPair(
+        currentUid,
+        uid,
+      );
 
-    if (!publicProfileSnap.exists() && !userSnap.exists()) {
+      if (relationshipStatus === "declined" || relationshipStatus === "blocked") {
+        setData(null);
+        setProfileUnavailable(true);
+        return;
+      }
+    }
+
+    const publicProfileRef = doc(db, "publicProfiles", uid);
+    const publicProfileSnap = await getDoc(publicProfileRef);
+    const shouldLoadPrivateProfile = currentUid === uid;
+    const userSnap = shouldLoadPrivateProfile
+      ? await getDoc(doc(db, "users", uid))
+      : null;
+
+    if (!publicProfileSnap.exists() && !userSnap?.exists()) {
       setData(null);
+      setProfileUnavailable(false);
       return;
     }
 
     const publicProfileData = publicProfileSnap.exists()
       ? (publicProfileSnap.data() as UserDoc)
       : {};
-    const userData = userSnap.exists() ? (userSnap.data() as UserDoc) : {};
+    const userData = userSnap?.exists() ? (userSnap.data() as UserDoc) : {};
 
     setData({
       ...userData,
       ...publicProfileData,
       avatarId: publicProfileData.avatarId ?? userData.avatarId,
     });
-  }, [uid]);
+    setProfileUnavailable(false);
+  }, [currentUid, uid]);
 
   useEffect(() => {
     if (!currentUid || !uid || currentUid === uid) {
@@ -126,10 +146,15 @@ export default function UserProfileView() {
         setLoading(true);
         await loadProfile();
       } catch (error: any) {
-        Alert.alert(
-          "Could not load profile",
-          error?.message ?? "Unknown error",
-        );
+        if (error?.code === "permission-denied") {
+          setData(null);
+          setProfileUnavailable(true);
+        } else {
+          Alert.alert(
+            "Could not load profile",
+            error?.message ?? "Unknown error",
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -143,7 +168,12 @@ export default function UserProfileView() {
       setRefreshing(true);
       await loadProfile();
     } catch (error: any) {
-      Alert.alert("Refresh failed", error?.message ?? "Unknown error");
+      if (error?.code === "permission-denied") {
+        setData(null);
+        setProfileUnavailable(true);
+      } else {
+        Alert.alert("Refresh failed", error?.message ?? "Unknown error");
+      }
     } finally {
       setRefreshing(false);
     }
@@ -258,7 +288,14 @@ export default function UserProfileView() {
         </View>
       )}
 
-      {!data ? (
+      {profileUnavailable ? (
+        <View style={styles.card}>
+          <Text style={styles.value}>Profile unavailable.</Text>
+          <Text style={[styles.value, { marginTop: 8 }]}>
+            You can no longer view this profile.
+          </Text>
+        </View>
+      ) : !data ? (
         <View style={styles.card}>
           <Text style={styles.value}>Profile not found.</Text>
         </View>

@@ -288,6 +288,43 @@ function getNeighborsForSubject(subject, people, radiusM) {
   return neighbors;
 }
 
+function sortedPair(uid1, uid2) {
+  return [uid1, uid2].sort();
+}
+
+function relationshipDocId(uid1, uid2) {
+  const [a, b] = sortedPair(uid1, uid2);
+  return `${a}_${b}`;
+}
+
+async function getExcludedRelationshipUids(uid, candidateUids) {
+  if (!candidateUids.length) return new Set();
+
+  const db = getDb();
+  const uniqueCandidateUids = [...new Set(candidateUids)].filter(
+    (candidateUid) => candidateUid && candidateUid !== uid,
+  );
+  if (!uniqueCandidateUids.length) return new Set();
+
+  const refs = uniqueCandidateUids.map((candidateUid) =>
+    db.collection("relationships").doc(relationshipDocId(uid, candidateUid)),
+  );
+  const snaps = await db.getAll(...refs);
+  const excludedUids = new Set();
+
+  for (let index = 0; index < snaps.length; index += 1) {
+    const snap = snaps[index];
+    if (!snap.exists) continue;
+
+    const status = snap.data()?.status;
+    if (status === "declined" || status === "blocked") {
+      excludedUids.add(uniqueCandidateUids[index]);
+    }
+  }
+
+  return excludedUids;
+}
+
 // firestore lets in-query use max 10 ids so we split the list
 async function getUsersByUids(uids) {
   if (!uids.length) return new Map();
@@ -358,6 +395,7 @@ module.exports = {
   getPresenceByUid,
   queryNearbyPresence,
   getNeighborsForSubject,
+  getExcludedRelationshipUids,
   getUsersByUids,
   buildNearbyUserPayload,
   getThrottleSeconds,

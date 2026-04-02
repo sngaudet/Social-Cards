@@ -20,6 +20,7 @@ const {
   getPresenceByUid,
   queryNearbyPresence,
   getNeighborsForSubject,
+  getExcludedRelationshipUids,
   getUsersByUids,
   buildNearbyUserPayload,
   getThrottleSeconds,
@@ -292,7 +293,14 @@ const location_getNearby = onCall(
     const nearbyPresence = await queryNearbyPresence(callerPresence, radiusM, {
       useAccuracyBuffer: true,
     });
-    const filtered = nearbyPresence.filter((presence) => presence.uid !== uid);
+    const withoutCaller = nearbyPresence.filter((presence) => presence.uid !== uid);
+    const excludedUids = await getExcludedRelationshipUids(
+      uid,
+      withoutCaller.map((presence) => presence.uid),
+    );
+    const filtered = withoutCaller.filter(
+      (presence) => !excludedUids.has(presence.uid),
+    );
     const userMap = await getUsersByUids(
       filtered.map((presence) => presence.uid),
     );
