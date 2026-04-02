@@ -40,9 +40,9 @@ export const PRE_CONNECTION_VISIBILITY_FIELDS: {
   { key: "major", label: "Major" },
   { key: "minor", label: "Minor" },
   { key: "bio", label: "Bio" },
-  { key: "iceBreakerOne", label: "Ideal Weekend" },
-  { key: "iceBreakerTwo", label: "Favorite Food Prompt" },
-  { key: "iceBreakerThree", label: "Fun Fact" },
+  { key: "iceBreakerOne", label: "Ice Breaker 1" },
+  { key: "iceBreakerTwo", label: "Ice Breaker 2" },
+  { key: "iceBreakerThree", label: "Ice Breaker 3" },
   { key: "hobbies", label: "Hobbies" },
 ];
 

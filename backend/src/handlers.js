@@ -20,6 +20,7 @@ const {
   getPresenceByUid,
   queryNearbyPresence,
   getNeighborsForSubject,
+  getExcludedRelationshipUids,
   getUsersByUids,
   buildNearbyUserPayload,
   getThrottleSeconds,
@@ -27,6 +28,7 @@ const {
 const {
   maybeSendCrowdAlert,
   connection_requestCreated,
+  connection_messageCreated,
 } = require("./notifications");
 
 // this gives a user doc reference from a uid
@@ -292,7 +294,14 @@ const location_getNearby = onCall(
     const nearbyPresence = await queryNearbyPresence(callerPresence, radiusM, {
       useAccuracyBuffer: true,
     });
-    const filtered = nearbyPresence.filter((presence) => presence.uid !== uid);
+    const withoutCaller = nearbyPresence.filter((presence) => presence.uid !== uid);
+    const excludedUids = await getExcludedRelationshipUids(
+      uid,
+      withoutCaller.map((presence) => presence.uid),
+    );
+    const filtered = withoutCaller.filter(
+      (presence) => !excludedUids.has(presence.uid),
+    );
     const userMap = await getUsersByUids(
       filtered.map((presence) => presence.uid),
     );
@@ -388,4 +397,5 @@ module.exports = {
   location_getNearby,
   reportUser,
   connection_requestCreated,
+  connection_messageCreated,
 };

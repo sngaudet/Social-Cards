@@ -5,6 +5,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function pairId(uid1, uid2) {
+      return uid1 < uid2 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
+    }
+
+    function relationshipPath(uid1, uid2) {
+      return /databases/$(database)/documents/relationships/$(pairId(uid1, uid2));
+    }
+
+    function relationshipStatus(uid1, uid2) {
+      let path = relationshipPath(uid1, uid2);
+      return exists(path) ? get(path).data.status : "none";
+    }
+
+    function canReadPublicProfile(userId) {
+      let status = relationshipStatus(request.auth.uid, userId);
+      return request.auth.uid == userId
+        || (
+          status != "declined"
+          && status != "blocked"
+        );
+    }
+
     match /users/{userId} {
       allow read, write: if signedIn() && request.auth.uid == userId;
 
@@ -14,8 +36,48 @@ service cloud.firestore {
     }
 
     match /publicProfiles/{userId} {
-      allow read: if signedIn();
+      allow read: if signedIn() && canReadPublicProfile(userId);
       allow write: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /relationships/{relationshipId} {
+      allow create: if signedIn()
+        && request.resource.data.users is list
+        && request.resource.data.users.size() == 2
+        && request.resource.data.users[0] is string
+        && request.resource.data.users[1] is string
+        && request.resource.data.users[0] != request.resource.data.users[1]
+        && relationshipId == pairId(
+          request.resource.data.users[0],
+          request.resource.data.users[1],
+        )
+        && request.resource.data.users.hasAny([request.auth.uid])
+        && (
+          request.resource.data.status == "pending"
+          || request.resource.data.status == "accepted"
+          || request.resource.data.status == "declined"
+          || request.resource.data.status == "blocked"
+        );
+
+      allow read: if signedIn() && resource.data.users.hasAny([request.auth.uid]);
+
+      allow update: if signedIn()
+        && resource.data.users is list
+        && resource.data.users.hasAny([request.auth.uid])
+        && request.resource.data.users == resource.data.users
+        && request.resource.data.users.size() == 2
+        && relationshipId == pairId(
+          request.resource.data.users[0],
+          request.resource.data.users[1],
+        )
+        && (
+          request.resource.data.status == "pending"
+          || request.resource.data.status == "accepted"
+          || request.resource.data.status == "declined"
+          || request.resource.data.status == "blocked"
+        );
+
+      allow delete: if false;
     }
 
     match /connectionRequests/{requestId} {

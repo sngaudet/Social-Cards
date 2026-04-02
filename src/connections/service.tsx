@@ -1,5 +1,5 @@
+import { FirebaseError } from "firebase/app";
 import {
-  addDoc,
   collection,
   doc,
   DocumentData,
@@ -9,9 +9,8 @@ import {
   query,
   QuerySnapshot,
   serverTimestamp,
-  setDoc,
   Timestamp,
-  updateDoc,
+  writeBatch,
   where,
 } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
@@ -19,6 +18,12 @@ import { auth, db } from "../../firebaseConfig";
 export const CONNECTION_DURATION_MS = 3 * 60 * 60 * 1000;
 
 export type ConnectionRequestStatus = "pending" | "accepted" | "declined";
+export type RelationshipStatus =
+  | "none"
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "blocked";
 
 export type ConnectionRequest = {
   id: string;
@@ -35,6 +40,8 @@ export type ConnectionDoc = {
   createdAt?: any;
   expiresAt?: any;
 };
+
+type StoredRelationshipStatus = Exclude<RelationshipStatus, "none">;
 
 export type PublicUserProfile = {
   uid: string;
@@ -56,11 +63,67 @@ function connectionDocId(uid1: string, uid2: string): string {
   return `${a}_${b}`;
 }
 
+function relationshipDocId(uid1: string, uid2: string): string {
+  return connectionDocId(uid1, uid2);
+}
+
+function isStoredRelationshipStatus(
+  value: unknown,
+): value is StoredRelationshipStatus {
+  return (
+    value === "pending" ||
+    value === "accepted" ||
+    value === "declined" ||
+    value === "blocked"
+  );
+}
+
+function isMissingRelationshipPermissionError(error: unknown): boolean {
+  return error instanceof FirebaseError && error.code === "permission-denied";
+}
+
+export async function getRelationshipStatusForPair(
+  uid1: string,
+  uid2: string,
+): Promise<RelationshipStatus> {
+  try {
+    const snap = await getDoc(
+      doc(db, "relationships", relationshipDocId(uid1, uid2)),
+    );
+    if (!snap.exists()) return "none";
+
+    const status = snap.data()?.status;
+    return isStoredRelationshipStatus(status) ? status : "none";
+  } catch (error) {
+    // this treats missing pair docs as no relationship instead of surfacing
+    // a permission error from the rules' existing-doc read guard.
+    if (isMissingRelationshipPermissionError(error)) {
+      return "none";
+    }
+    throw error;
+  }
+}
+
+export async function getRelationshipStatus(
+  otherUid: string,
+): Promise<RelationshipStatus> {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) throw new Error("You must be logged in.");
+  if (currentUid === otherUid) return "accepted";
+
+  return getRelationshipStatusForPair(currentUid, otherUid);
+}
+
 export async function sendConnectionRequest(toUid: string): Promise<void> {
   const fromUid = auth.currentUser?.uid;
 
   if (!fromUid) throw new Error("You must be logged in.");
   if (fromUid === toUid) throw new Error("You cannot connect with yourself.");
+
+  const relationshipStatus = await getRelationshipStatusForPair(fromUid, toUid);
+  if (relationshipStatus === "blocked") {
+    throw new Error("You cannot connect with this user.");
+  }
 
   const outgoingPendingQuery = query(
     collection(db, "connectionRequests"),
@@ -88,13 +151,27 @@ export async function sendConnectionRequest(toUid: string): Promise<void> {
     throw new Error("This user has already sent you a connection request.");
   }
 
-  await addDoc(collection(db, "connectionRequests"), {
+  const requestRef = doc(collection(db, "connectionRequests"));
+  const batch = writeBatch(db);
+
+  batch.set(requestRef, {
     fromUid,
     toUid,
     status: "pending",
     createdAt: serverTimestamp(),
     respondedAt: null,
   });
+  batch.set(
+    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
+    {
+      users: sortedPair(fromUid, toUid),
+      status: "pending",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
 }
 
 export async function acceptConnectionRequest(
@@ -110,19 +187,30 @@ export async function acceptConnectionRequest(
   }
 
   const requestRef = doc(db, "connectionRequests", requestId);
+  const batch = writeBatch(db);
 
-  await updateDoc(requestRef, {
+  batch.update(requestRef, {
     status: "accepted",
     respondedAt: serverTimestamp(),
   });
-
-  await setDoc(doc(db, "connections", connectionDocId(fromUid, toUid)), {
+  batch.set(doc(db, "connections", connectionDocId(fromUid, toUid)), {
     users: sortedPair(fromUid, toUid),
     createdAt: serverTimestamp(),
     expiresAt: Timestamp.fromDate(
       new Date(Date.now() + CONNECTION_DURATION_MS),
     ),
   });
+  batch.set(
+    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
+    {
+      users: sortedPair(fromUid, toUid),
+      status: "accepted",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
 }
 
 export async function declineConnectionRequest(
@@ -132,10 +220,37 @@ export async function declineConnectionRequest(
 
   if (!currentUid) throw new Error("You must be logged in.");
 
-  await updateDoc(doc(db, "connectionRequests", requestId), {
+  const requestRef = doc(db, "connectionRequests", requestId);
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) {
+    throw new Error("Connection request not found.");
+  }
+
+  const request = requestSnap.data();
+  const fromUid = request?.fromUid;
+  const toUid = request?.toUid;
+
+  if (typeof fromUid !== "string" || typeof toUid !== "string") {
+    throw new Error("Malformed connection request.");
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(requestRef, {
     status: "declined",
     respondedAt: serverTimestamp(),
   });
+  batch.set(
+    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
+    {
+      users: sortedPair(fromUid, toUid),
+      status: "declined",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
 }
 
 export function subscribeToIncomingRequests(
