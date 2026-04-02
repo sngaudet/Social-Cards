@@ -42,7 +42,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  TouchableOpacity,
+  View
 } from "react-native";
 import HobbyButton from "../../../src/components/HobbyButton";
 import PrimaryButton from "../../../src/components/PrimaryButton";
@@ -237,6 +238,9 @@ export default function SignupHobbiesStep() {
         style={styles.primaryButton}
         onPress={onNext}
       />
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+              <Text style={styles.secondaryText}>Back</Text>
+            </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -264,4 +268,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
+  secondaryButton: { padding: 12, alignItems: "center" },
+  secondaryText: { color: "#444", fontSize: 14 },
 });
