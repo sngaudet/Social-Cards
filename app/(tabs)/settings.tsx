@@ -142,7 +142,7 @@ export default function SettingsPage(){
               source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
             /> */}
 
-            <Text style={styles.title}>Settings Page</Text>
+            <Text style={styles.title}>Settings</Text>
             <Text style={styles.title3}>Commonly Asked Questions:</Text>
             
             <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ1}>
@@ -192,120 +192,136 @@ export default function SettingsPage(){
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { 
+
+  content: {
     flexGrow: 1,
     padding: 24,
-    paddingBottom: 48, 
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: '#D9E0F0', 
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+    gap: 20,
   },
+
   title: {
-    fontSize: 38,
-    fontWeight: "600",
-    marginBottom: 44,
+    fontSize: 34,
+    fontWeight: "700",
     textAlign: "center",
+    marginTop: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 36,
-  },
-  primaryButton: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    textAlign: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-    primaryButton2: {
-    backgroundColor: "#3b82f6",
-    width: 400,
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    textAlign: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  primaryText: { 
-    color: "white", 
-    fontWeight: "600", 
-    textAlign: "center",
-    marginBottom: 30, 
-  },
+
   title2: {
-    color: "black", 
-    fontSize: 20, 
-    fontWeight: "bold", 
+    fontSize: 22,
+    fontWeight: "700",
     textAlign: "center",
-    textShadowRadius: 2, 
-    textShadowColor: "yellow",
-    marginBottom: 30,
+    marginBottom: 8,
   },
-    title3: {
-    color: "black", 
-    fontSize: 20, 
-    fontWeight: "bold", 
+
+  title3: {
+    fontSize: 22,
+    fontWeight: "700",
     textAlign: "center",
-    marginBottom: 30,
   },
-  secondaryButton: { 
-    padding: 16, 
+
+  input: {
+    fontSize: 16,
+  },
+
+  // FAQ button → card style
+  primaryButton: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  primaryButton2: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  primaryText: {
+    color: "#000",
+    fontWeight: "700",
+    fontSize: 16,
+    textAlign: "center",
+  },
+
+  // Logout button 
+  secondaryButton: {
+    backgroundColor: "#888",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#89DBFB", 
-    textAlign: "center",
-    marginBottom: 30,
-    marginTop: 30, 
+    alignItems: "center",
+    marginTop: 16,
   },
-  secondaryText: { 
-    color: "#666", 
-    textAlign: "center",
-    marginBottom: 30, 
+
+  secondaryText: {
+    color: "#fff",
+    fontSize: 14,
   },
-  thirdText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 300
-  },
-    foruthText: {
-    color: "black", 
-    fontSize: 16, 
-    textAlign: "center",
-    marginBottom: 30,
-    width: 600
-  },
-  welcomeLogo: {
-    width: 300,
-    height: 300,
-  },
-    cardFormat: {
-    width: 500,
-    height: 500,
-  },
+
   secondaryButtonText: {
     color: "#fff",
     fontWeight: "700",
+    fontSize: 14,
   },
-    thirdButtonText: {
-    color: "black",
+
+  thirdText: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+  },
+
+  thirdButtonText: {
+    fontSize: 16,
     fontWeight: "700",
-    fontSize: 17,
+    color: "#000",
+    textAlign: "center",
   },
-    dangerButton: {
-    marginTop: 12,
+
+  foruthText: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+
+  welcomeLogo: {
+    width: 200,
+    height: 200,
+    alignSelf: "center",
+  },
+
+  cardFormat: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+  },
+
+  // Delete button
+  dangerButton: {
     backgroundColor: "#ef4444",
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: "center",
+    marginTop: 8,
   },
-  dangerText: { color: "white", fontWeight: "800" },
-  disabledButton: { opacity: 0.6 },
+
+  dangerText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
 });
