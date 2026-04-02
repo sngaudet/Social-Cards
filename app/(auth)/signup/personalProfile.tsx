@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
-import SignupFormField from "../../../src/components/SignupFormField";
 import ProgressHeader from "../../../src/components/ProgressHeader";
+import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { useSignup } from "../../../src/signup/context";
