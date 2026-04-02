@@ -23,6 +23,12 @@ import {
   PreConnectionVisibility,
 } from "../../src/profile/visibility";
 
+const DEFAULT_ICEBREAKER_QUESTIONS = [
+  "What's your ideal weekend?",
+  "What food can you never say no to?",
+  "Share one fun fact about yourself",
+];
+
 type UserDoc = {
   firstName?: string;
   lastName?: string;
@@ -34,8 +40,11 @@ type UserDoc = {
   major?: string;
   minor?: string;
   iceBreakerOne?: string;
+  iceBreakerOneQuestion?: string;
   iceBreakerTwo?: string;
+  iceBreakerTwoQuestion?: string;
   iceBreakerThree?: string;
+  iceBreakerThreeQuestion?: string;
   hobbies?: string[] | string;
   avatarId?: string;
   photoURL?: string;
@@ -174,6 +183,29 @@ export default function UserProfileView() {
   const showPhoto = canSeeField("photoURL");
   const ageFromDateOfBirth = calculateAgeFromDateOfBirth(data?.dateOfBirth ?? "");
   const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
+  const iceBreakers = data
+    ? [
+        {
+          field: "iceBreakerOne" as const,
+          question:
+            data.iceBreakerOneQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
+          answer: data.iceBreakerOne,
+        },
+        {
+          field: "iceBreakerTwo" as const,
+          question:
+            data.iceBreakerTwoQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
+          answer: data.iceBreakerTwo,
+        },
+        {
+          field: "iceBreakerThree" as const,
+          question:
+            data.iceBreakerThreeQuestion?.trim() ||
+            DEFAULT_ICEBREAKER_QUESTIONS[2],
+          answer: data.iceBreakerThree,
+        },
+      ]
+    : [];
 
   return (
     <ScrollView
@@ -293,26 +325,14 @@ export default function UserProfileView() {
             <>
               <Text style={styles.sectionTitle}>Ice Breakers</Text>
 
-              {canSeeField("iceBreakerOne") ? (
-                <>
-                  <Text style={styles.label}>Ideal weekend</Text>
-                  <Text style={styles.value}>{pretty(data.iceBreakerOne)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("iceBreakerTwo") ? (
-                <>
-                  <Text style={styles.label}>Food you cannot say no to</Text>
-                  <Text style={styles.value}>{pretty(data.iceBreakerTwo)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("iceBreakerThree") ? (
-                <>
-                  <Text style={styles.label}>Fun fact</Text>
-                  <Text style={styles.value}>{pretty(data.iceBreakerThree)}</Text>
-                </>
-              ) : null}
+              {iceBreakers.map((iceBreaker) =>
+                canSeeField(iceBreaker.field) ? (
+                  <React.Fragment key={iceBreaker.field}>
+                    <Text style={styles.label}>{iceBreaker.question}</Text>
+                    <Text style={styles.value}>{pretty(iceBreaker.answer)}</Text>
+                  </React.Fragment>
+                ) : null,
+              )}
             </>
           ) : null}
 

@@ -44,6 +44,12 @@ import {
   PreConnectionVisibility,
 } from "../../../src/profile/visibility";
 
+const DEFAULT_ICEBREAKER_QUESTIONS = [
+  "What's your ideal weekend?",
+  "What food can you never say no to?",
+  "Share one fun fact about yourself",
+];
+
 type UserDoc = {
   email?: string;
   firstName?: string;
@@ -56,8 +62,11 @@ type UserDoc = {
   major?: string;
   minor?: string;
   iceBreakerOne?: string;
+  iceBreakerOneQuestion?: string;
   iceBreakerTwo?: string;
+  iceBreakerTwoQuestion?: string;
   iceBreakerThree?: string;
+  iceBreakerThreeQuestion?: string;
   hobbies?: string[] | string;
   photoURL?: string;
   photoUrls?: string[];
@@ -102,8 +111,11 @@ export default function EditProfile() {
   const [major, setMajor] = useState("");
   const [minor, setMinor] = useState("");
   const [ice1, setIce1] = useState("");
+  const [ice1Question, setIce1Question] = useState(DEFAULT_ICEBREAKER_QUESTIONS[0]);
   const [ice2, setIce2] = useState("");
+  const [ice2Question, setIce2Question] = useState(DEFAULT_ICEBREAKER_QUESTIONS[1]);
   const [ice3, setIce3] = useState("");
+  const [ice3Question, setIce3Question] = useState(DEFAULT_ICEBREAKER_QUESTIONS[2]);
   const [hobbies, setHobbies] = useState("");
   const [preConnectionVisibility, setPreConnectionVisibility] =
     useState<PreConnectionVisibility>(
@@ -141,8 +153,11 @@ export default function EditProfile() {
       setMajor("");
       setMinor("");
       setIce1("");
+      setIce1Question(DEFAULT_ICEBREAKER_QUESTIONS[0]);
       setIce2("");
+      setIce2Question(DEFAULT_ICEBREAKER_QUESTIONS[1]);
       setIce3("");
+      setIce3Question(DEFAULT_ICEBREAKER_QUESTIONS[2]);
       setHobbies("");
       setPreConnectionVisibility(normalizePreConnectionVisibility(undefined));
       return;
@@ -165,8 +180,17 @@ export default function EditProfile() {
     setMinor(d.minor ?? "");
 
     setIce1(d.iceBreakerOne ?? "");
+    setIce1Question(
+      d.iceBreakerOneQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
+    );
     setIce2(d.iceBreakerTwo ?? "");
+    setIce2Question(
+      d.iceBreakerTwoQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
+    );
     setIce3(d.iceBreakerThree ?? "");
+    setIce3Question(
+      d.iceBreakerThreeQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[2],
+    );
     setHobbies(hobbiesToInputValue(d.hobbies));
     setPreConnectionVisibility(
       normalizePreConnectionVisibility(d.preConnectionVisibility),
@@ -301,8 +325,12 @@ export default function EditProfile() {
         minor: minor.trim(),
 
         iceBreakerOne: ice1.trim(),
+        iceBreakerOneQuestion: ice1Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
         iceBreakerTwo: ice2.trim(),
+        iceBreakerTwoQuestion: ice2Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
         iceBreakerThree: ice3.trim(),
+        iceBreakerThreeQuestion:
+          ice3Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[2],
         hobbies: normalizedHobbies,
         preConnectionVisibility,
 
@@ -325,8 +353,14 @@ export default function EditProfile() {
           major: major.trim(),
           minor: minor.trim(),
           iceBreakerOne: ice1.trim(),
+          iceBreakerOneQuestion:
+            ice1Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
           iceBreakerTwo: ice2.trim(),
+          iceBreakerTwoQuestion:
+            ice2Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
           iceBreakerThree: ice3.trim(),
+          iceBreakerThreeQuestion:
+            ice3Question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[2],
           hobbies: normalizedHobbies,
           photoURL: updatedPhotoURL,
           preConnectionVisibility,
@@ -666,7 +700,7 @@ export default function EditProfile() {
 
         <Text style={styles.sectionTitle}>Ice Breakers</Text>
 
-        <Text style={styles.label}>Ideal weekend</Text>
+        <Text style={styles.label}>{ice1Question}</Text>
         <TextInput
           value={ice1}
           onChangeText={setIce1}
@@ -675,7 +709,7 @@ export default function EditProfile() {
           textAlignVertical="top"
         />
 
-        <Text style={styles.label}>Food you can’t say no to</Text>
+        <Text style={styles.label}>{ice2Question}</Text>
         <TextInput
           value={ice2}
           onChangeText={setIce2}
@@ -684,7 +718,7 @@ export default function EditProfile() {
           textAlignVertical="top"
         />
 
-        <Text style={styles.label}>Fun fact</Text>
+        <Text style={styles.label}>{ice3Question}</Text>
         <TextInput
           value={ice3}
           onChangeText={setIce3}

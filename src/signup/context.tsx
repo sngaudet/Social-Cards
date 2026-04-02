@@ -106,6 +106,18 @@ function normalizeDraft(value: unknown): SignupDraft {
           : "",
     major: typeof raw.major === "string" ? raw.major : "",
     minor: typeof raw.minor === "string" ? raw.minor : "",
+    iceBreakerOneQuestion:
+      typeof raw.iceBreakerOneQuestion === "string"
+        ? raw.iceBreakerOneQuestion
+        : "",
+    iceBreakerTwoQuestion:
+      typeof raw.iceBreakerTwoQuestion === "string"
+        ? raw.iceBreakerTwoQuestion
+        : "",
+    iceBreakerThreeQuestion:
+      typeof raw.iceBreakerThreeQuestion === "string"
+        ? raw.iceBreakerThreeQuestion
+        : "",
     locationSharingEnabled: raw.locationSharingEnabled === true,
     locationPermissionStatus: normalizeLocationPermissionStatus(
       raw.locationPermissionStatus,

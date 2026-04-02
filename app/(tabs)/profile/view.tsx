@@ -17,6 +17,12 @@ import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { formatHobbies } from "../../../src/lib/hobbies";
 import { formatDateOfBirth } from "../../../src/lib/profileFields";
 
+const DEFAULT_ICEBREAKER_QUESTIONS = [
+  "What's your ideal weekend?",
+  "What food can you never say no to?",
+  "Share one fun fact about yourself",
+];
+
 type UserDoc = {
   email?: string;
   firstName?: string;
@@ -29,8 +35,11 @@ type UserDoc = {
   major?: string;
   minor?: string;
   iceBreakerOne?: string;
+  iceBreakerOneQuestion?: string;
   iceBreakerTwo?: string;
+  iceBreakerTwoQuestion?: string;
   iceBreakerThree?: string;
+  iceBreakerThreeQuestion?: string;
   hobbies?: string[] | string;
   avatarId?: string;
   createdAt?: any; // Firestore Timestamp (or serverTimestamp placeholder)
@@ -107,6 +116,26 @@ export default function ViewProfile() {
   }, [loadProfile]);
 
   const avatarSource = getAvatarImageSource(data?.avatarId);
+  const iceBreakers = data
+    ? [
+        {
+          question:
+            data.iceBreakerOneQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
+          answer: data.iceBreakerOne,
+        },
+        {
+          question:
+            data.iceBreakerTwoQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
+          answer: data.iceBreakerTwo,
+        },
+        {
+          question:
+            data.iceBreakerThreeQuestion?.trim() ||
+            DEFAULT_ICEBREAKER_QUESTIONS[2],
+          answer: data.iceBreakerThree,
+        },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -197,14 +226,12 @@ export default function ViewProfile() {
 
           <Text style={styles.sectionTitle}>Ice Breakers</Text>
 
-          <Text style={styles.label}>Ideal weekend</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerOne)}</Text>
-
-          <Text style={styles.label}>Food you can’t say no to</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerTwo)}</Text>
-
-          <Text style={styles.label}>Fun fact</Text>
-          <Text style={styles.value}>{pretty(data.iceBreakerThree)}</Text>
+          {iceBreakers.map((iceBreaker) => (
+            <React.Fragment key={iceBreaker.question}>
+              <Text style={styles.label}>{iceBreaker.question}</Text>
+              <Text style={styles.value}>{pretty(iceBreaker.answer)}</Text>
+            </React.Fragment>
+          ))}
 
           <View style={styles.divider} />
 

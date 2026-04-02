@@ -1,9 +1,6 @@
 import { useRouter } from "expo-router";
-import {
-  CircleCheckBig,
-  Megaphone,
-} from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { CircleCheckBig, Megaphone } from "lucide-react-native";
+import React, { useState } from "react";
 import {
   Alert,
   Modal,
@@ -20,6 +17,47 @@ import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
+import type { SignupDraft } from "../../../src/signup/types";
+
+const MAX_ICEBREAKERS = 3;
+
+const DEFAULT_ICEBREAKER_QUESTIONS = [
+  "What's your ideal weekend?",
+  "What food can you never say no to?",
+  "Share one fun fact about yourself",
+];
+
+const AVAILABLE_ICEBREAKER_QUESTIONS = [
+  ...DEFAULT_ICEBREAKER_QUESTIONS,
+  "What's your go-to coffee or energy drink?",
+  "Early bird or night owl?",
+  "What's one class you're excited about this semester?",
+  "Sweet snacks or salty snacks?",
+  "What music do you listen to while studying?",
+  "iPhone or Android?",
+  "What's your favorite campus spot to hang out?",
+  "What's the weirdest food combo you like?",
+  "If you could only eat one meal on campus forever, what would it be?",
+  "What's a TV show you can rewatch endlessly?",
+  "What's your most unpopular opinion?",
+  "If your life had a theme song, what would it be?",
+  "Would you rather have no homework ever again or free tuition?",
+  "What's the last thing you Googled?",
+  "What fictional world would you want to live in?",
+  "What's the best place to study on campus?",
+  "What class has challenged you the most so far?",
+  "Commuter or on-campus?",
+  "What's one campus event everyone should attend at least once?",
+  "What's your favorite thing about this school?",
+  "What's a campus secret or life hack you've learned?",
+  "Dining hall favorite or least favorite?",
+  "What building do you get lost in every time?",
+];
+
+type SelectedIceBreaker = {
+  question: string;
+  answer: string;
+};
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -29,116 +67,145 @@ function showAlert(title: string, message?: string) {
   }
 }
 
-type IceKey = "one" | "two" | "three";
+function getInitialIceBreakers(draft: SignupDraft) {
+  const slots = [
+    {
+      question: draft.iceBreakerOneQuestion?.trim() ?? "",
+      answer: draft.iceBreakerOne?.trim() ?? "",
+      fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[0],
+    },
+    {
+      question: draft.iceBreakerTwoQuestion?.trim() ?? "",
+      answer: draft.iceBreakerTwo?.trim() ?? "",
+      fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[1],
+    },
+    {
+      question: draft.iceBreakerThreeQuestion?.trim() ?? "",
+      answer: draft.iceBreakerThree?.trim() ?? "",
+      fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[2],
+    },
+  ];
+
+  return slots.reduce<SelectedIceBreaker[]>((selected, slot) => {
+    const question = slot.question || (slot.answer ? slot.fallbackQuestion : "");
+    if (!question) return selected;
+    if (selected.some((item) => item.question === question)) return selected;
+
+    selected.push({
+      question,
+      answer: slot.answer,
+    });
+    return selected;
+  }, []);
+}
 
 export default function SignupIceBreakersStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
 
-  const [iceBreakerOne, setIceBreakerOne] = useState(draft.iceBreakerOne ?? "");
-  const [iceBreakerTwo, setIceBreakerTwo] = useState(draft.iceBreakerTwo ?? "");
-  const [iceBreakerThree, setIceBreakerThree] = useState(
-    draft.iceBreakerThree ?? "",
+  const [selectedIceBreakers, setSelectedIceBreakers] = useState<
+    SelectedIceBreaker[]
+  >(() => getInitialIceBreakers(draft));
+  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
+  const [modalValue, setModalValue] = useState("");
+  const [selectionWasNew, setSelectionWasNew] = useState(false);
+
+  const icebreakerOptions = Array.from(
+    new Set([
+      ...AVAILABLE_ICEBREAKER_QUESTIONS,
+      ...selectedIceBreakers.map((item) => item.question),
+    ]),
   );
+  const filledCount = selectedIceBreakers.filter((item) => item.answer.trim()).length;
 
-  const filledCount = [iceBreakerOne, iceBreakerTwo, iceBreakerThree].filter(
-    (v) => v.trim().length > 0,
-  ).length;
+  const openCard = (question: string) => {
+    const selectedIceBreaker = selectedIceBreakers.find(
+      (item) => item.question === question,
+    );
 
-  const [activeKey, setActiveKey] = useState<IceKey | null>(null);
+    if (!selectedIceBreaker) {
+      if (selectedIceBreakers.length >= MAX_ICEBREAKERS) {
+        showAlert(
+          "Selection limit reached",
+          `Choose up to ${MAX_ICEBREAKERS} icebreakers. Remove one before picking another.`,
+        );
+        return;
+      }
 
-  const questions = useMemo(
-    () => ({
-      one: "What's your ideal weekend?",
-      two: "What food can you never say no to?",
-      three: "Share one fun fact about yourself",
-    }),
-    [],
-  );
+      setSelectedIceBreakers((current) => [...current, { question, answer: "" }]);
+      setSelectionWasNew(true);
+      setModalValue("");
+    } else {
+      setSelectionWasNew(false);
+      setModalValue(selectedIceBreaker.answer);
+    }
 
-  const answers = useMemo(
-    () => ({
-      one: iceBreakerOne,
-      two: iceBreakerTwo,
-      three: iceBreakerThree,
-    }),
-    [iceBreakerOne, iceBreakerTwo, iceBreakerThree],
-  );
+    setActiveQuestion(question);
+  };
 
-  const setAnswer = (key: IceKey, value: string) => {
-    if (key === "one") setIceBreakerOne(value);
-    if (key === "two") setIceBreakerTwo(value);
-    if (key === "three") setIceBreakerThree(value);
+  const closeModal = () => {
+    if (selectionWasNew && activeQuestion) {
+      setSelectedIceBreakers((current) =>
+        current.filter((item) => item.question !== activeQuestion),
+      );
+    }
+
+    setActiveQuestion(null);
+    setModalValue("");
+    setSelectionWasNew(false);
+  };
+
+  const saveAndClose = () => {
+    if (!activeQuestion) return;
+    if (!modalValue.trim()) {
+      showAlert("Missing answer", "Please type an answer or remove this prompt.");
+      return;
+    }
+
+    setSelectedIceBreakers((current) =>
+      current.map((item) =>
+        item.question === activeQuestion
+          ? { ...item, answer: modalValue.trim() }
+          : item,
+      ),
+    );
+    setActiveQuestion(null);
+    setModalValue("");
+    setSelectionWasNew(false);
+  };
+
+  const removeSelection = () => {
+    if (!activeQuestion) return;
+
+    setSelectedIceBreakers((current) =>
+      current.filter((item) => item.question !== activeQuestion),
+    );
+    setActiveQuestion(null);
+    setModalValue("");
+    setSelectionWasNew(false);
   };
 
   const onNext = () => {
-    if (
-      !iceBreakerOne.trim() ||
-      !iceBreakerTwo.trim() ||
-      !iceBreakerThree.trim()
-    ) {
-      showAlert("Missing fields", "Please answer all ice breaker questions.");
+    if (filledCount < MAX_ICEBREAKERS) {
+      showAlert(
+        "Choose 3 icebreakers",
+        "Select and answer 3 icebreakers before continuing.",
+      );
       return;
     }
 
+    const [first, second, third] = selectedIceBreakers;
+
     updateDraft({
-      iceBreakerOne: iceBreakerOne.trim(),
-      iceBreakerTwo: iceBreakerTwo.trim(),
-      iceBreakerThree: iceBreakerThree.trim(),
+      iceBreakerOneQuestion: first.question.trim(),
+      iceBreakerOne: first.answer.trim(),
+      iceBreakerTwoQuestion: second.question.trim(),
+      iceBreakerTwo: second.answer.trim(),
+      iceBreakerThreeQuestion: third.question.trim(),
+      iceBreakerThree: third.answer.trim(),
     });
 
     router.push("/(auth)/signup/hobbies");
-  };
-
-  const renderCard = (key: IceKey) => {
-    const hasAnswer = !!answers[key]?.trim();
-    return (
-      <Pressable
-        key={key}
-        onPress={() => setActiveKey(key)}
-        style={({ pressed }) => [
-          styles.card,
-          pressed && { opacity: 0.9 },
-          hasAnswer && styles.cardFilled,
-        ]}
-      >
-        <View style={{ gap: 6 }}>
-          {hasAnswer && <View style={styles.selectedRow}>
-            <Megaphone color="#89DBFB" size="20"/>
-            <Text style={styles.textSelected}>   Selected</Text>
-            </View>}
-          {/* {hasAnswer && <Text style={styles.textSelected}>Selected</Text>} */}
-          <Text style={styles.cardTitle}>{questions[key]}</Text>
-          
-          <View style={styles.subtitleSpace}>
-            <Text style={styles.cardSubtitle}>
-                {hasAnswer ? answers[key].trim() : "Tap to answer"} 
-            </Text>
-
-            {hasAnswer && (
-              <View style={styles.iconPosition}>
-                {hasAnswer && <CircleCheckBig color="#007502" size="20" ></CircleCheckBig>}
-              </View>)  
-            }
-          </View>
-        </View>
-        <Text style={styles.cardChevron}>›</Text>
-      </Pressable>
-    );
-  };
-
-  const activeQuestion = activeKey ? questions[activeKey] : "";
-  const activeValue = activeKey ? answers[activeKey] : "";
-
-  const closeModal = () => setActiveKey(null);
-
-  const saveAndClose = () => {
-    // optional: enforce non-empty per question when saving
-    if (activeKey && !activeValue.trim()) {
-      showAlert("Missing answer", "Please type an answer or press Cancel.");
-      return;
-    }
-    closeModal();
   };
 
   return (
@@ -147,24 +214,67 @@ export default function SignupIceBreakersStep() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Progress Bar */}
       <ProgressHeader currentStep={2} />
-      {/* Header */}
+
       <SignupScreenHeader
         title="Pick Your Icebreakers"
-        subtitle="Select a few icebreakers to help others break the ice. Tap or click a card to answer it."
+        subtitle="Choose and answer exactly 3 icebreakers. Tap a card to select it, then add your answer."
       />
-      
-      {/* <Text style={styles.title}>Ice Breakers</Text> */}
 
-      <View style={{ gap: 12 }}>
-        {renderCard("one")}
-        {renderCard("two")}
-        {renderCard("three")}
+      <View style={styles.cardList}>
+        {icebreakerOptions.map((question) => {
+          const selectedIceBreaker = selectedIceBreakers.find(
+            (item) => item.question === question,
+          );
+          const answer = selectedIceBreaker?.answer.trim() ?? "";
+          const isSelected = Boolean(selectedIceBreaker);
+          const hasAnswer = answer.length > 0;
+
+          return (
+            <Pressable
+              key={question}
+              onPress={() => openCard(question)}
+              style={({ pressed }) => [
+                styles.card,
+                pressed && { opacity: 0.9 },
+                isSelected && styles.cardFilled,
+              ]}
+            >
+              <View style={styles.cardCopy}>
+                {isSelected ? (
+                  <View style={styles.selectedRow}>
+                    <Megaphone color="#89DBFB" size={20} />
+                    <Text style={styles.textSelected}>   Selected</Text>
+                  </View>
+                ) : null}
+
+                <Text style={styles.cardTitle}>{question}</Text>
+
+                <View style={styles.subtitleSpace}>
+                  <Text style={styles.cardSubtitle}>
+                    {hasAnswer
+                      ? answer
+                      : isSelected
+                        ? "Selected. Tap to add your answer."
+                        : "Tap to select this icebreaker."}
+                  </Text>
+
+                  {hasAnswer ? (
+                    <View style={styles.iconPosition}>
+                      <CircleCheckBig color="#007502" size={20} />
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              <Text style={styles.cardChevron}>›</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <Text style={{ textAlign: "center", marginBottom: 12 }}>
-        {filledCount} Icebreakers selected
+      <Text style={styles.selectionCount}>
+        {filledCount} of {MAX_ICEBREAKERS} icebreakers ready
       </Text>
 
       <PrimaryButton
@@ -172,6 +282,7 @@ export default function SignupIceBreakersStep() {
         showArrow
         style={styles.primaryButton}
         onPress={onNext}
+        disabled={filledCount < MAX_ICEBREAKERS}
       />
 
       <TouchableOpacity
@@ -182,7 +293,7 @@ export default function SignupIceBreakersStep() {
       </TouchableOpacity>
 
       <Modal
-        visible={activeKey !== null}
+        visible={activeQuestion !== null}
         transparent
         animationType="fade"
         onRequestClose={closeModal}
@@ -193,8 +304,8 @@ export default function SignupIceBreakersStep() {
           <Text style={styles.modalTitle}>{activeQuestion}</Text>
 
           <TextInput
-            value={activeValue}
-            onChangeText={(t) => activeKey && setAnswer(activeKey, t)}
+            value={modalValue}
+            onChangeText={setModalValue}
             placeholder="Type your answer..."
             placeholderTextColor="#6b7280"
             style={styles.modalInput}
@@ -203,6 +314,13 @@ export default function SignupIceBreakersStep() {
           />
 
           <View style={styles.modalRow}>
+            <TouchableOpacity
+              style={styles.modalDanger}
+              onPress={removeSelection}
+            >
+              <Text style={styles.modalDangerText}>Remove</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.modalSecondary}
               onPress={closeModal}
@@ -225,14 +343,14 @@ export default function SignupIceBreakersStep() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48, justifyContent: "center" },
-  title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 24,
-    textAlign: "center",
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    justifyContent: "center",
   },
 
+  cardList: { gap: 12 },
   card: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -244,49 +362,45 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: "white",
   },
+  cardCopy: { flex: 1, gap: 6 },
   cardFilled: {
     borderColor: "#93c5fd",
     borderWidth: 2,
     borderLeftWidth: 4,
-    // backgroundColor: "#eff6ff",
     backgroundColor: "white",
   },
   cardTitle: { fontSize: 16, fontWeight: "600" },
-  cardSubtitle: { 
+  cardSubtitle: {
     color: "black",
   },
-
-  subtitleSpace:{
+  subtitleSpace: {
     backgroundColor: "#edeeef",
     borderRadius: 20,
     paddingTop: 15,
     paddingBottom: 35,
     paddingLeft: 20,
     paddingRight: 20,
-    position:"relative",
+    position: "relative",
   },
-  iconPosition:{
-    position:"absolute",
+  iconPosition: {
+    position: "absolute",
     bottom: 10,
-    right:12,
+    right: 12,
   },
   textSelected: {
-    color: "#89DBFB"
+    color: "#89DBFB",
   },
-  selectedRow:{
-    flex: 1,
-    flexDirection: "row"
+  selectedRow: {
+    flexDirection: "row",
   },
   cardChevron: { fontSize: 26, color: "#9ca3af", marginLeft: 10 },
 
-  
-
+  selectionCount: { textAlign: "center", marginBottom: 12 },
   primaryButton: {
     alignSelf: "center",
     marginTop: 18,
     marginBottom: 12,
   },
-  primaryText: { color: "white", fontWeight: "600" },
   secondaryButton: { padding: 16, borderRadius: 8, alignItems: "center" },
   secondaryText: { color: "#666" },
 
@@ -316,6 +430,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+  modalDanger: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  modalDangerText: { color: "#b91c1c", fontWeight: "600" },
   modalSecondary: {
     paddingVertical: 12,
     paddingHorizontal: 14,

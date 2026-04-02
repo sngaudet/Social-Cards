@@ -17,8 +17,11 @@ export type SignupDraft = {
   major: string;
   minor: string;
   iceBreakerOne: string;
+  iceBreakerOneQuestion: string;
   iceBreakerTwo: string;
+  iceBreakerTwoQuestion: string;
   iceBreakerThree: string;
+  iceBreakerThreeQuestion: string;
   hobbies: string[];
   avatarId: string;
 
@@ -40,8 +43,11 @@ export const emptySignupDraft: SignupDraft = {
   major: "",
   minor: "",
   iceBreakerOne: "",
+  iceBreakerOneQuestion: "",
   iceBreakerTwo: "",
+  iceBreakerTwoQuestion: "",
   iceBreakerThree: "",
+  iceBreakerThreeQuestion: "",
   hobbies: [],
   avatarId: "",
 
