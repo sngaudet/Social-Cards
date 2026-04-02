@@ -482,17 +482,17 @@ const styles = StyleSheet.create({
 
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "transparent",
   },
   modalCard: {
     position: "absolute",
     left: 16,
     right: 16,
-    top: 75,
+    top: 115,
     bottom: 36,
     borderRadius: 18,
     backgroundColor: "white",
-    padding: 16,
+    padding: 22,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     gap: 12,
