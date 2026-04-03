@@ -1,5 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Href, useLocalSearchParams, useRouter } from "expo-router";
+import { fetchSignInMethodsForEmail } from "firebase/auth";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -11,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
@@ -40,6 +43,7 @@ export default function SignupAccountStep() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   useEffect(() => {
     const errorTitle = Array.isArray(params.errorTitle)
@@ -76,8 +80,8 @@ export default function SignupAccountStep() {
     }
   };
 
-  const onNext = () => {
-    const cleanEmail = email.trim();
+  const onNext = async () => {
+    const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !password || !confirmPassword.trim()) {
       showAlert("Missing fields", "Enter email and password.");
       return;
@@ -94,6 +98,55 @@ export default function SignupAccountStep() {
       showAlert("Passwords do not match");
       return;
     }
+
+    try {
+      setCheckingEmail(true);
+      const existingUserQuery = query(
+        collection(db, "users"),
+        where("email", "==", cleanEmail),
+        limit(1),
+      );
+      const existingUserSnapshot = await getDocs(existingUserQuery);
+
+      if (!existingUserSnapshot.empty) {
+        showAlert(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
+        return;
+      }
+
+      const signInMethods = await fetchSignInMethodsForEmail(auth, cleanEmail);
+
+      if (signInMethods.length > 0) {
+        showAlert(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
+        return;
+      }
+    } catch (e: any) {
+      if (
+        e?.code === "permission-denied" ||
+        e?.code === "auth/email-already-in-use"
+      ) {
+        showAlert(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
+      } else if (e?.code === "auth/invalid-email") {
+        showAlert("Invalid email", "Check your email address and try again.");
+      } else {
+        showAlert(
+          "Email already in use",
+          "Try logging in instead or use a different email.",
+        );
+      }
+      return;
+    } finally {
+      setCheckingEmail(false);
+    }
+
     updateDraft({ email: cleanEmail, password });
     router.push("/(auth)/signup/icebreakers");
   };
@@ -169,7 +222,13 @@ export default function SignupAccountStep() {
   </TouchableOpacity>
 </View>
 
-      <PrimaryButton title="Next Step" showArrow style={styles.primaryButton} onPress={onNext} />
+      <PrimaryButton
+        title={checkingEmail ? "Checking..." : "Next Step"}
+        showArrow={!checkingEmail}
+        style={styles.primaryButton}
+        onPress={onNext}
+        disabled={checkingEmail}
+      />
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/")}>
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

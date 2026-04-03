@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, Text } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
@@ -66,19 +66,21 @@ export default function RegistrationCompletePage() {
     return fields;
   }, [draft, hobbies]);
 
-  const redirectToSignupWithError = (title: string, message: string) => {
-    router.replace({
-      pathname: "/(auth)/signup",
-      params: {
-        errorTitle: title,
-        errorMessage: message,
-      },
-    } as Href);
+  const showErrorAndReturnToSignup = (title: string, message: string) => {
+    const goBackToSignup = () => router.replace("/(auth)/signup" as Href);
+
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+      goBackToSignup();
+      return;
+    }
+
+    Alert.alert(title, message, [{ text: "OK", onPress: goBackToSignup }]);
   };
 
   const handleSubmit = async () => {
     if (missing.length > 0) {
-      redirectToSignupWithError(
+      showErrorAndReturnToSignup(
         "Missing info",
         `Please finish: ${missing.join(", ")}.`,
       );
@@ -89,12 +91,12 @@ export default function RegistrationCompletePage() {
     const password = draft.password;
 
     if (!email.includes("@")) {
-      redirectToSignupWithError("Invalid email", "Enter a valid email address.");
+      showErrorAndReturnToSignup("Invalid email", "Enter a valid email address.");
       return;
     }
 
     if (password.length < 6) {
-      redirectToSignupWithError("Weak password", "Use at least 6 characters.");
+      showErrorAndReturnToSignup("Weak password", "Use at least 6 characters.");
       return;
     }
 
@@ -212,22 +214,22 @@ export default function RegistrationCompletePage() {
       const code = e?.code as string | undefined;
 
       if (code === "auth/email-already-in-use") {
-        redirectToSignupWithError(
+        showErrorAndReturnToSignup(
           "Email already in use",
           "Try logging in instead or use a different email.",
         );
       } else if (code === "auth/invalid-email") {
-        redirectToSignupWithError(
+        showErrorAndReturnToSignup(
           "Invalid email",
           "Check your email address and try again.",
         );
       } else if (code === "auth/weak-password") {
-        redirectToSignupWithError(
+        showErrorAndReturnToSignup(
           "Weak password",
           "Use at least 6 characters.",
         );
       } else {
-        redirectToSignupWithError("Error", e?.message ?? "Signup failed.");
+        showErrorAndReturnToSignup("Error", e?.message ?? "Signup failed.");
       }
     } finally {
       setSubmitting(false);
