@@ -36,6 +36,19 @@ function getUserRef(uid) {
   return getDb().collection("users").doc(uid);
 }
 
+function sortedPair(uid1, uid2) {
+  return [uid1, uid2].sort();
+}
+
+function pairDocId(uid1, uid2) {
+  const [a, b] = sortedPair(uid1, uid2);
+  return `${a}_${b}`;
+}
+
+function getPublicProfileRef(uid) {
+  return getDb().collection("publicProfiles").doc(uid);
+}
+
 // this makes permission values safe before saving
 function normalizePermissionStatus(value) {
   if (ALLOWED_PERMISSION_STATUS.has(value)) return value;
@@ -61,6 +74,22 @@ function buildEmptyNearbyResponse() {
 // this trims report text input and keeps missing values predictable
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+async function getBlockPreviewForUid(targetUid) {
+  const [publicSnap, userSnap] = await Promise.all([
+    getPublicProfileRef(targetUid).get(),
+    getUserRef(targetUid).get(),
+  ]);
+
+  const publicData = publicSnap.exists ? publicSnap.data() || {} : {};
+  const userData = userSnap.exists ? userSnap.data() || {} : {};
+
+  return {
+    firstName: publicData.firstName || userData.firstName || "",
+    avatarId: publicData.avatarId || userData.avatarId || "",
+    photoURL: publicData.photoURL || userData.photoURL || "",
+  };
 }
 
 // this saves a phone push token for the logged in user
@@ -389,6 +418,237 @@ const reportUser = onCall(
   }),
 );
 
+// this accepts a pending connection request and creates the connection record
+const acceptConnectionRequest = onCall(
+  { region: REGION, timeoutSeconds: 60 },
+  withAuth(async (uid, request) => {
+    const requestId = getTrimmedString(request.data?.requestId);
+
+    if (!requestId) {
+      throw new HttpsError("invalid-argument", "requestId is required.");
+    }
+
+    const db = getDb();
+    const requestRef = db.collection("connectionRequests").doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      throw new HttpsError("not-found", "Connection request not found.");
+    }
+
+    const requestData = requestSnap.data() || {};
+    const fromUid = getTrimmedString(requestData.fromUid);
+    const toUid = getTrimmedString(requestData.toUid);
+    const status = getTrimmedString(requestData.status);
+
+    if (!fromUid || !toUid) {
+      throw new HttpsError("failed-precondition", "Malformed connection request.");
+    }
+
+    if (toUid !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only the receiving user can accept this request.",
+      );
+    }
+
+    if (status !== "pending") {
+      throw new HttpsError(
+        "failed-precondition",
+        "This connection request is no longer pending.",
+      );
+    }
+
+    const relationshipId = pairDocId(fromUid, toUid);
+    const blockedRef = db.collection("relationships").doc(relationshipId);
+    const blockedSnap = await blockedRef.get();
+    const blockedStatus = blockedSnap.exists
+      ? getTrimmedString(blockedSnap.data()?.status)
+      : "none";
+
+    if (blockedStatus === "blocked") {
+      throw new HttpsError(
+        "failed-precondition",
+        "You cannot accept a blocked relationship.",
+      );
+    }
+
+    const respondedAt = serverTimestamp();
+    const connectionRef = db.collection("connections").doc(relationshipId);
+    const batch = db.batch();
+
+    batch.update(requestRef, {
+      status: "accepted",
+      respondedAt,
+    });
+    batch.set(connectionRef, {
+      users: sortedPair(fromUid, toUid),
+      createdAt: respondedAt,
+      expiresAt: timestampFromDate(
+        new Date(nowDate().getTime() + 3 * 60 * 60 * 1000),
+      ),
+    });
+    batch.set(
+      db.collection("relationships").doc(relationshipId),
+      {
+        users: sortedPair(fromUid, toUid),
+        status: "accepted",
+        updatedAt: respondedAt,
+      },
+      { merge: true },
+    );
+
+    await batch.commit();
+
+    return {
+      ok: true,
+      connectionId: relationshipId,
+    };
+  }),
+);
+
+// this declines a pending connection request and updates the relationship state
+const declineConnectionRequest = onCall(
+  { region: REGION, timeoutSeconds: 60 },
+  withAuth(async (uid, request) => {
+    const requestId = getTrimmedString(request.data?.requestId);
+
+    if (!requestId) {
+      throw new HttpsError("invalid-argument", "requestId is required.");
+    }
+
+    const db = getDb();
+    const requestRef = db.collection("connectionRequests").doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      throw new HttpsError("not-found", "Connection request not found.");
+    }
+
+    const requestData = requestSnap.data() || {};
+    const fromUid = getTrimmedString(requestData.fromUid);
+    const toUid = getTrimmedString(requestData.toUid);
+    const status = getTrimmedString(requestData.status);
+
+    if (!fromUid || !toUid) {
+      throw new HttpsError("failed-precondition", "Malformed connection request.");
+    }
+
+    if (toUid !== uid && fromUid !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have access to this connection request.",
+      );
+    }
+
+    if (status !== "pending") {
+      throw new HttpsError(
+        "failed-precondition",
+        "This connection request is no longer pending.",
+      );
+    }
+
+    const respondedAt = serverTimestamp();
+    const batch = db.batch();
+
+    batch.update(requestRef, {
+      status: "declined",
+      respondedAt,
+    });
+    batch.set(
+      db.collection("relationships").doc(pairDocId(fromUid, toUid)),
+      {
+        users: sortedPair(fromUid, toUid),
+        status: "declined",
+        updatedAt: respondedAt,
+      },
+      { merge: true },
+    );
+
+    await batch.commit();
+
+    return {
+      ok: true,
+      requestId,
+    };
+  }),
+);
+
+// this blocks another user and preserves blocker-only history access
+const blockUser = onCall(
+  { region: REGION, timeoutSeconds: 60 },
+  withAuth(async (uid, request) => {
+    const targetUid = getTrimmedString(request.data?.targetUid);
+
+    if (!targetUid) {
+      throw new HttpsError("invalid-argument", "targetUid is required.");
+    }
+
+    if (targetUid === uid) {
+      throw new HttpsError("invalid-argument", "Users cannot block themselves.");
+    }
+
+    const targetUserSnap = await getUserRef(targetUid).get();
+    if (!targetUserSnap.exists) {
+      throw new HttpsError("not-found", "Target user does not exist.");
+    }
+
+    const db = getDb();
+    const relationshipId = pairDocId(uid, targetUid);
+    const relationshipRef = db.collection("relationships").doc(relationshipId);
+    const connectionRef = db.collection("connections").doc(relationshipId);
+    const preview = await getBlockPreviewForUid(targetUid);
+    const [connectionSnap, outgoingPendingSnap, incomingPendingSnap] =
+      await Promise.all([
+        connectionRef.get(),
+        db
+          .collection("connectionRequests")
+          .where("fromUid", "==", uid)
+          .where("toUid", "==", targetUid)
+          .where("status", "==", "pending")
+          .get(),
+        db
+          .collection("connectionRequests")
+          .where("fromUid", "==", targetUid)
+          .where("toUid", "==", uid)
+          .where("status", "==", "pending")
+          .get(),
+      ]);
+
+    const batch = db.batch();
+    const blockedAt = serverTimestamp();
+
+    batch.set(
+      relationshipRef,
+      {
+        users: sortedPair(uid, targetUid),
+        status: "blocked",
+        blockedByUid: uid,
+        blockedAt,
+        updatedAt: blockedAt,
+        blockedPreview: preview,
+        hasMessageHistory: connectionSnap.exists,
+      },
+      { merge: true },
+    );
+
+    for (const requestSnap of [...outgoingPendingSnap.docs, ...incomingPendingSnap.docs]) {
+      batch.update(requestSnap.ref, {
+        status: "declined",
+        respondedAt: blockedAt,
+      });
+    }
+
+    await batch.commit();
+
+    return {
+      ok: true,
+      relationshipId,
+      hasMessageHistory: connectionSnap.exists,
+    };
+  }),
+);
+
 module.exports = {
   location_registerPushToken,
   location_setSharing,
@@ -396,6 +656,9 @@ module.exports = {
   location_upsertPing,
   location_getNearby,
   reportUser,
+  acceptConnectionRequest,
+  declineConnectionRequest,
+  blockUser,
   connection_requestCreated,
   connection_messageCreated,
 };

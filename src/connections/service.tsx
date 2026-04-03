@@ -1,4 +1,5 @@
 import { FirebaseError } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   collection,
   doc,
@@ -9,11 +10,10 @@ import {
   query,
   QuerySnapshot,
   serverTimestamp,
-  Timestamp,
   writeBatch,
   where,
 } from "firebase/firestore";
-import { auth, db } from "../../firebaseConfig";
+import { app, auth, db } from "../../firebaseConfig";
 
 export const CONNECTION_DURATION_MS = 3 * 60 * 60 * 1000;
 
@@ -41,6 +41,21 @@ export type ConnectionDoc = {
   expiresAt?: any;
 };
 
+export type BlockedRelationshipPreview = {
+  firstName?: string;
+  avatarId?: string;
+  photoURL?: string;
+};
+
+export type BlockedRelationship = {
+  id: string;
+  users: string[];
+  blockedByUid: string;
+  blockedAt?: any;
+  blockedPreview?: BlockedRelationshipPreview;
+  hasMessageHistory: boolean;
+};
+
 type StoredRelationshipStatus = Exclude<RelationshipStatus, "none">;
 
 export type PublicUserProfile = {
@@ -53,6 +68,48 @@ export type PublicUserProfile = {
   avatarId?: string;
   photoURL?: string;
 };
+
+type BlockUserPayload = {
+  targetUid: string;
+};
+
+type AcceptConnectionRequestPayload = {
+  requestId: string;
+};
+
+type AcceptConnectionRequestResponse = {
+  ok: true;
+  connectionId: string;
+};
+
+type DeclineConnectionRequestPayload = {
+  requestId: string;
+};
+
+type DeclineConnectionRequestResponse = {
+  ok: true;
+  requestId: string;
+};
+
+type BlockUserResponse = {
+  ok: true;
+  relationshipId: string;
+  hasMessageHistory: boolean;
+};
+
+const functions = getFunctions(app, "us-central1");
+const blockUserCallable = httpsCallable<BlockUserPayload, BlockUserResponse>(
+  functions,
+  "blockUser",
+);
+const acceptConnectionRequestCallable = httpsCallable<
+  AcceptConnectionRequestPayload,
+  AcceptConnectionRequestResponse
+>(functions, "acceptConnectionRequest");
+const declineConnectionRequestCallable = httpsCallable<
+  DeclineConnectionRequestPayload,
+  DeclineConnectionRequestResponse
+>(functions, "declineConnectionRequest");
 
 function sortedPair(uid1: string, uid2: string): [string, string] {
   return [uid1, uid2].sort() as [string, string];
@@ -112,6 +169,15 @@ export async function getRelationshipStatus(
   if (currentUid === otherUid) return "accepted";
 
   return getRelationshipStatusForPair(currentUid, otherUid);
+}
+
+export async function blockUser(otherUid: string): Promise<BlockUserResponse> {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) throw new Error("You must be logged in.");
+  if (currentUid === otherUid) throw new Error("You cannot block yourself.");
+
+  const result = await blockUserCallable({ targetUid: otherUid });
+  return result.data;
 }
 
 export async function sendConnectionRequest(toUid: string): Promise<void> {
@@ -186,31 +252,7 @@ export async function acceptConnectionRequest(
     throw new Error("Only the receiving user can accept this request.");
   }
 
-  const requestRef = doc(db, "connectionRequests", requestId);
-  const batch = writeBatch(db);
-
-  batch.update(requestRef, {
-    status: "accepted",
-    respondedAt: serverTimestamp(),
-  });
-  batch.set(doc(db, "connections", connectionDocId(fromUid, toUid)), {
-    users: sortedPair(fromUid, toUid),
-    createdAt: serverTimestamp(),
-    expiresAt: Timestamp.fromDate(
-      new Date(Date.now() + CONNECTION_DURATION_MS),
-    ),
-  });
-  batch.set(
-    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
-    {
-      users: sortedPair(fromUid, toUid),
-      status: "accepted",
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await batch.commit();
+  await acceptConnectionRequestCallable({ requestId });
 }
 
 export async function declineConnectionRequest(
@@ -219,92 +261,166 @@ export async function declineConnectionRequest(
   const currentUid = auth.currentUser?.uid;
 
   if (!currentUid) throw new Error("You must be logged in.");
-
-  const requestRef = doc(db, "connectionRequests", requestId);
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error("Connection request not found.");
-  }
-
-  const request = requestSnap.data();
-  const fromUid = request?.fromUid;
-  const toUid = request?.toUid;
-
-  if (typeof fromUid !== "string" || typeof toUid !== "string") {
-    throw new Error("Malformed connection request.");
-  }
-
-  const batch = writeBatch(db);
-
-  batch.update(requestRef, {
-    status: "declined",
-    respondedAt: serverTimestamp(),
-  });
-  batch.set(
-    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
-    {
-      users: sortedPair(fromUid, toUid),
-      status: "declined",
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await batch.commit();
+  await declineConnectionRequestCallable({ requestId });
 }
 
 export function subscribeToIncomingRequests(
   uid: string,
   callback: (requests: ConnectionRequest[]) => void,
+  onError?: (error: unknown) => void,
 ) {
   const q = query(
     collection(db, "connectionRequests"),
     where("toUid", "==", uid),
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-    const requests: ConnectionRequest[] = snapshot.docs
-      .map((docSnap) => {
-        const data = docSnap.data();
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot<DocumentData>) => {
+      const requests: ConnectionRequest[] = snapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
 
-        return {
-          id: docSnap.id,
-          fromUid: data.fromUid,
-          toUid: data.toUid,
-          status: data.status,
-          createdAt: data.createdAt,
-          respondedAt: data.respondedAt,
-        };
-      })
-      .filter((request) => request.status === "pending");
+          return {
+            id: docSnap.id,
+            fromUid: data.fromUid,
+            toUid: data.toUid,
+            status: data.status,
+            createdAt: data.createdAt,
+            respondedAt: data.respondedAt,
+          };
+        })
+        .filter((request) => request.status === "pending");
 
-    callback(requests);
-  });
+      callback(requests);
+    },
+    onError,
+  );
 }
 
 export function subscribeToConnections(
   uid: string,
   callback: (connections: ConnectionDoc[]) => void,
+  onError?: (error: unknown) => void,
 ) {
   const q = query(
-    collection(db, "connections"),
+    collection(db, "relationships"),
     where("users", "array-contains", uid),
+    where("status", "==", "accepted"),
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-    const connections: ConnectionDoc[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
+  return onSnapshot(
+    q,
+    async (snapshot: QuerySnapshot<DocumentData>) => {
+      try {
+        const connectionSnaps = await Promise.all(
+          snapshot.docs.map((relationshipSnap) =>
+            getDoc(doc(db, "connections", relationshipSnap.id)).catch((error) => {
+              if (error instanceof FirebaseError && error.code === "permission-denied") {
+                return null;
+              }
+              throw error;
+            }),
+          ),
+        );
 
-      return {
-        id: docSnap.id,
-        users: data.users ?? [],
-        createdAt: data.createdAt,
-        expiresAt: data.expiresAt,
-      };
-    });
+        const connections: ConnectionDoc[] = connectionSnaps
+          .filter((connectionSnap): connectionSnap is NonNullable<typeof connectionSnap> =>
+            Boolean(connectionSnap?.exists()),
+          )
+          .map((connectionSnap) => {
+            const data = connectionSnap.data() ?? {};
 
-    callback(connections);
-  });
+            return {
+              id: connectionSnap.id,
+              users: data.users ?? [],
+              createdAt: data.createdAt,
+              expiresAt: data.expiresAt,
+            };
+          });
+
+        callback(connections);
+      } catch (error) {
+        onError?.(error);
+      }
+    },
+    onError,
+  );
+}
+
+export function subscribeToBlockedRelationships(
+  uid: string,
+  callback: (relationships: BlockedRelationship[]) => void,
+  onError?: (error: unknown) => void,
+) {
+  const q = query(
+    collection(db, "relationships"),
+    where("users", "array-contains", uid),
+    where("status", "==", "blocked"),
+    where("blockedByUid", "==", uid),
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot<DocumentData>) => {
+      const relationships: BlockedRelationship[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+
+        return {
+          id: docSnap.id,
+          users: Array.isArray(data.users) ? data.users : [],
+          blockedByUid: data.blockedByUid ?? "",
+          blockedAt: data.blockedAt,
+          blockedPreview:
+            data.blockedPreview && typeof data.blockedPreview === "object"
+              ? {
+                  firstName: data.blockedPreview.firstName ?? "",
+                  avatarId: data.blockedPreview.avatarId ?? "",
+                  photoURL: data.blockedPreview.photoURL ?? "",
+                }
+              : undefined,
+          hasMessageHistory: data.hasMessageHistory === true,
+        };
+      });
+
+      callback(relationships);
+    },
+    onError,
+  );
+}
+
+export async function getBlockedRelationshipForPair(
+  uid1: string,
+  uid2: string,
+): Promise<BlockedRelationship | null> {
+  try {
+    const snap = await getDoc(doc(db, "relationships", relationshipDocId(uid1, uid2)));
+    if (!snap.exists()) return null;
+
+    const data = snap.data();
+    if (data?.status !== "blocked") return null;
+
+    return {
+      id: snap.id,
+      users: Array.isArray(data.users) ? data.users : [],
+      blockedByUid: data.blockedByUid ?? "",
+      blockedAt: data.blockedAt,
+      blockedPreview:
+        data.blockedPreview && typeof data.blockedPreview === "object"
+          ? {
+              firstName: data.blockedPreview.firstName ?? "",
+              avatarId: data.blockedPreview.avatarId ?? "",
+              photoURL: data.blockedPreview.photoURL ?? "",
+            }
+          : undefined,
+      hasMessageHistory: data.hasMessageHistory === true,
+    };
+  } catch (error) {
+    if (isMissingRelationshipPermissionError(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function getDateFromTimestamp(value: any): Date | null {

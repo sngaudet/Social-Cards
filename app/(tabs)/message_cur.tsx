@@ -43,7 +43,17 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!currentUid) return;
-    return subscribeToConnections(currentUid, setConnections);
+    return subscribeToConnections(
+      currentUid,
+      setConnections,
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setConnections([]);
+          return;
+        }
+        console.warn("Failed to watch message connections", error);
+      },
+    );
   }, [currentUid]);
 
   useEffect(() => {

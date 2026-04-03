@@ -35,25 +35,30 @@ export async function getConnectionMembers(
 export function subscribeToMessages(
   connectionId: string,
   callback: (messages: ChatMessage[]) => void,
+  onError?: (error: unknown) => void,
 ) {
   const q = query(
     collection(db, "connections", connectionId, "messages"),
     orderBy("createdAt", "asc"),
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-    const messages = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        senderUid: data.senderUid ?? "",
-        text: data.text ?? "",
-        createdAt: data.createdAt,
-      };
-    });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot<DocumentData>) => {
+      const messages = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          senderUid: data.senderUid ?? "",
+          text: data.text ?? "",
+          createdAt: data.createdAt,
+        };
+      });
 
-    callback(messages);
-  });
+      callback(messages);
+    },
+    onError,
+  );
 }
 
 export async function sendMessage(

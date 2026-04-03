@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { auth } from "../../firebaseConfig";
 import {
+  blockUser,
   getRelationshipStatus,
   getUserProfile,
   isConnectionActive,
@@ -100,6 +101,7 @@ export default function HomeTab() {
     Record<string, string>
   >({});
   const [reportingUid, setReportingUid] = useState<string | null>(null);
+  const [blockingUid, setBlockingUid] = useState<string | null>(null);
   const [reportModalUser, setReportModalUser] = useState<NearbyResponse["users"][number] | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
@@ -226,6 +228,80 @@ export default function HomeTab() {
     [],
   );
 
+  const handleBlockUser = useCallback(
+    (user: NearbyResponse["users"][number]) => {
+      if (blockingUid === user.uid) return;
+
+      const confirmBlock = async () => {
+        try {
+          setBlockingUid(user.uid);
+          await blockUser(user.uid);
+          setNearby((current) => ({
+            ...current,
+            users: current.users.filter((entry) => entry.uid !== user.uid),
+            crowdCount: Math.max(
+              0,
+              current.crowdCount -
+                current.users.filter((entry) => entry.uid === user.uid).length,
+            ),
+          }));
+          setConnectedUids((current) => {
+            const next = new Set(current);
+            next.delete(user.uid);
+            return next;
+          });
+          setConnectionIdsByUid((current) => {
+            const next = { ...current };
+            delete next[user.uid];
+            return next;
+          });
+          await loadNearby({ includePing: false });
+          showAlert(
+            "User blocked",
+            "They can no longer see your profile, connection record, or messages.",
+          );
+        } catch (e: any) {
+          const code = e?.code ? ` (${e.code})` : "";
+          showAlert(
+            "Could not block user",
+            `${e?.message ?? "Unknown error"}${code}`,
+          );
+        } finally {
+          setBlockingUid((current) => (current === user.uid ? null : current));
+        }
+      };
+
+      if (Platform.OS === "web") {
+        const confirmed = globalThis.confirm?.(
+          `Block ${user.firstName || "this user"}? They will immediately lose access to your profile, messages, and connection history.`,
+        );
+        if (confirmed) {
+          confirmBlock().catch(() => {});
+        }
+        return;
+      }
+
+      Alert.alert(
+        "Block user?",
+        `Block ${user.firstName || "this user"}? They will immediately lose access to your profile, messages, and connection history.`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Block",
+            style: "destructive",
+            onPress: () => {
+              confirmBlock().catch(() => {});
+            },
+          },
+        ],
+      );
+    },
+    [blockingUid, loadNearby],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -260,22 +336,33 @@ export default function HomeTab() {
       return;
     }
 
-    const unsub = subscribeToConnections(currentUid, (connections) => {
-      const next = new Set<string>();
-      const nextIds: Record<string, string> = {};
+    const unsub = subscribeToConnections(
+      currentUid,
+      (connections) => {
+        const next = new Set<string>();
+        const nextIds: Record<string, string> = {};
 
-      for (const connection of connections) {
-        if (!isConnectionActive(connection)) continue;
-        const otherUid = connection.users.find((uid) => uid !== currentUid);
-        if (otherUid) {
-          next.add(otherUid);
-          nextIds[otherUid] = connection.id;
+        for (const connection of connections) {
+          if (!isConnectionActive(connection)) continue;
+          const otherUid = connection.users.find((uid) => uid !== currentUid);
+          if (otherUid) {
+            next.add(otherUid);
+            nextIds[otherUid] = connection.id;
+          }
         }
-      }
 
-      setConnectedUids(next);
-      setConnectionIdsByUid(nextIds);
-    });
+        setConnectedUids(next);
+        setConnectionIdsByUid(nextIds);
+      },
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setConnectedUids(new Set());
+          setConnectionIdsByUid({});
+          return;
+        }
+        console.warn("Failed to watch home connections", error);
+      },
+    );
 
     return () => {
       unsub();
@@ -633,6 +720,19 @@ export default function HomeTab() {
                       >
                         <Text style={styles.reportPillButtonText}>
                           {reportingUid === user.uid ? "Reporting..." : "Report"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.blockPillButton,
+                          blockingUid === user.uid && styles.disabledPillButton,
+                        ]}
+                        onPress={() => handleBlockUser(user)}
+                        disabled={blockingUid === user.uid}
+                      >
+                        <Text style={styles.blockPillButtonText}>
+                          {blockingUid === user.uid ? "Blocking..." : "Block"}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1070,6 +1170,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
+  blockPillButton: {
+    backgroundColor: "#111827",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
   connectedPill: {
     backgroundColor: "#22c55e",
     paddingHorizontal: 18,
@@ -1085,6 +1191,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   reportPillButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  blockPillButtonText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "800",

@@ -124,11 +124,21 @@ export default function UserProfileView() {
       return;
     }
 
-    const unsub = subscribeToConnections(currentUid, (connections) => {
-      setIsConnected(
-        connections.some((connection) => connection.users.includes(uid)),
-      );
-    });
+    const unsub = subscribeToConnections(
+      currentUid,
+      (connections) => {
+        setIsConnected(
+          connections.some((connection) => connection.users.includes(uid)),
+        );
+      },
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setIsConnected(false);
+          return;
+        }
+        console.warn("Failed to watch profile connections", error);
+      },
+    );
 
     return () => {
       unsub();
