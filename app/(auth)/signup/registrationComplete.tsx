@@ -12,21 +12,25 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
-import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import {
   deleteUploadedProfilePhotoAsync,
   uploadProfilePhotoAsync,
 } from "../../../src/lib/picture_upload";
+import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import { DEFAULT_PRE_CONNECTION_VISIBILITY } from "../../../src/profile/visibility";
 import { useSignup } from "../../../src/signup/context";
 
 export default function RegistrationCompletePage() {
   const router = useRouter();
   const { draft, resetDraft } = useSignup();
+
+  const avatarSource = getAvatarImageSource(draft.avatarId);
+
   const [submitting, setSubmitting] = useState(false);
   const hobbies = useMemo(
     () => normalizeHobbies(draft.hobbies),
@@ -215,6 +219,104 @@ export default function RegistrationCompletePage() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Welcome to Icebreakers!</Text>
 
+      <Text style={styles.subtitle}> 
+        You're all set and ready to connect. Here {"\n"}
+        is how you look to other students nearby. 
+      </Text>
+
+      {/* CARD INFO */}
+      <View style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          {/* Photo */}
+          {avatarSource ? (
+            <Image source={avatarSource} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>No Avatar</Text>
+            </View>
+          )}
+
+            <View style={styles.profileTextBlock}>
+              {/* Name and nickname */}
+                <Text style={styles.profileName}>
+                  {draft.firstName || "Unknown"}
+                  {/*{[draft.firstName, draft.lastName]
+                    .map((s) => (typeof s === "string" ? s.trim() : s))
+                    .filter((s) => typeof s === "string" && s.length > 0)
+                    .join(" ") || "Unknown"} */}
+                </Text>
+
+              {/* Pronouns */}
+                <Text style={styles.profileMeta}>
+                  PRONOUNS{" "}
+                  <Text style={styles.bold}> 
+                    {draft.pronouns || "--"}
+                  </Text>
+                </Text>
+
+              {/* Major & Minor */}
+              <Text style={styles.academics}>
+                {draft.major}
+                {draft.minor ? ` • Minor in ${draft.minor}` : ""}
+              </Text>
+
+              {/* Age + Graduation */}
+              <Text style={styles.profileMeta}>
+                <Text style={styles.bold}>Age</Text>{" "}
+                {derivedAge ?? "--"}
+                {draft.gradYear ? (
+                  <>
+                  {" • "}
+                  <Text style={styles.bold}> Class of</Text>{" "}
+                  {draft.gradYear}
+                  </>
+                ) : null}
+              </Text>
+            </View>
+        </View>
+
+        {/* profile details */}
+        {/* Hobbies */}
+        {hobbies.length > 0 && (
+          <Text style={styles.hobbies}>
+            <Text style={styles.bold}>Hobbies: </Text>
+            {hobbies.join(", ")}
+          </Text>
+        )}
+
+        {/* Bio */}
+        {!!draft.bio && (
+        <Text style={styles.bio}>
+          {draft.bio}
+        </Text>
+        )}
+
+        {/* Icebreakers */}
+        <View style={styles.icebreakers}>
+          {!!draft.iceBreakerOne && (
+            <Text style={styles.icebreaker}>• {draft.iceBreakerOne}</Text>
+          )}
+          {!!draft.iceBreakerTwo && (
+            <Text style={styles.icebreaker}>• {draft.iceBreakerTwo}</Text>
+          )}
+          {!!draft.iceBreakerThree && (
+            <Text style={styles.icebreaker}>• {draft.iceBreakerThree}</Text>
+          )}
+          </View>
+      </View>
+
+      <View style={styles.subCard}>
+        <Text style={styles.upperSub}>
+          Nearby into cards, not a map
+        </Text>
+
+        <Text style={styles.subtitle}>
+          See who is nearby. Your location is {"\n"}
+          private, but is needed to make {"\n"}
+          connections with others users.
+        </Text>
+      </View>
+
       <PrimaryButton
         title={submitting ? "Submitting..." : "Start Discovering Nearby"}
         showArrow={!submitting}
@@ -222,6 +324,9 @@ export default function RegistrationCompletePage() {
         onPress={handleSubmit}
         disabled={submitting}
       />
+
+       <Text style={styles.warningText}>By creating an account, you agree to our Terms.</Text>
+
     </ScrollView>
   );
 }
@@ -245,4 +350,116 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginBottom: 12,
   },
+  avatarText: {
+    fontSize: 10,
+    color: "#666",
+  },
+  subCard: {
+    width: "20%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  upperSub: {
+    fontSize: 18,
+    textAlign: "center",
+    color: "#000000",
+    marginBottom: 10,
+    maxWidth: 320,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+    maxWidth: 320,
+  },
+  warningText: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#646363",
+    marginBottom: 30,
+    maxWidth: 320,
+  },
+
+//////// PROFILE CARD STYLES ////////
+
+  profileCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    width: "100%",
+    //maxWidth: 360,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: "#E5E7EB",
+  },
+  avatarPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: "#E5E7EB",
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  profileMeta: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  
+/* Details */
+  hobbies: {
+    marginTop: 14,
+    fontSize: 13,
+    color: "#374151",
+  },
+  bio: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 20,
+  },
+  icebreakers: {
+    marginTop: 12,
+  },
+  icebreaker: {
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 18,
+  },
+  academics: {
+    fontSize: 14,
+    color: "#111827",
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  profileTextBlock: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  bold: {
+   fontWeight: "700",
+  },
 });
+
+
