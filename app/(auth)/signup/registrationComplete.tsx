@@ -25,6 +25,12 @@ import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import { DEFAULT_PRE_CONNECTION_VISIBILITY } from "../../../src/profile/visibility";
 import { useSignup } from "../../../src/signup/context";
 
+const FALLBACK_ICEBREAKER_QUESTIONS = [
+  "What's your ideal weekend?",
+  "What food can you never say no to?",
+  "Share one fun fact about yourself",
+];
+
 export default function RegistrationCompletePage() {
   const router = useRouter();
   const { draft, resetDraft } = useSignup();
@@ -43,6 +49,12 @@ export default function RegistrationCompletePage() {
 
   const missing = useMemo(() => {
     const fields: string[] = [];
+    const completedIceBreakers = [
+      draft.iceBreakerOne,
+      draft.iceBreakerTwo,
+      draft.iceBreakerThree,
+    ].filter((value) => value?.trim()).length;
+
     if (!draft.email?.trim()) fields.push("email");
     if (!draft.password) fields.push("password");
     if (!draft.firstName?.trim()) fields.push("first name");
@@ -52,10 +64,7 @@ export default function RegistrationCompletePage() {
     if (!draft.pronouns?.trim()) fields.push("pronouns");
     if (draft.gradYear == null) fields.push("grad year");
     if (!draft.major?.trim()) fields.push("major");
-    if (!draft.minor?.trim()) fields.push("minor");
-    if (!draft.iceBreakerOne?.trim()) fields.push("ice breaker 1");
-    if (!draft.iceBreakerTwo?.trim()) fields.push("ice breaker 2");
-    if (!draft.iceBreakerThree?.trim()) fields.push("ice breaker 3");
+    if (completedIceBreakers < 3) fields.push("3 icebreakers");
     if (hobbies.length === 0) fields.push("hobbies");
     if (!draft.avatarId?.trim()) fields.push("avatar");
     return fields;
@@ -124,8 +133,15 @@ export default function RegistrationCompletePage() {
         major: draft.major ?? "",
         minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
+        iceBreakerOneQuestion:
+          draft.iceBreakerOneQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[0],
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
+        iceBreakerTwoQuestion:
+          draft.iceBreakerTwoQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[1],
         iceBreakerThree: draft.iceBreakerThree ?? "",
+        iceBreakerThreeQuestion:
+          draft.iceBreakerThreeQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[2],
         hobbies,
         avatarId: draft.avatarId ?? "",
         photoURL,
@@ -155,8 +171,15 @@ export default function RegistrationCompletePage() {
         major: draft.major ?? "",
         minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
+        iceBreakerOneQuestion:
+          draft.iceBreakerOneQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[0],
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
+        iceBreakerTwoQuestion:
+          draft.iceBreakerTwoQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[1],
         iceBreakerThree: draft.iceBreakerThree ?? "",
+        iceBreakerThreeQuestion:
+          draft.iceBreakerThreeQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[2],
         hobbies,
         avatarId: draft.avatarId ?? "",
         photoURL,

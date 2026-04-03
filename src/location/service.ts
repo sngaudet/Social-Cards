@@ -1,13 +1,13 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import { FirebaseError } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 import { app, auth } from "../../firebaseConfig";
+import { shouldShowForegroundPushAlert } from "../notifications/runtime";
 import { PreConnectionVisibility } from "../profile/visibility";
 
 export type LocationPermissionStatus =
@@ -50,9 +50,11 @@ export type LocationControlStatus = {
 };
 
 type PingSource = "foreground" | "background";
+type NotificationsModule = typeof import("expo-notifications");
 
 const LOCATION_TASK_NAME = "ICEBREAKERS_LOCATION_TASK_V1";
 const functions = getFunctions(app, "us-central1");
+let notificationsModulePromise: Promise<NotificationsModule> | null = null;
 
 // these are temporary function errors worth retrying once
 const RETRYABLE_FUNCTION_CODES = new Set([
@@ -127,17 +129,36 @@ async function callWithRetry<T>(action: () => Promise<T>): Promise<T> {
   }
 }
 
+async function getNotificationsModule(): Promise<NotificationsModule | null> {
+  if (Platform.OS === "web") return null;
+
+  notificationsModulePromise ??= import("expo-notifications");
+  return notificationsModulePromise;
+}
+
 if (Platform.OS !== "web") {
   // this allows foreground notifications to display
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  void getNotificationsModule()
+    .then((Notifications) => {
+      Notifications?.setNotificationHandler({
+        handleNotification: async (notification) => {
+          const shouldShowAlert = shouldShowForegroundPushAlert(
+            notification.request.content.data as Record<string, unknown> | undefined,
+          );
+
+          return {
+          shouldShowAlert,
+          shouldPlaySound: shouldShowAlert,
+          shouldSetBadge: false,
+          shouldShowBanner: shouldShowAlert,
+          shouldShowList: shouldShowAlert,
+        };
+        },
+      });
+    })
+    .catch((error) => {
+      console.warn("Could not load notifications module", error);
+    });
 }
 
 // this maps expo permission values into our app values
@@ -268,18 +289,34 @@ function makeDeviceId(expoPushToken: string): string {
 // this creates the android channel required before requesting push permissions
 async function ensureAndroidNotificationChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
 
   await Notifications.setNotificationChannelAsync("default", {
     name: "default",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: "default",
+    enableLights: true,
+    enableVibrate: true,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: "#3b82f6",
   });
 }
 
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  if (Platform.OS === "web") {
+    const notificationApi =
+      typeof globalThis !== "undefined" ? globalThis.Notification : undefined;
+    if (!notificationApi) return false;
+    if (notificationApi.permission === "granted") return true;
+    if (notificationApi.permission === "denied") return false;
+
+    const result = await notificationApi.requestPermission();
+    return result === "granted";
+  }
   if (!Device.isDevice) return false;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
 
   await ensureAndroidNotificationChannel();
 
@@ -301,6 +338,8 @@ export async function registerPushTokenIfPossible(
   if (Platform.OS === "web") return false;
   if (!Device.isDevice) return false;
   if (!auth.currentUser) return false;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
 
   await ensureAndroidNotificationChannel();
 

@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { auth } from "../../firebaseConfig";
 import {
+  getRelationshipStatus,
   getUserProfile,
   isConnectionActive,
   PublicUserProfile,
@@ -365,10 +366,28 @@ export default function HomeTab() {
   }, [loadNearby]);
 
   const openUserProfile = useCallback(
-    (uid: string) => {
-      router.push({ pathname: "/(tabs)/uid", params: { uid } });
+    async (uid: string) => {
+      try {
+        if (currentUid && currentUid !== uid) {
+          const status = await getRelationshipStatus(uid);
+          if (status === "declined" || status === "blocked") {
+            showAlert(
+              "Profile unavailable",
+              "You can't view this profile anymore.",
+            );
+            return;
+          }
+        }
+
+        router.push({ pathname: "/(tabs)/uid", params: { uid } });
+      } catch (error: any) {
+        showAlert(
+          "Could not open profile",
+          error?.message ?? "Unknown error",
+        );
+      }
     },
-    [router],
+    [currentUid, router],
   );
 
   const openChat = useCallback(
