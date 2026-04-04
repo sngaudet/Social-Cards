@@ -18,6 +18,21 @@ service cloud.firestore {
       return exists(path) ? get(path).data.status : "none";
     }
 
+    function relationshipBlockedByUid(uid1, uid2) {
+      let path = relationshipPath(uid1, uid2);
+      return exists(path) ? get(path).data.blockedByUid : null;
+    }
+
+    function isBlockedByCurrentUser(uid1, uid2) {
+      return relationshipStatus(uid1, uid2) == "blocked"
+        && relationshipBlockedByUid(uid1, uid2) == request.auth.uid;
+    }
+
+    function canAccessConnection(uid1, uid2) {
+      let status = relationshipStatus(uid1, uid2);
+      return status != "blocked" || isBlockedByCurrentUser(uid1, uid2);
+    }
+
     function canReadPublicProfile(userId) {
       let status = relationshipStatus(request.auth.uid, userId);
       return request.auth.uid == userId
@@ -56,10 +71,14 @@ service cloud.firestore {
           request.resource.data.status == "pending"
           || request.resource.data.status == "accepted"
           || request.resource.data.status == "declined"
-          || request.resource.data.status == "blocked"
         );
 
-      allow read: if signedIn() && resource.data.users.hasAny([request.auth.uid]);
+      allow read: if signedIn()
+        && resource.data.users.hasAny([request.auth.uid])
+        && (
+          resource.data.status != "blocked"
+          || resource.data.blockedByUid == request.auth.uid
+        );
 
       allow update: if signedIn()
         && resource.data.users is list
@@ -74,7 +93,6 @@ service cloud.firestore {
           request.resource.data.status == "pending"
           || request.resource.data.status == "accepted"
           || request.resource.data.status == "declined"
-          || request.resource.data.status == "blocked"
         );
 
       allow delete: if false;
@@ -85,6 +103,10 @@ service cloud.firestore {
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.toUid is string
         && request.resource.data.toUid != request.auth.uid
+        && relationshipStatus(
+          request.resource.data.fromUid,
+          request.resource.data.toUid
+        ) != "blocked"
         && request.resource.data.status == "pending";
 
       allow read: if signedIn()
@@ -115,19 +137,41 @@ service cloud.firestore {
         && request.resource.data.users[0] is string
         && request.resource.data.users[1] is string
         && request.resource.data.users[0] != request.resource.data.users[1]
-        && request.resource.data.users.hasAny([request.auth.uid]);
+        && request.resource.data.users.hasAny([request.auth.uid])
+        && connectionId == pairId(
+          request.resource.data.users[0],
+          request.resource.data.users[1],
+        )
+        && relationshipStatus(
+          request.resource.data.users[0],
+          request.resource.data.users[1],
+        ) != "blocked";
 
-      allow read: if signedIn() && resource.data.users.hasAny([request.auth.uid]);
+      allow read: if signedIn()
+        && resource.data.users.hasAny([request.auth.uid])
+        && canAccessConnection(resource.data.users[0], resource.data.users[1]);
       allow update, delete: if false;
 
       match /messages/{messageId} {
         allow read: if signedIn()
           && get(/databases/$(database)/documents/connections/$(connectionId))
-            .data.users.hasAny([request.auth.uid]);
+            .data.users.hasAny([request.auth.uid])
+          && canAccessConnection(
+            get(/databases/$(database)/documents/connections/$(connectionId))
+              .data.users[0],
+            get(/databases/$(database)/documents/connections/$(connectionId))
+              .data.users[1],
+          );
 
         allow create: if signedIn()
           && get(/databases/$(database)/documents/connections/$(connectionId))
             .data.users.hasAny([request.auth.uid])
+          && relationshipStatus(
+            get(/databases/$(database)/documents/connections/$(connectionId))
+              .data.users[0],
+            get(/databases/$(database)/documents/connections/$(connectionId))
+              .data.users[1],
+          ) != "blocked"
           && request.resource.data.senderUid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0

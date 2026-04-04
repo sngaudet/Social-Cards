@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import {
+  blockUser,
+  getBlockedRelationshipForPair,
   getConnectionExpiresAt,
   getUserProfile,
   isConnectionActive,
@@ -49,9 +51,16 @@ function formatTimestamp(value: any): string {
 }
 
 export default function ConnectionChatPage() {
-  const params = useLocalSearchParams<{ connectionId?: string; otherUid?: string }>();
+  const params = useLocalSearchParams<{
+    connectionId?: string;
+    otherUid?: string;
+    blocked?: string;
+    otherName?: string;
+  }>();
   const connectionId = params.connectionId ?? "";
   const currentUid = auth.currentUser?.uid ?? "";
+  const blockedParam = params.blocked === "1";
+  const otherNameParam = params.otherName ?? "";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -61,9 +70,12 @@ export default function ConnectionChatPage() {
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   const [reporting, setReporting] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
+  const [blockedByCurrentUser, setBlockedByCurrentUser] = useState(blockedParam);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     if (!connectionId || !currentUid) return;
@@ -74,8 +86,13 @@ export default function ConnectionChatPage() {
         if (cancelled) return;
         const peerUid = members.find((uid) => uid !== currentUid) ?? "";
         setOtherUid(peerUid);
+        setAccessDenied(false);
       })
       .catch((e) => {
+        if (e?.code === "permission-denied") {
+          setAccessDenied(true);
+          return;
+        }
         showAlert("Could not load chat", e?.message ?? "Unknown error");
       });
 
@@ -87,14 +104,24 @@ export default function ConnectionChatPage() {
   useEffect(() => {
     if (!connectionId) return;
 
-    return onSnapshot(doc(db, "connections", connectionId), (snapshot) => {
-      if (!snapshot.exists()) {
-        setExpiresAt(null);
-        return;
-      }
+    return onSnapshot(
+      doc(db, "connections", connectionId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setExpiresAt(null);
+          return;
+        }
 
-      setExpiresAt(getConnectionExpiresAt(snapshot.data()));
-    });
+        setExpiresAt(getConnectionExpiresAt(snapshot.data()));
+      },
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setAccessDenied(true);
+          return;
+        }
+        console.warn("Failed to watch connection", error);
+      },
+    );
   }, [connectionId]);
 
   useEffect(() => {
@@ -111,6 +138,17 @@ export default function ConnectionChatPage() {
     if (!otherUid) return;
 
     let cancelled = false;
+    getBlockedRelationshipForPair(currentUid, otherUid)
+      .then((relationship) => {
+        if (cancelled) return;
+        setBlockedByCurrentUser(
+          relationship?.blockedByUid === currentUid || blockedParam,
+        );
+      })
+      .catch((e) => {
+        console.warn("Failed to load block relationship", e);
+      });
+
     getUserProfile(otherUid)
       .then((profile) => {
         if (!cancelled) setOtherProfile(profile);
@@ -122,20 +160,32 @@ export default function ConnectionChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [otherUid]);
+  }, [blockedParam, currentUid, otherUid]);
 
   useEffect(() => {
     if (!connectionId) return;
-    return subscribeToMessages(connectionId, setMessages);
+
+    return subscribeToMessages(
+      connectionId,
+      setMessages,
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setAccessDenied(true);
+          return;
+        }
+        console.warn("Failed to subscribe to messages", error);
+      },
+    );
   }, [connectionId]);
 
   const title = useMemo(() => {
-    return otherProfile?.firstName || otherUid || "Chat";
-  }, [otherProfile, otherUid]);
+    return otherProfile?.firstName || otherNameParam || otherUid || "Chat";
+  }, [otherNameParam, otherProfile, otherUid]);
   const isActive = useMemo(
     () => isConnectionActive({ expiresAt }, new Date(nowMs)),
     [expiresAt, nowMs],
   );
+  const isReadOnly = blockedByCurrentUser || !isActive;
 
   const handleSend = async () => {
     try {
@@ -148,6 +198,58 @@ export default function ConnectionChatPage() {
       setSending(false);
     }
   };
+
+  const handleBlock = useCallback(() => {
+    if (!otherUid || blocking || blockedByCurrentUser) return;
+
+    const confirmBlock = async () => {
+      try {
+        setBlocking(true);
+        await blockUser(otherUid);
+        setBlockedByCurrentUser(true);
+        showAlert(
+          "User blocked",
+          "This chat is now read-only for you, and the other user can no longer access it.",
+        );
+      } catch (e: any) {
+        const code = e?.code ? ` (${e.code})` : "";
+        showAlert(
+          "Could not block user",
+          `${e?.message ?? "Unknown error"}${code}`,
+        );
+      } finally {
+        setBlocking(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = globalThis.confirm?.(
+        `Block ${title || "this user"}? They will immediately lose access to your profile, messages, and connection history.`,
+      );
+      if (confirmed) {
+        confirmBlock().catch(() => {});
+      }
+      return;
+    }
+
+    Alert.alert(
+      "Block user?",
+      `Block ${title || "this user"}? They will immediately lose access to your profile, messages, and connection history.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: () => {
+            confirmBlock().catch(() => {});
+          },
+        },
+      ],
+    );
+  }, [blockedByCurrentUser, blocking, otherUid, title]);
 
   const closeReportModal = useCallback(() => {
     if (reporting) return;
@@ -230,6 +332,17 @@ export default function ConnectionChatPage() {
     );
   }
 
+  if (accessDenied) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.title}>Chat unavailable</Text>
+        <Text style={styles.statusText}>
+          You no longer have access to this conversation.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.page}
@@ -238,18 +351,31 @@ export default function ConnectionChatPage() {
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Text style={styles.title}>{title}</Text>
-          <TouchableOpacity
-            style={[styles.reportButton, reporting && styles.disabledButton]}
-            onPress={openReportModal}
-            disabled={reporting || !otherUid}
-          >
-            <Text style={styles.reportButtonText}>
-              {reporting ? "Reporting..." : "Report"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerActionRow}>
+            <TouchableOpacity
+              style={[styles.reportButton, reporting && styles.disabledButton]}
+              onPress={openReportModal}
+              disabled={reporting || !otherUid}
+            >
+              <Text style={styles.reportButtonText}>
+                {reporting ? "Reporting..." : "Report"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.blockButton, (blocking || blockedByCurrentUser) && styles.disabledButton]}
+              onPress={handleBlock}
+              disabled={blocking || blockedByCurrentUser || !otherUid}
+            >
+              <Text style={styles.blockButtonText}>
+                {blockedByCurrentUser ? "Blocked" : blocking ? "Blocking..." : "Block"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.statusText}>
-          {isActive
+          {blockedByCurrentUser
+            ? "This user is blocked. You can read message history, but neither side can send new messages."
+            : isActive
             ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
                 hour: "numeric",
                 minute: "2-digit",
@@ -287,15 +413,21 @@ export default function ConnectionChatPage() {
           style={styles.input}
           value={draft}
           onChangeText={setDraft}
-          placeholder={isActive ? "Type a message..." : "Chat expired"}
+          placeholder={
+            blockedByCurrentUser
+              ? "Chat is read-only after blocking"
+              : isActive
+                ? "Type a message..."
+                : "Chat expired"
+          }
           multiline
           maxLength={2000}
-          editable={isActive && !sending}
+          editable={!isReadOnly && !sending}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (sending || !isActive) && styles.disabledButton]}
+          style={[styles.sendButton, (sending || isReadOnly) && styles.disabledButton]}
           onPress={handleSend}
-          disabled={sending || !isActive}
+          disabled={sending || isReadOnly}
         >
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
@@ -400,6 +532,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  headerActionRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
@@ -410,7 +546,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
+  blockButton: {
+    backgroundColor: "#111827",
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
   reportButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  blockButtonText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "800",

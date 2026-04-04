@@ -11,6 +11,7 @@ import {
 import { auth } from "../../firebaseConfig";
 import {
   acceptConnectionRequest,
+  BlockedRelationship,
   ConnectionDoc,
   ConnectionRequest,
   declineConnectionRequest,
@@ -18,6 +19,7 @@ import {
   getUserProfile,
   isConnectionActive,
   PublicUserProfile,
+  subscribeToBlockedRelationships,
   subscribeToConnections,
   subscribeToIncomingRequests,
 } from "../../src/connections/service";
@@ -39,6 +41,9 @@ export default function ConnectionsPage() {
 
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
   const [connections, setConnections] = useState<ConnectionDoc[]>([]);
+  const [blockedRelationships, setBlockedRelationships] = useState<
+    BlockedRelationship[]
+  >([]);
   const [requestProfiles, setRequestProfiles] = useState<
     Record<string, PublicUserProfile>
   >({});
@@ -50,12 +55,44 @@ export default function ConnectionsPage() {
   useEffect(() => {
     if (!currentUid) return;
 
-    const unsubRequests = subscribeToIncomingRequests(currentUid, setRequests);
-    const unsubConnections = subscribeToConnections(currentUid, setConnections);
+    const unsubRequests = subscribeToIncomingRequests(
+      currentUid,
+      setRequests,
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setRequests([]);
+          return;
+        }
+        console.warn("Failed to watch incoming requests", error);
+      },
+    );
+    const unsubConnections = subscribeToConnections(
+      currentUid,
+      setConnections,
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setConnections([]);
+          return;
+        }
+        console.warn("Failed to watch connections", error);
+      },
+    );
+    const unsubBlocked = subscribeToBlockedRelationships(
+      currentUid,
+      setBlockedRelationships,
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          setBlockedRelationships([]);
+          return;
+        }
+        console.warn("Failed to watch blocked relationships", error);
+      },
+    );
 
     return () => {
       unsubRequests();
       unsubConnections();
+      unsubBlocked();
     };
   }, [currentUid]);
 
@@ -63,9 +100,7 @@ export default function ConnectionsPage() {
     let cancelled = false;
 
     const loadProfiles = async () => {
-      const uniqueFromUids = Array.from(
-        new Set(requests.map((r) => r.fromUid)),
-      );
+      const uniqueFromUids = Array.from(new Set(requests.map((r) => r.fromUid)));
 
       const entries = await Promise.all(
         uniqueFromUids.map(async (uid) => {
@@ -94,10 +129,14 @@ export default function ConnectionsPage() {
     const loadProfiles = async () => {
       if (!currentUid) return;
 
+      const blockedIds = new Set(blockedRelationships.map((relationship) => relationship.id));
+      const visibleConnections = connections.filter(
+        (connection) => !blockedIds.has(connection.id),
+      );
       const otherUids = Array.from(
         new Set(
-          connections.map(
-            (c) => c.users.find((uid) => uid !== currentUid) || "",
+          visibleConnections.map(
+            (connection) => connection.users.find((uid) => uid !== currentUid) || "",
           ),
         ),
       ).filter(Boolean);
@@ -121,27 +160,33 @@ export default function ConnectionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [connections, currentUid]);
+  }, [blockedRelationships, connections, currentUid]);
 
   const requestsWithProfiles: RequestWithProfile[] = useMemo(() => {
-    return requests.map((r) => ({
-      ...r,
-      fromUser: requestProfiles[r.fromUid],
+    return requests.map((request) => ({
+      ...request,
+      fromUser: requestProfiles[request.fromUid],
     }));
-  }, [requests, requestProfiles]);
+  }, [requestProfiles, requests]);
+
+  const blockedRelationshipIds = useMemo(() => {
+    return new Set(blockedRelationships.map((relationship) => relationship.id));
+  }, [blockedRelationships]);
 
   const connectionsWithProfiles: ConnectionWithProfile[] = useMemo(() => {
     if (!currentUid) return [];
 
-    return connections.map((c) => {
-      const otherUid = c.users.find((uid) => uid !== currentUid) || "";
-      return {
-        ...c,
-        otherUid,
-        otherUser: connectionProfiles[otherUid],
-      };
-    });
-  }, [connections, connectionProfiles, currentUid]);
+    return connections
+      .filter((connection) => !blockedRelationshipIds.has(connection.id))
+      .map((connection) => {
+        const otherUid = connection.users.find((uid) => uid !== currentUid) || "";
+        return {
+          ...connection,
+          otherUid,
+          otherUser: connectionProfiles[otherUid],
+        };
+      });
+  }, [blockedRelationshipIds, connectionProfiles, connections, currentUid]);
 
   const handleAccept = async (request: ConnectionRequest) => {
     try {
@@ -167,20 +212,47 @@ export default function ConnectionsPage() {
     }
   };
 
-  const openMessages = (connectionId: string, otherUid: string) => {
+  const openMessages = (
+    connectionId: string,
+    otherUid: string,
+    options?: { blocked?: boolean; otherName?: string },
+  ) => {
     router.push({
       pathname: "/(tabs)/chat/[connectionId]",
-      params: { connectionId, otherUid },
+      params: {
+        connectionId,
+        otherUid,
+        blocked: options?.blocked ? "1" : "0",
+        otherName: options?.otherName ?? "",
+      },
     });
   };
 
-  const renderConnectionHistoryAvatar = (connection: ConnectionWithProfile) => {
-    const avatarSource = getAvatarImageSource(connection.otherUser?.avatarId);
+  const renderProfileAvatar = (profile?: PublicUserProfile) => {
+    const avatarSource = getAvatarImageSource(profile?.avatarId);
 
-    if (connection.otherUser?.photoURL) {
+    if (profile?.photoURL) {
+      return <Image source={{ uri: profile.photoURL }} style={styles.avatar} />;
+    }
+
+    if (avatarSource) {
+      return <Image source={avatarSource} style={styles.avatar} />;
+    }
+
+    return (
+      <View style={styles.avatarPlaceholder}>
+        <Text style={styles.avatarText}>No Photo</Text>
+      </View>
+    );
+  };
+
+  const renderBlockedAvatar = (relationship: BlockedRelationship) => {
+    const avatarSource = getAvatarImageSource(relationship.blockedPreview?.avatarId);
+
+    if (relationship.blockedPreview?.photoURL) {
       return (
         <Image
-          source={{ uri: connection.otherUser.photoURL }}
+          source={{ uri: relationship.blockedPreview.photoURL }}
           style={styles.avatar}
         />
       );
@@ -224,23 +296,9 @@ export default function ConnectionsPage() {
           requestsWithProfiles.map((request) => (
             <View key={request.id} style={styles.card}>
               <View style={styles.row}>
-                {getAvatarImageSource(request.fromUser?.avatarId) ? (
-                  <Image
-                    source={getAvatarImageSource(request.fromUser?.avatarId)!}
-                    style={styles.avatar}
-                  />
-                ) : request.fromUser?.photoURL ? (
-                  <Image
-                    source={{ uri: request.fromUser.photoURL }}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>No Avatar</Text>
-                  </View>
-                )}
+                {renderProfileAvatar(request.fromUser)}
 
-                <View style={{ flex: 1 }}>
+                <View style={styles.metaBody}>
                   <Text style={styles.nameText}>
                     {request.fromUser?.firstName || request.fromUid}
                   </Text>
@@ -293,9 +351,9 @@ export default function ConnectionsPage() {
           connectionsWithProfiles.map((connection) => (
             <View key={connection.id} style={styles.card}>
               <View style={styles.row}>
-                {renderConnectionHistoryAvatar(connection)}
+                {renderProfileAvatar(connection.otherUser)}
 
-                <View style={{ flex: 1 }}>
+                <View style={styles.metaBody}>
                   <Text style={styles.nameText}>
                     {connection.otherUser?.firstName || connection.otherUid}
                   </Text>
@@ -323,9 +381,7 @@ export default function ConnectionsPage() {
 
                 <TouchableOpacity
                   style={styles.messageButton}
-                  onPress={() =>
-                    openMessages(connection.id, connection.otherUid)
-                  }
+                  onPress={() => openMessages(connection.id, connection.otherUid)}
                 >
                   <Text style={styles.buttonText}>
                     {isConnectionActive(connection) ? "Open in Messages" : "See in Messages"}
@@ -334,6 +390,61 @@ export default function ConnectionsPage() {
               </View>
             </View>
           ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Blocked Users</Text>
+
+        {blockedRelationships.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No blocked users</Text>
+            <Text style={styles.subtleText}>
+              Users you block will appear here with read-only message history.
+            </Text>
+          </View>
+        ) : (
+          blockedRelationships.map((relationship) => {
+            const otherUid =
+              relationship.users.find((uid) => uid !== currentUid) || "";
+            const firstName =
+              relationship.blockedPreview?.firstName?.trim() || "Blocked user";
+
+            return (
+              <View key={relationship.id} style={styles.card}>
+                <View style={styles.row}>
+                  {renderBlockedAvatar(relationship)}
+
+                  <View style={styles.metaBody}>
+                    <Text style={styles.nameText}>{firstName}</Text>
+                    <Text style={styles.subtleText}>
+                      Blocked users cannot view your profile, messages, or connection record.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.connectionMeta}>
+                  {relationship.hasMessageHistory ? (
+                    <TouchableOpacity
+                      style={styles.messageButton}
+                      onPress={() =>
+                        openMessages(relationship.id, otherUid, {
+                          blocked: true,
+                          otherName: firstName,
+                        })
+                      }
+                    >
+                      <Text style={styles.buttonText}>View message history</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.subtleText}>
+                      No saved message history for this user.
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          })
         )}
       </View>
     </ScrollView>
@@ -395,6 +506,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  metaBody: {
+    flex: 1,
   },
   avatar: {
     width: 58,

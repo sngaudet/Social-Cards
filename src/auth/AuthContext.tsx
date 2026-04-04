@@ -167,40 +167,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let seenRequestIds = new Set<string>();
     const listenerStartedAt = Date.now();
 
-    const unsubscribe = subscribeToIncomingRequests(user.uid, (requests) => {
-      const nextIds = new Set(requests.map((request) => request.id));
-      const freshRequests = requests.filter((request) => {
-        const createdAtMs = getTimestampMs(request.createdAt);
-        return (
-          createdAtMs !== null
-          && createdAtMs >= listenerStartedAt - WEB_NOTIFICATION_GRACE_MS
-        );
-      });
+    const unsubscribe = subscribeToIncomingRequests(
+      user.uid,
+      (requests) => {
+        const nextIds = new Set(requests.map((request) => request.id));
+        const freshRequests = requests.filter((request) => {
+          const createdAtMs = getTimestampMs(request.createdAt);
+          return (
+            createdAtMs !== null
+            && createdAtMs >= listenerStartedAt - WEB_NOTIFICATION_GRACE_MS
+          );
+        });
 
-      if (!initialized) {
-        initialized = true;
-        for (const requestId of freshRequests.map((request) => request.id)) {
-          if (!seenRequestIds.has(requestId)) {
+        if (!initialized) {
+          initialized = true;
+          for (const requestId of freshRequests.map((request) => request.id)) {
+            if (!seenRequestIds.has(requestId)) {
+              showWebRequestNotification(notificationApi);
+            }
+          }
+          seenRequestIds = nextIds;
+          return;
+        }
+
+        const newRequests = requests.filter(
+          (request) => !seenRequestIds.has(request.id),
+        );
+        seenRequestIds = nextIds;
+
+        for (let i = 0; i < newRequests.length; i += 1) {
+          try {
             showWebRequestNotification(notificationApi);
+          } catch (error) {
+            console.warn("Web notification failed", error);
           }
         }
-        seenRequestIds = nextIds;
-        return;
-      }
-
-      const newRequests = requests.filter(
-        (request) => !seenRequestIds.has(request.id),
-      );
-      seenRequestIds = nextIds;
-
-      for (let i = 0; i < newRequests.length; i += 1) {
-        try {
-          showWebRequestNotification(notificationApi);
-        } catch (error) {
-          console.warn("Web notification failed", error);
+      },
+      (error) => {
+        if ((error as any)?.code === "permission-denied") {
+          seenRequestIds = new Set();
+          return;
         }
-      }
-    });
+        console.warn("Incoming request notification listener failed", error);
+      },
+    );
 
     return () => {
       unsubscribe();
