@@ -1,3 +1,4 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { CalendarDays, IdCard } from "lucide-react-native";
 import React, { useState } from "react";
@@ -14,7 +15,6 @@ import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
-import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { useSignup } from "../../../src/signup/context";
 
 function showAlert(title: string, message?: string) {
@@ -25,29 +25,6 @@ function showAlert(title: string, message?: string) {
   }
 }
 
-function toDisplayDateOfBirth(dateOfBirth: string) {
-  const normalized = normalizeDateOfBirth(dateOfBirth);
-  if (!normalized) {
-    return "";
-  }
-
-  const [year, month, day] = normalized.split("-").map(Number);
-  return `${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}/${year}`;
-}
-
-function formatDateInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-
-  if (digits.length <= 2) {
-    return digits;
-  }
-
-  if (digits.length <= 4) {
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  }
-
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
 
 export default function SignupPersonalProfileStep() {
   const router = useRouter();
@@ -55,27 +32,31 @@ export default function SignupPersonalProfileStep() {
 
   const [firstName, setFirstName] = useState(draft.firstName ?? "");
   const [lastName, setLastName] = useState(draft.lastName ?? "");
-  const [dateOfBirthInput, setDateOfBirthInput] = useState(toDisplayDateOfBirth(draft.dateOfBirth));
+ 
   const [bio, setBio] = useState(draft.bio ?? "");
 
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
   const onNext = () => {
-    const trimmedBio = bio.trim();
-    const dateOfBirth = normalizeDateOfBirth(dateOfBirthInput);
+  const trimmedBio = bio.trim();
 
-    if (!firstName.trim() || !lastName.trim() || !dateOfBirth || !trimmedBio) {
-      showAlert("Missing fields", "Please complete all fields.");
-      return;
-    }
+  if (!firstName.trim() || !lastName.trim() || !dateOfBirth || !trimmedBio) {
+    showAlert("Missing fields", "Please complete all fields.");
+    return;
+  }
 
-    updateDraft({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      dateOfBirth,
-      bio: trimmedBio,
-    });
+  const normalizedDOB = dateOfBirth.toISOString().split("T")[0];
 
-    router.push("/(auth)/signup/academicProfile");
-  };
+  updateDraft({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    dateOfBirth: normalizedDOB,
+    bio: trimmedBio,
+  });
+
+  router.push("/(auth)/signup/academicProfile");
+};
 
   return (
     <ScrollView
@@ -98,7 +79,7 @@ export default function SignupPersonalProfileStep() {
           onChangeText={setFirstName}
           style={styles.input}
         />
-        <IdCard size={20} color="#90AEFF" strokeWidth={2} style={styles.trailingIcon} />
+        <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
       </SignupFormField>
 
       <SignupFormField label="Last Name">
@@ -109,21 +90,45 @@ export default function SignupPersonalProfileStep() {
           onChangeText={setLastName}
           style={styles.input}
         />
-        <IdCard size={20} color="#90AEFF" strokeWidth={2} style={styles.trailingIcon} />
+        <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
       </SignupFormField>
 
       <SignupFormField label="Date of Birth">
-        <TextInput
-          placeholder="mm/dd/yyyy"
-          placeholderTextColor="#9CA3AF"
-          value={dateOfBirthInput}
-          onChangeText={(value) => setDateOfBirthInput(formatDateInput(value))}
-          style={styles.dateInput}
-          keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
-          maxLength={10}
-        />
-        <CalendarDays size={20} color="#90AEFF" strokeWidth={2} style={styles.trailingIcon} />
+        {Platform.OS === "web" ? (
+          <input
+            type="date"
+            value={dateOfBirth ? dateOfBirth.toISOString().split("T")[0] : ""}
+            max={new Date().toISOString().split("T")[0]}
+            onChange={(e) => {
+              if (e.target.value) {
+                setDateOfBirth(new Date(e.target.value));
+              }
+            }}
+            style={{
+              width: "100%",
+              padding: "16px 0",
+              fontSize: "18px",
+              border: "none",
+              background: "transparent",
+              color: "#6B7280",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.datePressable}
+            onPress={() => setShowPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={dateOfBirth ? styles.dateText : styles.datePlaceholder}>
+              {dateOfBirth ? `${dateOfBirth.toLocaleString("default", { month: "long" })} ${dateOfBirth.getDate()} ${dateOfBirth.getFullYear()}` : "Select date of birth"}
+            </Text>
+            <CalendarDays size={20} color="#0b0b0b" />
+          </TouchableOpacity>
+        )}
       </SignupFormField>
+
       <Text style={styles.dateHint}>You must be 18 or older to use Icebreakers.</Text>
 
       <SignupFormField
@@ -153,6 +158,21 @@ export default function SignupPersonalProfileStep() {
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
+
+      {showPicker && Platform.OS !== "web" && (
+        <DateTimePicker
+          value={dateOfBirth ?? new Date(2000, 0, 1)}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            setShowPicker(false);
+            if (selectedDate) {
+              setDateOfBirth(selectedDate);
+            }
+          }}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -197,6 +217,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     color: "#6B7280",
+  },
+  datePressable: {
+    flex: 1,
+    paddingVertical: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  dateText: {
+    fontSize: 18,
+    color: "#6B7280",
+  },
+  datePlaceholder: {
+    fontSize: 18,
+    color: "#9CA3AF",
   },
   primaryButton: { alignSelf: "center", marginBottom: 16 },
   secondaryButton: { padding: 12, alignItems: "center" },
