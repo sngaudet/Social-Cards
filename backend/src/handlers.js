@@ -323,7 +323,9 @@ const location_getNearby = onCall(
     const nearbyPresence = await queryNearbyPresence(callerPresence, radiusM, {
       useAccuracyBuffer: true,
     });
-    const withoutCaller = nearbyPresence.filter((presence) => presence.uid !== uid);
+    const withoutCaller = nearbyPresence.filter(
+      (presence) => presence.uid !== uid,
+    );
     const excludedUids = await getExcludedRelationshipUids(
       uid,
       withoutCaller.map((presence) => presence.uid),
@@ -442,7 +444,10 @@ const acceptConnectionRequest = onCall(
     const status = getTrimmedString(requestData.status);
 
     if (!fromUid || !toUid) {
-      throw new HttpsError("failed-precondition", "Malformed connection request.");
+      throw new HttpsError(
+        "failed-precondition",
+        "Malformed connection request.",
+      );
     }
 
     if (toUid !== uid) {
@@ -485,7 +490,7 @@ const acceptConnectionRequest = onCall(
       users: sortedPair(fromUid, toUid),
       createdAt: respondedAt,
       expiresAt: timestampFromDate(
-        new Date(nowDate().getTime() + 3 * 60 * 60 * 1000),
+        new Date(nowDate().getTime() + 24 * 60 * 60 * 1000),
       ),
     });
     batch.set(
@@ -531,7 +536,10 @@ const declineConnectionRequest = onCall(
     const status = getTrimmedString(requestData.status);
 
     if (!fromUid || !toUid) {
-      throw new HttpsError("failed-precondition", "Malformed connection request.");
+      throw new HttpsError(
+        "failed-precondition",
+        "Malformed connection request.",
+      );
     }
 
     if (toUid !== uid && fromUid !== uid) {
@@ -585,7 +593,10 @@ const blockUser = onCall(
     }
 
     if (targetUid === uid) {
-      throw new HttpsError("invalid-argument", "Users cannot block themselves.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Users cannot block themselves.",
+      );
     }
 
     const targetUserSnap = await getUserRef(targetUid).get();
@@ -632,7 +643,10 @@ const blockUser = onCall(
       { merge: true },
     );
 
-    for (const requestSnap of [...outgoingPendingSnap.docs, ...incomingPendingSnap.docs]) {
+    for (const requestSnap of [
+      ...outgoingPendingSnap.docs,
+      ...incomingPendingSnap.docs,
+    ]) {
       batch.update(requestSnap.ref, {
         status: "declined",
         respondedAt: blockedAt,

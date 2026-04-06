@@ -100,7 +100,9 @@ export default function ConnectionsPage() {
     let cancelled = false;
 
     const loadProfiles = async () => {
-      const uniqueFromUids = Array.from(new Set(requests.map((r) => r.fromUid)));
+      const uniqueFromUids = Array.from(
+        new Set(requests.map((r) => r.fromUid)),
+      );
 
       const entries = await Promise.all(
         uniqueFromUids.map(async (uid) => {
@@ -129,14 +131,17 @@ export default function ConnectionsPage() {
     const loadProfiles = async () => {
       if (!currentUid) return;
 
-      const blockedIds = new Set(blockedRelationships.map((relationship) => relationship.id));
+      const blockedIds = new Set(
+        blockedRelationships.map((relationship) => relationship.id),
+      );
       const visibleConnections = connections.filter(
         (connection) => !blockedIds.has(connection.id),
       );
       const otherUids = Array.from(
         new Set(
           visibleConnections.map(
-            (connection) => connection.users.find((uid) => uid !== currentUid) || "",
+            (connection) =>
+              connection.users.find((uid) => uid !== currentUid) || "",
           ),
         ),
       ).filter(Boolean);
@@ -179,7 +184,8 @@ export default function ConnectionsPage() {
     return connections
       .filter((connection) => !blockedRelationshipIds.has(connection.id))
       .map((connection) => {
-        const otherUid = connection.users.find((uid) => uid !== currentUid) || "";
+        const otherUid =
+          connection.users.find((uid) => uid !== currentUid) || "";
         return {
           ...connection,
           otherUid,
@@ -247,7 +253,9 @@ export default function ConnectionsPage() {
   };
 
   const renderBlockedAvatar = (relationship: BlockedRelationship) => {
-    const avatarSource = getAvatarImageSource(relationship.blockedPreview?.avatarId);
+    const avatarSource = getAvatarImageSource(
+      relationship.blockedPreview?.avatarId,
+    );
 
     if (relationship.blockedPreview?.photoURL) {
       return (
@@ -367,24 +375,35 @@ export default function ConnectionsPage() {
               <View style={styles.connectionMeta}>
                 <Text style={styles.subtleText}>
                   {isConnectionActive(connection)
-                    ? `Current until ${getConnectionExpiresAt(connection)?.toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      }) ?? "unknown"}`
-                    : `Expired ${getConnectionExpiresAt(connection)?.toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      }) ?? "unknown"}`}
+                    ? `Current until ${
+                        getConnectionExpiresAt(connection)?.toLocaleTimeString(
+                          [],
+                          {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          },
+                        ) ?? "unknown"
+                      }`
+                    : `Expired ${
+                        getConnectionExpiresAt(connection)?.toLocaleString([], {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        }) ?? "unknown"
+                      }`}
                 </Text>
 
                 <TouchableOpacity
                   style={styles.messageButton}
-                  onPress={() => openMessages(connection.id, connection.otherUid)}
+                  onPress={() =>
+                    openMessages(connection.id, connection.otherUid)
+                  }
                 >
                   <Text style={styles.buttonText}>
-                    {isConnectionActive(connection) ? "Open in Messages" : "See in Messages"}
+                    {isConnectionActive(connection)
+                      ? "Open in Messages"
+                      : "View Read-Only Messages"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -418,7 +437,8 @@ export default function ConnectionsPage() {
                   <View style={styles.metaBody}>
                     <Text style={styles.nameText}>{firstName}</Text>
                     <Text style={styles.subtleText}>
-                      Blocked users cannot view your profile, messages, or connection record.
+                      Blocked users cannot view your profile, messages, or
+                      connection record.
                     </Text>
                   </View>
                 </View>
@@ -434,7 +454,9 @@ export default function ConnectionsPage() {
                         })
                       }
                     >
-                      <Text style={styles.buttonText}>View message history</Text>
+                      <Text style={styles.buttonText}>
+                        View message history
+                      </Text>
                     </TouchableOpacity>
                   ) : (
                     <Text style={styles.subtleText}>

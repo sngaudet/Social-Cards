@@ -12,7 +12,14 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { auth, db } from "../../../firebaseConfig";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
@@ -93,7 +100,10 @@ export default function RegistrationCompletePage() {
     const password = draft.password;
 
     if (!email.includes("@")) {
-      redirectToSignupWithError("Invalid email", "Enter a valid email address.");
+      redirectToSignupWithError(
+        "Invalid email",
+        "Enter a valid email address.",
+      );
       return;
     }
 
@@ -134,10 +144,12 @@ export default function RegistrationCompletePage() {
         minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerOneQuestion:
-          draft.iceBreakerOneQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[0],
+          draft.iceBreakerOneQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[0],
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerTwoQuestion:
-          draft.iceBreakerTwoQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[1],
+          draft.iceBreakerTwoQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[1],
         iceBreakerThree: draft.iceBreakerThree ?? "",
         iceBreakerThreeQuestion:
           draft.iceBreakerThreeQuestion?.trim() ||
@@ -172,10 +184,12 @@ export default function RegistrationCompletePage() {
         minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
         iceBreakerOneQuestion:
-          draft.iceBreakerOneQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[0],
+          draft.iceBreakerOneQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[0],
         iceBreakerTwo: draft.iceBreakerTwo ?? "",
         iceBreakerTwoQuestion:
-          draft.iceBreakerTwoQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[1],
+          draft.iceBreakerTwoQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[1],
         iceBreakerThree: draft.iceBreakerThree ?? "",
         iceBreakerThreeQuestion:
           draft.iceBreakerThreeQuestion?.trim() ||
@@ -196,7 +210,9 @@ export default function RegistrationCompletePage() {
         const cleanupTasks: Promise<unknown>[] = [
           deleteDoc(doc(db, "users", createdUser.uid)),
           deleteDoc(doc(db, "publicProfiles", createdUser.uid)),
-          ...uploadedPhotoUrls.map((url) => deleteUploadedProfilePhotoAsync(url)),
+          ...uploadedPhotoUrls.map((url) =>
+            deleteUploadedProfilePhotoAsync(url),
+          ),
         ];
 
         await Promise.allSettled(cleanupTasks);
@@ -204,10 +220,16 @@ export default function RegistrationCompletePage() {
         try {
           await deleteUser(createdUser);
         } catch (cleanupError) {
-          console.warn("Could not roll back partially created auth user", cleanupError);
+          console.warn(
+            "Could not roll back partially created auth user",
+            cleanupError,
+          );
           if (auth.currentUser?.uid === createdUser.uid) {
             await signOut(auth).catch((signOutError) => {
-              console.warn("Could not sign out after failed signup cleanup", signOutError);
+              console.warn(
+                "Could not sign out after failed signup cleanup",
+                signOutError,
+              );
             });
           }
         }
@@ -242,9 +264,9 @@ export default function RegistrationCompletePage() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Welcome to Icebreakers!</Text>
 
-      <Text style={styles.subtitle}> 
-        You're all set and ready to connect. Here {"\n"}
-        is how you look to other students nearby. 
+      <Text style={styles.subtitle}>
+        You&apos;re all set and ready to connect. Here {"\n"}
+        is how you look to other students nearby.
       </Text>
 
       {/* CARD INFO */}
@@ -259,43 +281,38 @@ export default function RegistrationCompletePage() {
             </View>
           )}
 
-            <View style={styles.profileTextBlock}>
-              {/* Name and nickname */}
-                <Text style={styles.profileName}>
-                  {draft.firstName || "Unknown"}
-                  {/*{[draft.firstName, draft.lastName]
+          <View style={styles.profileTextBlock}>
+            {/* Name and nickname */}
+            <Text style={styles.profileName}>
+              {draft.firstName || "Unknown"}
+              {/*{[draft.firstName, draft.lastName]
                     .map((s) => (typeof s === "string" ? s.trim() : s))
                     .filter((s) => typeof s === "string" && s.length > 0)
                     .join(" ") || "Unknown"} */}
-                </Text>
+            </Text>
 
-              {/* Pronouns */}
-                <Text style={styles.profileMeta}>
-                  PRONOUNS{" "}
-                  <Text style={styles.bold}> 
-                    {draft.pronouns || "--"}
-                  </Text>
-                </Text>
+            {/* Pronouns */}
+            <Text style={styles.profileMeta}>
+              PRONOUNS <Text style={styles.bold}>{draft.pronouns || "--"}</Text>
+            </Text>
 
-              {/* Major & Minor */}
-              <Text style={styles.academics}>
-                {draft.major}
-                {draft.minor ? ` • Minor in ${draft.minor}` : ""}
-              </Text>
+            {/* Major & Minor */}
+            <Text style={styles.academics}>
+              {draft.major}
+              {draft.minor ? ` • Minor in ${draft.minor}` : ""}
+            </Text>
 
-              {/* Age + Graduation */}
-              <Text style={styles.profileMeta}>
-                <Text style={styles.bold}>Age</Text>{" "}
-                {derivedAge ?? "--"}
-                {draft.gradYear ? (
-                  <>
+            {/* Age + Graduation */}
+            <Text style={styles.profileMeta}>
+              <Text style={styles.bold}>Age</Text> {derivedAge ?? "--"}
+              {draft.gradYear ? (
+                <>
                   {" • "}
-                  <Text style={styles.bold}> Class of</Text>{" "}
-                  {draft.gradYear}
-                  </>
-                ) : null}
-              </Text>
-            </View>
+                  <Text style={styles.bold}> Class of</Text> {draft.gradYear}
+                </>
+              ) : null}
+            </Text>
+          </View>
         </View>
 
         {/* profile details */}
@@ -308,11 +325,7 @@ export default function RegistrationCompletePage() {
         )}
 
         {/* Bio */}
-        {!!draft.bio && (
-        <Text style={styles.bio}>
-          {draft.bio}
-        </Text>
-        )}
+        {!!draft.bio && <Text style={styles.bio}>{draft.bio}</Text>}
 
         {/* Icebreakers */}
         <View style={styles.icebreakers}>
@@ -325,13 +338,11 @@ export default function RegistrationCompletePage() {
           {!!draft.iceBreakerThree && (
             <Text style={styles.icebreaker}>• {draft.iceBreakerThree}</Text>
           )}
-          </View>
+        </View>
       </View>
 
       <View style={styles.subCard}>
-        <Text style={styles.upperSub}>
-          Nearby into cards, not a map
-        </Text>
+        <Text style={styles.upperSub}>Nearby into cards, not a map</Text>
 
         <Text style={styles.subtitle}>
           See who is nearby. Your location is {"\n"}
@@ -348,8 +359,15 @@ export default function RegistrationCompletePage() {
         disabled={submitting}
       />
 
-       <Text style={styles.warningText}>By creating an account, you agree to our Terms.</Text>
-
+      <Text style={styles.warningText}>
+        By creating an account, you agree to our Terms.
+      </Text>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.replace("/(auth)/signup/onboardingPermission")}
+      >
+        <Text style={styles.secondaryText}>Back</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -407,7 +425,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
 
-//////// PROFILE CARD STYLES ////////
+  //////// PROFILE CARD STYLES ////////
 
   profileCard: {
     backgroundColor: "#FFFFFF",
@@ -449,8 +467,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
   },
-  
-/* Details */
+
+  /* Details */
   hobbies: {
     marginTop: 14,
     fontSize: 13,
@@ -481,8 +499,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bold: {
-   fontWeight: "700",
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    padding: 16,
+    borderRadius: 8,
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  secondaryText: {
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 30,
   },
 });
-
-

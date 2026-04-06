@@ -1,5 +1,4 @@
 import { FirebaseError } from "firebase/app";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   collection,
   doc,
@@ -10,12 +9,13 @@ import {
   query,
   QuerySnapshot,
   serverTimestamp,
-  writeBatch,
   where,
+  writeBatch,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { app, auth, db } from "../../firebaseConfig";
 
-export const CONNECTION_DURATION_MS = 3 * 60 * 60 * 1000;
+export const CONNECTION_DURATION_MS = 24 * 60 * 60 * 1000;
 
 export type ConnectionRequestStatus = "pending" | "accepted" | "declined";
 export type RelationshipStatus =
@@ -315,18 +315,26 @@ export function subscribeToConnections(
       try {
         const connectionSnaps = await Promise.all(
           snapshot.docs.map((relationshipSnap) =>
-            getDoc(doc(db, "connections", relationshipSnap.id)).catch((error) => {
-              if (error instanceof FirebaseError && error.code === "permission-denied") {
-                return null;
-              }
-              throw error;
-            }),
+            getDoc(doc(db, "connections", relationshipSnap.id)).catch(
+              (error) => {
+                if (
+                  error instanceof FirebaseError &&
+                  error.code === "permission-denied"
+                ) {
+                  return null;
+                }
+                throw error;
+              },
+            ),
           ),
         );
 
         const connections: ConnectionDoc[] = connectionSnaps
-          .filter((connectionSnap): connectionSnap is NonNullable<typeof connectionSnap> =>
-            Boolean(connectionSnap?.exists()),
+          .filter(
+            (
+              connectionSnap,
+            ): connectionSnap is NonNullable<typeof connectionSnap> =>
+              Boolean(connectionSnap?.exists()),
           )
           .map((connectionSnap) => {
             const data = connectionSnap.data() ?? {};
@@ -363,25 +371,27 @@ export function subscribeToBlockedRelationships(
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot<DocumentData>) => {
-      const relationships: BlockedRelationship[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
+      const relationships: BlockedRelationship[] = snapshot.docs.map(
+        (docSnap) => {
+          const data = docSnap.data();
 
-        return {
-          id: docSnap.id,
-          users: Array.isArray(data.users) ? data.users : [],
-          blockedByUid: data.blockedByUid ?? "",
-          blockedAt: data.blockedAt,
-          blockedPreview:
-            data.blockedPreview && typeof data.blockedPreview === "object"
-              ? {
-                  firstName: data.blockedPreview.firstName ?? "",
-                  avatarId: data.blockedPreview.avatarId ?? "",
-                  photoURL: data.blockedPreview.photoURL ?? "",
-                }
-              : undefined,
-          hasMessageHistory: data.hasMessageHistory === true,
-        };
-      });
+          return {
+            id: docSnap.id,
+            users: Array.isArray(data.users) ? data.users : [],
+            blockedByUid: data.blockedByUid ?? "",
+            blockedAt: data.blockedAt,
+            blockedPreview:
+              data.blockedPreview && typeof data.blockedPreview === "object"
+                ? {
+                    firstName: data.blockedPreview.firstName ?? "",
+                    avatarId: data.blockedPreview.avatarId ?? "",
+                    photoURL: data.blockedPreview.photoURL ?? "",
+                  }
+                : undefined,
+            hasMessageHistory: data.hasMessageHistory === true,
+          };
+        },
+      );
 
       callback(relationships);
     },
@@ -394,7 +404,9 @@ export async function getBlockedRelationshipForPair(
   uid2: string,
 ): Promise<BlockedRelationship | null> {
   try {
-    const snap = await getDoc(doc(db, "relationships", relationshipDocId(uid1, uid2)));
+    const snap = await getDoc(
+      doc(db, "relationships", relationshipDocId(uid1, uid2)),
+    );
     if (!snap.exists()) return null;
 
     const data = snap.data();
@@ -430,7 +442,9 @@ function getDateFromTimestamp(value: any): Date | null {
   return null;
 }
 
-export function getConnectionCreatedAt(connection: Pick<ConnectionDoc, "createdAt">): Date | null {
+export function getConnectionCreatedAt(
+  connection: Pick<ConnectionDoc, "createdAt">,
+): Date | null {
   return getDateFromTimestamp(connection.createdAt);
 }
 

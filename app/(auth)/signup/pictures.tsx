@@ -1,6 +1,6 @@
 // app/(auth)/signup/pictures.tsx
 import { Feather } from "@expo/vector-icons";
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -79,25 +79,27 @@ export default function SignupPictures() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <ProgressHeader currentStep={7} />
- 
-      
+
       <SignupScreenHeader
         title="Put a face to the name"
         subtitle="Help people recognize you on campus when you decide to connect."
       />
-
 
       <View style={styles.uploadContainer}>
         {images.length === 0 ? (
           <View style={styles.placeholder}>
             <Feather name="image" size={40} color="#999" />
             <Text style={styles.placeholderText}>Upload a photo</Text>
-          </View>      
+          </View>
         ) : (
           <View style={styles.previewContainer}>
             {images.map((uri) => (
               <View key={uri} style={styles.thumbWrap}>
-                <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                <Image
+                  source={{ uri }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
                 <TouchableOpacity
                   onPress={() => removeImage(uri)}
                   style={styles.removeBadge}
@@ -106,45 +108,49 @@ export default function SignupPictures() {
                   <Text style={styles.removeBadgeText}>✕</Text>
                 </TouchableOpacity>
               </View>
-            ))}   
+            ))}
           </View>
         )}
-        </View>
+      </View>
 
-        <View style={styles.privacyCard}>
-        
-          <View style={styles.permissionRow}>
-            {/* <Ionicons name="notifications-outline" size={26} color="#9C27B0" /> */}
-            <FontAwesome6 name="user-lock" size={24} color="#f4e071" />
+      <View style={styles.privacyCard}>
+        <View style={styles.permissionRow}>
+          {/* <Ionicons name="notifications-outline" size={26} color="#9C27B0" /> */}
+          <FontAwesome6 name="user-lock" size={24} color="#f4e071" />
 
-            <View style={styles.privacyInfo}> 
-              <Text style={styles.privacyTitle}>Privacy First</Text>
-              <Text style={styles.privacyDescription}>
-                Your photos is <Text style={{color: "blue"}}>hidden by default</Text>, it is only {"\n"}
-                revealed after you match and both agree to connect.
-              </Text>
-            </View>
+          <View style={styles.privacyInfo}>
+            <Text style={styles.privacyTitle}>Privacy First</Text>
+            <Text style={styles.privacyDescription}>
+              Your photos is{" "}
+              <Text style={{ color: "blue" }}>hidden by default</Text>, it is
+              only {"\n"}
+              revealed after you match and both agree to connect.
+            </Text>
           </View>
         </View>
-
-        
+      </View>
 
       <PrimaryButton
         //title={busy ? "Opening..." : "Upload Photo"}
-        title = {
-          images.length === 0 ? (busy ? "Opening..." : "Upload Photo") : "Keep Photo"
+        title={
+          images.length === 0
+            ? busy
+              ? "Opening..."
+              : "Upload Photo"
+            : "Keep Photo"
         }
         //leftIcon={<Feather name="upload" size={18} color="#FFFFFF" />}
         leftIcon={
-          images.length === 0 ? <Feather name="upload" size={18} color="#FFFFFF" /> : undefined
+          images.length === 0 ? (
+            <Feather name="upload" size={18} color="#FFFFFF" />
+          ) : undefined
         }
         style={styles.uploadButton}
         //onPress={pickImage}
         onPress={() => {
-          if (images.length === 0){
+          if (images.length === 0) {
             pickImage();
-          } 
-          else {
+          } else {
             router.push("/(auth)/signup/onboardingIntro");
           }
         }}
@@ -157,6 +163,13 @@ export default function SignupPictures() {
         onPress={handleSkip}
         disabled={busy}
       />
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.back()}
+      >
+        <Text style={styles.secondaryText}>Back</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -203,7 +216,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  uploadContainer: {    
+  uploadContainer: {
     //width: "100%",
     width: 180,
     //maxWidth: 180,
@@ -229,13 +242,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-
   permissionRow: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
-
-
 
   privacyInfo: {
     marginLeft: 12,
@@ -260,5 +270,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 18,
     marginBottom: 20,
+  },
+  secondaryButton: {
+    padding: 12,
+    alignItems: "center",
+  },
+  secondaryText: {
+    color: "#444",
+    fontSize: 14,
   },
 });
