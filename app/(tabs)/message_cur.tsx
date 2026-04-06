@@ -39,21 +39,19 @@ export default function MessagesPage() {
   const currentUid = auth.currentUser?.uid;
   const [showCurrent, setShowCurrent] = useState(true);
   const [connections, setConnections] = useState<ConnectionDoc[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, PublicUserProfile>>({});
+  const [profiles, setProfiles] = useState<Record<string, PublicUserProfile>>(
+    {},
+  );
 
   useEffect(() => {
     if (!currentUid) return;
-    return subscribeToConnections(
-      currentUid,
-      setConnections,
-      (error) => {
-        if ((error as any)?.code === "permission-denied") {
-          setConnections([]);
-          return;
-        }
-        console.warn("Failed to watch message connections", error);
-      },
-    );
+    return subscribeToConnections(currentUid, setConnections, (error) => {
+      if ((error as any)?.code === "permission-denied") {
+        setConnections([]);
+        return;
+      }
+      console.warn("Failed to watch message connections", error);
+    });
   }, [currentUid]);
 
   useEffect(() => {
@@ -94,7 +92,8 @@ export default function MessagesPage() {
 
     return connections
       .map((connection) => {
-        const otherUid = connection.users.find((uid) => uid !== currentUid) ?? "";
+        const otherUid =
+          connection.users.find((uid) => uid !== currentUid) ?? "";
         return {
           ...connection,
           otherUid,
@@ -110,22 +109,21 @@ export default function MessagesPage() {
   }, [connections, currentUid, profiles]);
 
   const currentConnections = useMemo(
-    () => connectionsWithProfiles.filter((connection) => isConnectionActive(connection)),
+    () =>
+      connectionsWithProfiles.filter((connection) =>
+        isConnectionActive(connection),
+      ),
     [connectionsWithProfiles],
   );
   const pastConnections = useMemo(
-    () => connectionsWithProfiles.filter((connection) => !isConnectionActive(connection)),
+    () =>
+      connectionsWithProfiles.filter(
+        (connection) => !isConnectionActive(connection),
+      ),
     [connectionsWithProfiles],
   );
 
   const visibleConnections = showCurrent ? currentConnections : pastConnections;
-
-  const openChat = (connectionId: string, otherUid: string) => {
-    router.push({
-      pathname: "/(tabs)/chat/[connectionId]",
-      params: { connectionId, otherUid },
-    });
-  };
 
   if (!currentUid) {
     return (
@@ -136,16 +134,36 @@ export default function MessagesPage() {
     );
   }
 
+  const openMessages = (
+    connectionId: string,
+    otherUid: string,
+    options?: { blocked?: boolean; otherName?: string },
+  ) => {
+    router.push({
+      pathname: "/(tabs)/chat/[connectionId]",
+      params: {
+        connectionId,
+        otherUid,
+        blocked: options?.blocked ? "1" : "0",
+        otherName: options?.otherName ?? "",
+      },
+    });
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Messages</Text>
       <Text style={styles.subtitle}>
-        Current connections can chat for 3 hours. Past connections stay here as read-only history.
+        Current connections can chat for 3 hours. Past connections stay here as
+        read-only history.
       </Text>
 
       <View style={styles.toggleRow}>
         <TouchableOpacity
-          style={[styles.toggleButton, showCurrent && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            showCurrent && styles.toggleButtonActive,
+          ]}
           onPress={() => setShowCurrent(true)}
         >
           <Text
@@ -159,7 +177,10 @@ export default function MessagesPage() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.toggleButton, !showCurrent && styles.toggleButtonActive]}
+          style={[
+            styles.toggleButton,
+            !showCurrent && styles.toggleButtonActive,
+          ]}
           onPress={() => setShowCurrent(false)}
         >
           <Text
@@ -188,7 +209,9 @@ export default function MessagesPage() {
         visibleConnections.map((connection) => {
           const expiresAt = getConnectionExpiresAt(connection);
           const active = isConnectionActive(connection);
-          const avatarSource = getAvatarImageSource(connection.otherUser?.avatarId);
+          const avatarSource = getAvatarImageSource(
+            connection.otherUser?.avatarId,
+          );
 
           return (
             <View key={connection.id} style={styles.card}>
@@ -212,7 +235,10 @@ export default function MessagesPage() {
                       {connection.otherUser?.firstName || connection.otherUid}
                     </Text>
                     <View
-                      style={[styles.statusPill, active ? styles.activePill : styles.pastPill]}
+                      style={[
+                        styles.statusPill,
+                        active ? styles.activePill : styles.pastPill,
+                      ]}
                     >
                       <Text style={styles.statusPillText}>
                         {active ? "Current" : "Past"}
@@ -234,15 +260,22 @@ export default function MessagesPage() {
 
               {active ? (
                 <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={() => openChat(connection.id, connection.otherUid)}
+                  style={styles.messageButton}
+                  onPress={() =>
+                    openMessages(connection.id, connection.otherUid)
+                  }
                 >
                   <Text style={styles.primaryButtonText}>Open Chat</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.disabledButton}>
-                  <Text style={styles.disabledButtonText}>Chat Unavailable</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.messageButton}
+                  onPress={() =>
+                    openMessages(connection.id, connection.otherUid)
+                  }
+                >
+                  <Text style={styles.buttonText}>View Read-Only Messages</Text>
+                </TouchableOpacity>
               )}
             </View>
           );
@@ -388,13 +421,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#243042",
   },
-  primaryButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#2452ce",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
   primaryButtonText: {
     color: "#fff",
     fontWeight: "700",
@@ -408,6 +434,17 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: "#596273",
+    fontWeight: "700",
+  },
+  messageButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2452ce",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: "#fff",
     fontWeight: "700",
   },
 });
