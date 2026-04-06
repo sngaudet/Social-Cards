@@ -154,7 +154,7 @@ export default function MessagesPage() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Messages</Text>
       <Text style={styles.subtitle}>
-        Current connections can chat for 3 hours. Past connections stay here as
+        Current connections can chat for 24 hours. Past connections stay here as
         read-only history.
       </Text>
 
