@@ -170,7 +170,7 @@ export default function SignupAccountStep() {
 </View>
 
       <PrimaryButton title="Next Step" showArrow style={styles.primaryButton} onPress={onNext} />
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/")}>
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/(auth)/login")}>
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
     </ScrollView>
