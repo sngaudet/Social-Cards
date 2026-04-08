@@ -269,8 +269,11 @@ export default function SignupAcademicProfileStep() {
           title="Academic profile"
           subtitle="Tell us a bit about your studies. This helps find students in your classes."
         />
-
-        <SignupFormField label="Pronouns" contentStyle={styles.pronounsField}>
+        {/* <Text style={styles.requiredText}>* All fields are required to be filled in except Minor</Text> */}
+        <Text> </Text>
+        
+        <SignupFormField label={<Text>Pronouns<Text style={styles.requiredText}>*</Text></Text>}>
+        {/* <SignupFormField label={<Text>Pronouns</Text>} contentStyle={styles.pronounsField}>   */}
           <View style={styles.pronounPickerColumn}>
             <Picker
               selectedValue={leftPronoun}
@@ -311,7 +314,7 @@ export default function SignupAcademicProfileStep() {
         </SignupFormField>
 
         <SignupFormField
-          label="Major"
+          label={<Text>Major<Text style={styles.requiredText}>*</Text></Text>}
           contentStyle={styles.autocompleteFieldShell}
         >
           {isCustomMajor ? (
@@ -394,8 +397,15 @@ export default function SignupAcademicProfileStep() {
         </SignupFormField>
 
         <SignupFormField
-          label="Minor"
-          contentStyle={styles.autocompleteFieldShell}
+          // label="Minor"
+          // contentStyle={styles.autocompleteFieldShell}
+          label={
+          <Text style={styles.autocompleteFieldShell}>
+            Minor
+            {/* <Text style={styles.requiredText}>*</Text> */}
+          </Text>
+        }
+          
         >
           {isCustomMinor ? (
             <View style={styles.customInputRow}>
@@ -421,7 +431,7 @@ export default function SignupAcademicProfileStep() {
                 name="book-open"
                 size={20}
                 color="#90AEFF"
-                style={styles.customInputIcon}
+                style={styles.customInputIcon} 
               />
             </View>
           ) : (
@@ -477,8 +487,8 @@ export default function SignupAcademicProfileStep() {
         </SignupFormField>
 
         <SignupFormField
-          label="Graduation Year"
-          contentStyle={styles.yearField}
+          label={<Text>Graduation Year<Text style={styles.requiredText}>*</Text></Text>}
+          
         >
           <Picker
             selectedValue={gradYear}
@@ -544,6 +554,7 @@ const styles = StyleSheet.create({
     color: "#5D7FC9",
     fontWeight: "700",
   },
+  requiredText: { color: "#aa1515", fontSize: 20,},
   yearField: {
     paddingHorizontal: Platform.OS === "ios" ? 8 : 12,
     minHeight: Platform.OS === "ios" ? 170 : 64,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import {
   StyleProp,
   StyleSheet,
@@ -8,7 +8,8 @@ import {
 } from "react-native";
 
 type SignupFormFieldProps = {
-  label: string;
+  // label: string;
+  label: ReactNode;
   rightLabel?: string;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;

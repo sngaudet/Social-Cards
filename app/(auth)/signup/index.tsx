@@ -108,7 +108,7 @@ export default function SignupAccountStep() {
 />
 
       {/* Email input */}
-      <Text style={styles.label}>College Email</Text>
+      <Text style={styles.label}>College Email <Text style={styles.requiredText}>*</Text></Text>
       <View style={styles.inputWrapper}>
         <Feather name="mail" size={20} color="#999" style={{ marginRight: 8 }} />
         <TextInput
@@ -124,7 +124,7 @@ export default function SignupAccountStep() {
       <Text style={styles.infoText}>We never share your email address.</Text>
 
       {/* Password input */}
-<Text style={styles.label}>Password</Text>
+<Text style={styles.label}>Password <Text style={styles.requiredText}>*</Text></Text>
 <View style={styles.inputWrapper}>
   <Feather name="lock" size={20} color="#999" style={{ marginRight: 8 }} />
   <TextInput
@@ -149,7 +149,7 @@ export default function SignupAccountStep() {
       </View>
 
       {/* Confirm Password */}
-<Text style={styles.label}>Confirm Password</Text>
+<Text style={styles.label}>Confirm Password <Text style={styles.requiredText}>*</Text></Text>
 <View style={styles.inputWrapper}>
   <Feather name="lock" size={20} color="#999" style={{ marginRight: 8 }} />
   <TextInput
@@ -186,7 +186,8 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: "row", alignItems: "center", backgroundColor: "#f3f6fb", borderRadius: 8, borderWidth: 1, borderColor: "#ccc", paddingHorizontal: 12, marginBottom: 12 },
   input: { flex: 1, paddingVertical: 12, fontSize: 16 },
 
-  infoText: { fontSize: 12, color: "#777", marginBottom: 16 },
+  requiredText: {color: "#aa1515", fontSize: 12,},
+  infoText: { fontSize: 20, color: "#777", marginBottom: 16 },
 
   strengthBarContainer: { height: 6, borderRadius: 3, backgroundColor: "#e0e0e0", marginBottom: 20, overflow: "hidden" },
   strengthBar: { height: 6, width: "100%" },
