@@ -70,8 +70,9 @@ export default function SignupPersonalProfileStep() {
         title="Let's get personal"
         subtitle="Share a bit about yourself so others can break the ice."
       />
-
-      <SignupFormField label="First Name">
+      {/* <Text style={styles.requiredText}>* All fields are required to be filled in</Text> */}
+      <Text> </Text>
+      <SignupFormField label={<Text>First Name<Text style={styles.requiredText}>*</Text></Text>} >
         <TextInput
           placeholder="e.g. Alex"
           placeholderTextColor="#9CA3AF"
@@ -82,7 +83,7 @@ export default function SignupPersonalProfileStep() {
         <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
       </SignupFormField>
 
-      <SignupFormField label="Last Name">
+      <SignupFormField label={<Text>Last Name<Text style={styles.requiredText}>*</Text></Text>}>
         <TextInput
           placeholder="e.g. Fauly"
           placeholderTextColor="#9CA3AF"
@@ -93,7 +94,7 @@ export default function SignupPersonalProfileStep() {
         <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
       </SignupFormField>
 
-      <SignupFormField label="Date of Birth">
+      <SignupFormField label={<Text>Date of Birth<Text style={styles.requiredText}>*</Text></Text>}>
         {Platform.OS === "web" ? (
           <input
             type="date"
@@ -132,7 +133,7 @@ export default function SignupPersonalProfileStep() {
       <Text style={styles.dateHint}>You must be 18 or older to use Icebreakers.</Text>
 
       <SignupFormField
-        label="Short Bio"
+        label={<Text>Short Bio<Text style={styles.requiredText}>*</Text></Text>}
         rightLabel={`${bio.length}/140`}
         contentStyle={styles.bioWrapper}
       >
@@ -233,6 +234,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#9CA3AF",
   },
+  requiredText: { color: "#aa1515", fontSize: 20,},
   primaryButton: { alignSelf: "center", marginBottom: 16 },
   secondaryButton: { padding: 12, alignItems: "center" },
   secondaryText: { color: "#444", fontSize: 14 },

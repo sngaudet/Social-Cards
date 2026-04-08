@@ -94,6 +94,12 @@ const toIntOrNull = (v: any): number | null => {
 export default function EditProfile() {
   const router = useRouter();
 
+
+  
+  // const viewSave = () => {
+  //       setSaveComplete(true);
+  //   };
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // const [deleting, setDeleting] = useState(false);
@@ -373,7 +379,7 @@ export default function EditProfile() {
       setPhotoURL(updatedPhotoURL);
       setNewPhotoUri(null);
       setHobbies(hobbiesToInputValue(normalizedHobbies));
-
+      router.replace("/profile/view")
       Alert.alert("Saved", "Your profile has been updated.", [
     { text: "OK", onPress: () => router.replace("/profile/view") },
   ]);
@@ -509,6 +515,8 @@ export default function EditProfile() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      {/* {saveComplete && router.replace("/(auth)/login")} */}
+
       <Text style={styles.title}>Edit Profile</Text>
 
       <Text style={styles.sectionTitle}>Profile Photo</Text>

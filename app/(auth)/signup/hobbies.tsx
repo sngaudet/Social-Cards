@@ -205,6 +205,8 @@ export default function SignupHobbiesStep() {
         subtitle="Pick your interests to help us match you with the right crowd."
       />
 
+      <Text style={styles.requiredText}>* You must choose at least 1 hobby</Text>
+      <Text> </Text>
       {/* Buttons */}
       {hobbySections.map((section) => (
         <View key={section.title} style={styles.section}>
@@ -270,4 +272,8 @@ const styles = StyleSheet.create({
   },
   secondaryButton: { padding: 12, alignItems: "center" },
   secondaryText: { color: "#444", fontSize: 14 },
+    requiredText: {
+    color: "#aa1515",
+    fontSize: 20,},
+
 });

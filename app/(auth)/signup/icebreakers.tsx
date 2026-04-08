@@ -223,7 +223,7 @@ export default function SignupIceBreakersStep() {
 
             return (
               <View key={index} style={styles.slotCard}>
-                <Text style={styles.slotLabel}>Icebreaker {index + 1}</Text>
+                <Text style={styles.slotLabel}>Icebreaker {index + 1} <Text style={styles.requiredText}>*</Text></Text>
                 <Text style={styles.slotQuestion} numberOfLines={2}>
                   {iceBreaker?.question || "Not selected yet"}
                 </Text>
@@ -464,7 +464,9 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     fontWeight: "600",
   },
-
+  requiredText: {
+    color: "#aa1515",
+    fontSize: 20,},
   selectionCount: {
     textAlign: "center",
     marginTop: 12,
