@@ -66,10 +66,8 @@ function normalizePreConnectionVisibility(value) {
   const record = value && typeof value === "object" ? value : {};
 
   return {
-    photoURL:
-      typeof record.photoURL === "boolean" ? record.photoURL : false,
-    lastName:
-      typeof record.lastName === "boolean" ? record.lastName : false,
+    photoURL: typeof record.photoURL === "boolean" ? record.photoURL : false,
+    lastName: typeof record.lastName === "boolean" ? record.lastName : false,
     pronouns:
       typeof record.pronouns === "boolean"
         ? record.pronouns
@@ -82,22 +80,23 @@ function normalizePreConnectionVisibility(value) {
         : typeof record.age === "boolean"
           ? record.age
           : true,
-    gradYear:
-      typeof record.gradYear === "boolean" ? record.gradYear : true,
-    major:
-      typeof record.major === "boolean" ? record.major : true,
-    minor:
-      typeof record.minor === "boolean" ? record.minor : true,
-    bio:
-      typeof record.bio === "boolean" ? record.bio : true,
+    gradYear: typeof record.gradYear === "boolean" ? record.gradYear : true,
+    major: typeof record.major === "boolean" ? record.major : true,
+    minor: typeof record.minor === "boolean" ? record.minor : true,
+    bio: typeof record.bio === "boolean" ? record.bio : true,
     iceBreakerOne:
       typeof record.iceBreakerOne === "boolean" ? record.iceBreakerOne : true,
+    iceBreakerOneQuestion:
+      typeof record.iceBreakerOneQuestion === "boolean"
+        ? record.iceBreakerOneQuestion
+        : true,
     iceBreakerTwo:
       typeof record.iceBreakerTwo === "boolean" ? record.iceBreakerTwo : true,
     iceBreakerThree:
-      typeof record.iceBreakerThree === "boolean" ? record.iceBreakerThree : true,
-    hobbies:
-      typeof record.hobbies === "boolean" ? record.hobbies : true,
+      typeof record.iceBreakerThree === "boolean"
+        ? record.iceBreakerThree
+        : true,
+    hobbies: typeof record.hobbies === "boolean" ? record.hobbies : true,
   };
 }
 
@@ -207,7 +206,12 @@ function getAccuracyBufferM(presence) {
 }
 
 // this adds gps wiggle room for nearby matching
-function isWithinRadiusWithAccuracy(center, candidate, radiusM, useAccuracyBuffer) {
+function isWithinRadiusWithAccuracy(
+  center,
+  candidate,
+  radiusM,
+  useAccuracyBuffer,
+) {
   const meters = distanceMeters(center, candidate);
   if (!useAccuracyBuffer) return { within: meters <= radiusM, meters };
 
@@ -361,6 +365,7 @@ function buildNearbyUserPayload(uid, userDoc, presence) {
     avatarId: userDoc?.avatarId || "",
     photoURL: userDoc?.photoURL || "",
     iceBreakerOne: userDoc?.iceBreakerOne || "",
+    iceBreakerOneQuestion: userDoc?.iceBreakerOneQuestion || "",
     iceBreakerTwo: userDoc?.iceBreakerTwo || "",
     iceBreakerThree: userDoc?.iceBreakerThree || "",
     distanceFt: roundDistanceFeet(presence.distanceM),
