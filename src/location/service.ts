@@ -2,9 +2,9 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import { Platform } from "react-native";
 import { FirebaseError } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { Platform } from "react-native";
 
 import { app, auth } from "../../firebaseConfig";
 import { shouldShowForegroundPushAlert } from "../notifications/runtime";
@@ -31,6 +31,7 @@ export type NearbyUser = {
   avatarId?: string;
   photoURL: string;
   iceBreakerOne: string;
+  iceBreakerOneQuestion: string;
   iceBreakerTwo: string;
   iceBreakerThree: string;
   distanceFt: number;
