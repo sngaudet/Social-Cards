@@ -54,6 +54,18 @@ export default function RegistrationCompletePage() {
     [draft.dateOfBirth],
   );
 
+  
+  const primaryIcebreaker = useMemo(() => {
+    if (!draft.iceBreakerOne?.trim()) return null;
+      return {
+        question:
+          draft.iceBreakerOneQuestion?.trim() ||
+          FALLBACK_ICEBREAKER_QUESTIONS[0],
+          answer: draft.iceBreakerOne,
+      };
+  }, [draft.iceBreakerOne, draft.iceBreakerOneQuestion]);
+
+
   const missing = useMemo(() => {
     const fields: string[] = [];
     const completedIceBreakers = [
@@ -270,74 +282,88 @@ export default function RegistrationCompletePage() {
       </Text>
 
       {/* CARD INFO */}
-      <View style={styles.profileCard}>
-        <View style={styles.profileHeader}>
-          {/* Photo */}
+      
+
+
+      <View style={styles.userCard}>
+        <View style={styles.userHeader}>
           {avatarSource ? (
             <Image source={avatarSource} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>No Avatar</Text>
+              <Text style={styles.avatarTextKeep}>No Avatar</Text>
             </View>
           )}
+          
+          <View style={styles.userBody}>
+            <View style={styles.headerTopRow}>
+              <Text style={styles.userName}>
+                {/*{[draft.firstName, draft.lastName].filter(Boolean).join(" ") || "Unknown"}*/}
+                {draft.firstName || "Unknown"}
+              </Text>
+            </View>
 
-          <View style={styles.profileTextBlock}>
-            {/* Name and nickname */}
-            <Text style={styles.profileName}>
-              {draft.firstName || "Unknown"}
-              {/*{[draft.firstName, draft.lastName]
-                    .map((s) => (typeof s === "string" ? s.trim() : s))
-                    .filter((s) => typeof s === "string" && s.length > 0)
-                    .join(" ") || "Unknown"} */}
-            </Text>
+            <View style={styles.metaRow}>
+              {!!draft.pronouns && (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Pronouns</Text>
+                  <Text style={styles.metaValue}>{draft.pronouns.toUpperCase()}</Text>
+                </View>
+              )}
 
-            {/* Pronouns */}
-            <Text style={styles.profileMeta}>
-              PRONOUNS <Text style={styles.bold}>{draft.pronouns || "--"}</Text>
-            </Text>
+              {derivedAge != null && (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Age</Text>
+                  <Text style={styles.metaValue}>{derivedAge}</Text>
+                </View>
+              )}
 
-            {/* Major & Minor */}
-            <Text style={styles.academics}>
-              {draft.major}
-              {draft.minor ? ` • Minor in ${draft.minor}` : ""}
-            </Text>
+              {!!draft.gradYear && (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Exp Graduation</Text>
+                  <Text style={styles.metaValue}>{draft.gradYear}</Text>
+                </View>
+              )}
+            </View>
 
-            {/* Age + Graduation */}
-            <Text style={styles.profileMeta}>
-              <Text style={styles.bold}>Age</Text> {derivedAge ?? "--"}
-              {draft.gradYear ? (
-                <>
-                  {" • "}
-                  <Text style={styles.bold}> Class of</Text> {draft.gradYear}
-                </>
-              ) : null}
-            </Text>
+            {hobbies.length > 0 && (
+              <View style={styles.hobbiesBlock}>
+                <Text style={styles.metaLabel}>Hobbies</Text>
+                <View style={styles.hobbyWrap}>
+                  {hobbies.slice(0, 4).map((hobby) => (
+                    <Text key={hobby} style={styles.hobbyChip}>
+                      {hobby.toUpperCase()}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {primaryIcebreaker && (
+              <View style={styles.promptBlock}>
+                <Text style={styles.promptLabel}>Conversation Starter</Text>
+
+                <Text style={styles.promptQuestion}>
+                  {primaryIcebreaker.question}
+                </Text>
+
+                <Text style={styles.promptValue}>
+                  {primaryIcebreaker.answer}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.footerRow}>
+              <View style={styles.footerInfo}>
+                {!!draft.major && (
+                  <>
+                  <Text style={styles.footerLabel}>Major</Text>
+                  <Text style={styles.footerValue}>{draft.major.toUpperCase()}</Text>
+                  </>
+                )}
+              </View>
+            </View>
           </View>
-        </View>
-
-        {/* profile details */}
-        {/* Hobbies */}
-        {hobbies.length > 0 && (
-          <Text style={styles.hobbies}>
-            <Text style={styles.bold}>Hobbies: </Text>
-            {hobbies.join(", ")}
-          </Text>
-        )}
-
-        {/* Bio */}
-        {!!draft.bio && <Text style={styles.bio}>{draft.bio}</Text>}
-
-        {/* Icebreakers */}
-        <View style={styles.icebreakers}>
-          {!!draft.iceBreakerOne && (
-            <Text style={styles.icebreaker}>• {draft.iceBreakerOne}</Text>
-          )}
-          {!!draft.iceBreakerTwo && (
-            <Text style={styles.icebreaker}>• {draft.iceBreakerTwo}</Text>
-          )}
-          {!!draft.iceBreakerThree && (
-            <Text style={styles.icebreaker}>• {draft.iceBreakerThree}</Text>
-          )}
         </View>
       </View>
 
@@ -391,7 +417,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginBottom: 12,
   },
-  avatarText: {
+  avatarTextKeep: {
     fontSize: 10,
     color: "#666",
   },
@@ -425,8 +451,6 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
 
-  //////// PROFILE CARD STYLES ////////
-
   profileCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -447,16 +471,25 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: "#e5e7eb",
   },
+
   avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: "#edf1fa",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarText: {
+    fontSize: 10,
+    color: "#666",
+    textAlign: "center",
   },
   profileName: {
     fontSize: 22,
@@ -468,7 +501,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
 
-  /* Details */
   hobbies: {
     marginTop: 14,
     fontSize: 13,
@@ -511,5 +543,141 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginBottom: 30,
+  },
+
+  userCard: {
+    borderWidth: 1,
+    borderColor: "#e7edf9",
+    borderRadius: 28,
+    padding: 16,
+    backgroundColor: "#fffdfb",
+    shadowColor: "#b8c2d9",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+    width: "100%",
+    marginBottom: 24,
+  },
+
+  userHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+
+  userBody: {
+    flex: 1,
+    gap: 8,
+  },
+
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  userName: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#1f4aaa",
+    letterSpacing: 0.4,
+  },
+
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+
+  metaItem: {
+    minWidth: 72,
+  },
+
+  metaLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    color: "#303b52",
+    letterSpacing: 0.5,
+  },
+
+  metaValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 2,
+  },
+
+  hobbiesBlock: {
+    gap: 6,
+  },
+
+  hobbyWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+
+  hobbyChip: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#263248",
+    backgroundColor: "#f6efe1",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+
+  promptBlock: {
+    backgroundColor: "#f8f9fe",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  promptLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    color: "#5b6478",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+
+  promptValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#161b26",
+    textAlign: "center",
+  },
+
+  footerRow: {
+    marginTop: 4,
+    flexDirection: "row",
+  },
+footerInfo: {
+  flex: 1,
+  gap: 2,
+},
+footerLabel: {
+  fontSize: 10,
+  fontWeight: "900",
+  textTransform: "uppercase",
+  color: "#404a60",
+  letterSpacing: 0.5,
+},
+
+  footerValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#161b26",
+  },
+
+  promptQuestion: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0e3365",
+    textAlign: "center",
   },
 });

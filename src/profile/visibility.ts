@@ -7,6 +7,7 @@ export type PreConnectionVisibility = {
   major: boolean;
   minor: boolean;
   bio: boolean;
+  iceBreakerOneQuestion: boolean;
   iceBreakerOne: boolean;
   iceBreakerTwo: boolean;
   iceBreakerThree: boolean;
@@ -22,6 +23,7 @@ export const DEFAULT_PRE_CONNECTION_VISIBILITY: PreConnectionVisibility = {
   major: true,
   minor: true,
   bio: true,
+  iceBreakerOneQuestion: true,
   iceBreakerOne: true,
   iceBreakerTwo: true,
   iceBreakerThree: true,
@@ -40,6 +42,7 @@ export const PRE_CONNECTION_VISIBILITY_FIELDS: {
   { key: "major", label: "Major" },
   { key: "minor", label: "Minor" },
   { key: "bio", label: "Bio" },
+  { key: "iceBreakerOneQuestion", label: "Ice Breaker 1 Question" },
   { key: "iceBreakerOne", label: "Ice Breaker 1" },
   { key: "iceBreakerTwo", label: "Ice Breaker 2" },
   { key: "iceBreakerThree", label: "Ice Breaker 3" },
@@ -91,6 +94,10 @@ export function normalizePreConnectionVisibility(
       typeof record.bio === "boolean"
         ? record.bio
         : DEFAULT_PRE_CONNECTION_VISIBILITY.bio,
+    iceBreakerOneQuestion:
+      typeof record.iceBreakerOneQuestion === "boolean"
+        ? record.iceBreakerOneQuestion
+        : DEFAULT_PRE_CONNECTION_VISIBILITY.iceBreakerOneQuestion,
     iceBreakerOne:
       typeof record.iceBreakerOne === "boolean"
         ? record.iceBreakerOne

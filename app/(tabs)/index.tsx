@@ -26,19 +26,19 @@ import {
   sendConnectionRequest,
   subscribeToConnections,
 } from "../../src/connections/service";
+import { getAvatarImageSource } from "../../src/lib/avatarImages";
+import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import { showAlert } from "../../src/lib/showAlert";
 import {
   fetchNearbyUsers,
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
-import { reportUser } from "../../src/reporting/service";
-import { getAvatarImageSource } from "../../src/lib/avatarImages";
-import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
   normalizePreConnectionVisibility,
   PreConnectionVisibility,
 } from "../../src/profile/visibility";
+import { reportUser } from "../../src/reporting/service";
 
 const emptyNearby: NearbyResponse = {
   users: [],
@@ -546,22 +546,30 @@ export default function HomeTab() {
           const ageFromDateOfBirth = calculateAgeFromDateOfBirth(user.dateOfBirth ?? "");
           const avatarSource = getAvatarImageSource(effectiveAvatarId);
           const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
-          const primaryPrompt =
-            (showIceBreakerOne && user.iceBreakerOne) ||
-            (showIceBreakerTwo && user.iceBreakerTwo) ||
-            (showIceBreakerThree && user.iceBreakerThree) ||
-            "";
-          const secondaryPrompt =
-            (showIceBreakerTwo &&
-            user.iceBreakerTwo &&
-            user.iceBreakerTwo !== primaryPrompt
-              ? user.iceBreakerTwo
-              : "") ||
-            (showIceBreakerThree &&
-            user.iceBreakerThree &&
-            user.iceBreakerThree !== primaryPrompt
-              ? user.iceBreakerThree
-              : "");
+          //const primaryPrompt =
+          //   (showIceBreakerOne && user.iceBreakerOne) ||
+          //   (showIceBreakerTwo && user.iceBreakerTwo) ||
+          //   (showIceBreakerThree && user.iceBreakerThree) ||
+          //   "";
+          // const secondaryPrompt =
+          //   (showIceBreakerTwo &&
+          //   user.iceBreakerTwo &&
+          //   user.iceBreakerTwo !== primaryPrompt
+          //     ? user.iceBreakerTwo
+          //     : "") ||
+          //   (showIceBreakerThree &&
+          //   user.iceBreakerThree &&
+          //   user.iceBreakerThree !== primaryPrompt
+          //     ? user.iceBreakerThree
+          //     : "");
+          const primaryIcebreaker =
+            showIceBreakerOne && user.iceBreakerOne
+              ? {
+                question: user.iceBreakerOneQuestion,
+                answer: user.iceBreakerOne,
+              }
+            : null;
+
 
           return (
             <View key={user.uid} style={styles.userCard}>
@@ -639,7 +647,7 @@ export default function HomeTab() {
                       </View>
                     </View>
                   ) : null}
-
+{/* 
                   {primaryPrompt ? (
                     <View style={styles.promptBlock}>
                       <Text style={styles.promptLabel}>
@@ -651,6 +659,25 @@ export default function HomeTab() {
                           {secondaryPrompt}
                         </Text>
                       ) : null}
+                    </View>
+                  ) : null}
+                  new icebreaker prompt below*/}
+                  
+                  {primaryIcebreaker ? (
+                    <View style={styles.promptBlock}>
+                      <Text style={styles.promptLabel}>
+                        Conversation Starter
+                      </Text>
+
+                      {!!primaryIcebreaker.question && (
+                        <Text style={styles.promptQuestion}>
+                          {primaryIcebreaker.question}
+                        </Text>
+                      )}
+
+                      <Text style={styles.promptValue}>
+                        {primaryIcebreaker.answer}
+                      </Text>
                     </View>
                   ) : null}
 
@@ -1210,4 +1237,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+
+  
+promptQuestion: {
+  fontSize: 12,
+  fontWeight: "700",
+  color: "#4b5563",
+  textAlign: "center",
+},
+
 });
