@@ -34,6 +34,27 @@ function formatDateTime(value: Date | null): string {
   });
 }
 
+//helper function to format remaining time until expiration
+function formatRemainingTime(
+  expiresAt: Date | null,
+  nowMs: number,
+): string {
+  if (!expiresAt) return "";
+
+  const diffMs = expiresAt.getTime() - Date.now();
+  if (diffMs <= 0) return "Expired";
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours}hr ${minutes}min remaining`;
+  }
+  return `${minutes}min remaining`;
+}
+
+
 export default function MessagesPage() {
   const router = useRouter();
   const currentUid = auth.currentUser?.uid;
@@ -42,6 +63,7 @@ export default function MessagesPage() {
   const [profiles, setProfiles] = useState<Record<string, PublicUserProfile>>(
     {},
   );
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     if (!currentUid) return;
@@ -133,6 +155,16 @@ export default function MessagesPage() {
       </View>
     );
   }
+  
+  //set up to update the "now" time every minute so that the remaining time display updates without refreshing the page
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 60_000); // update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   const openMessages = (
     connectionId: string,
@@ -214,6 +246,7 @@ export default function MessagesPage() {
           );
 
           return (
+            /* 
             <View key={connection.id} style={styles.card}>
               <View style={styles.row}>
                 {connection.otherUser?.photoURL ? (
@@ -278,6 +311,48 @@ export default function MessagesPage() {
                 </TouchableOpacity>
               )}
             </View>
+            */
+
+            <TouchableOpacity
+              key={connection.id}
+              style={styles.threadRow}
+              onPress={() => openMessages(connection.id, connection.otherUid)}
+            >
+           
+              {connection.otherUser?.photoURL ? (
+                <Image
+                  source={{ uri: connection.otherUser.photoURL }}
+                  style={styles.threadAvatar}
+                />
+              ) : avatarSource ? (
+                <Image source={avatarSource} style={styles.threadAvatar} />
+              ) : (
+                <View style={styles.threadAvatarPlaceholder} />
+              )}
+
+              <View style={styles.threadBody}>
+                <Text style={styles.threadName} numberOfLines={1}>
+                  {connection.otherUser?.firstName || connection.otherUid}
+                </Text>
+
+                <Text style={styles.threadPreview} numberOfLines={1}>
+                {/* Placeholder preview text for now */}
+                  Heyy
+                </Text>
+              </View>
+
+              <View style={styles.threadMeta}>
+                <Text style={styles.threadTime}>
+                  {formatDateTime(expiresAt)}
+                </Text>
+
+                {active && (
+                  <Text style={styles.threadRemaining}>
+                    {formatRemainingTime(expiresAt, now)}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
           );
         })
       )}
@@ -446,5 +521,64 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "700",
+  },
+
+  threadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+
+    borderBottomWidth: 1,
+    borderBottomColor: "#b7b8bb", // soft gray
+  },
+
+  threadAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#e5e7eb",
+    marginRight: 12,
+  },
+
+  threadAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#e5e7eb",
+    marginRight: 12,
+  },
+
+  threadBody: {
+    flex: 1,
+    gap: 4,
+  },
+
+  threadName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+
+  threadPreview: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+
+  threadMeta: {
+    alignItems: "flex-end",
+    gap: 6,
+    marginLeft: 8,
+  },
+
+  threadTime: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+
+  threadRemaining: {
+    fontSize: 12,
+    color: "#2452ce",
+    fontWeight: "600",
   },
 });

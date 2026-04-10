@@ -343,6 +343,17 @@ export default function RegistrationCompletePage() {
               <View style={styles.promptBlock}>
                 <Text style={styles.promptLabel}>Conversation Starter</Text>
 
+                
+{!!draft.bio?.trim() && (
+  <View style={styles.bioBlock}>
+    <Text style={styles.bioText}>
+      <Text style={styles.bioLabel}>Bio: </Text>
+      {draft.bio}
+    </Text>
+  </View>
+)}
+
+
                 <Text style={styles.promptQuestion}>
                   {primaryIcebreaker.question}
                 </Text>
@@ -680,4 +691,20 @@ footerLabel: {
     color: "#0e3365",
     textAlign: "center",
   },
+  
+bioBlock: {
+  marginTop: 4,
+},
+
+bioLabel: {
+  fontWeight: "500",
+  color: "#374151",
+},
+
+bioText: {
+  fontSize: 13,
+  lineHeight: 20,
+  color: "#374151",
+},
+
 });

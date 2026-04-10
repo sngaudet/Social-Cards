@@ -539,6 +539,7 @@ export default function HomeTab() {
           const showIceBreakerOne = canSeeField("iceBreakerOne");
           const showIceBreakerTwo = canSeeField("iceBreakerTwo");
           const showIceBreakerThree = canSeeField("iceBreakerThree");
+          const showBio = canSeeField("bio");
           const showPhotoBeforeConnection = canSeeField("photoURL");
           const fallbackProfile = nearbyProfileFallbacks[user.uid];
           const effectiveAvatarId = user.avatarId || fallbackProfile?.avatarId;
@@ -668,6 +669,17 @@ export default function HomeTab() {
                       <Text style={styles.promptLabel}>
                         Conversation Starter
                       </Text>
+
+                      
+{showBio && user.bio ? (
+  <View style={styles.bioBlock}>
+    <Text style={styles.bioText}>
+      <Text style={styles.bioLabel}>Bio: </Text>
+      {user.bio}
+    </Text>
+  </View>
+) : null}
+
 
                       {!!primaryIcebreaker.question && (
                         <Text style={styles.promptQuestion}>
@@ -1242,8 +1254,25 @@ const styles = StyleSheet.create({
 promptQuestion: {
   fontSize: 12,
   fontWeight: "700",
-  color: "#4b5563",
+  color: "#0e3365",
   textAlign: "center",
 },
+bioBlock: {
+ marginTop: 4,
+},
+
+bioLabel: {
+  fontWeight: "500",
+  color: "#374151",
+   textAlign: "center",
+},
+
+bioText: {
+  fontSize: 13,
+  lineHeight: 20,
+  color: "#374151",
+   textAlign: "center",
+},
+
 
 });
