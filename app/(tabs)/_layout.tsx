@@ -49,8 +49,15 @@ export default function TabDisplay() {
     );
   }
 
-  if (!user) {
-    return <Redirect href="/(auth)/login" />;
+  if (!user?.emailVerified) {
+    return (
+      <Redirect
+        href={{
+          pathname: "/(auth)/login",
+          params: { showMessage: "VerifyEmail" },
+        }}
+      />
+    );
   }
 
   return (

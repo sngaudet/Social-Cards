@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -25,9 +29,12 @@ function showAlert(title: string, message?: string) {
 export default function Login() {
   const router = useRouter();
   
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    showMessage?: string | string[];
+    email?: string | string[];
+  }>();
   console.log("Current Params:", params);
-  const [removeMessage, setRemoveMessage] = useState('')
+  const [removeMessage, setRemoveMessage] = useState("");
 
   // const curRoute = useRoute()
   // const curNav = useNavigation()
@@ -35,6 +42,8 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   
 
@@ -49,13 +58,25 @@ export default function Login() {
         }
     };
     
-    if(params?.showMessage === 'DeletedAccount'){
+    const showMessage = Array.isArray(params.showMessage)
+      ? params.showMessage[0]
+      : params.showMessage;
+
+    if(showMessage === 'DeletedAccount'){
       setRemoveMessage("Your account has been sucessfully deleted");
+      setShowResendVerification(false);
+    } else if (showMessage === "VerifyEmail") {
+      const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
+      setRemoveMessage(
+        emailParam
+          ? `Check ${emailParam} and tap the verification link before logging in.`
+          : "Check your inbox and tap the verification link before logging in.",
+      );
+      setShowResendVerification(true);
     }
 
     checkStoredMessage();
-  }, [params.showMessage]
-  );
+  }, [params.email, params.showMessage]);
 
 
   const handleLogin = async () => {
@@ -68,10 +89,68 @@ export default function Login() {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
+      await credential.user.reload();
+
+      if (!credential.user.emailVerified) {
+        await signOut(auth);
+        setShowResendVerification(true);
+        showAlert(
+          "Verify your email",
+          "Your email is not verified yet. Use the resend button if you need a fresh verification email.",
+        );
+        return;
+      }
+
+      setShowResendVerification(false);
       router.replace("/(tabs)");
     } catch (e: any) {
       showAlert("Login failed", e?.message ?? "Unknown error");
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email.trim() || !password.trim()) {
+      showAlert(
+        "Missing fields",
+        "Enter your email and password first so we can resend the verification email.",
+      );
+      return;
+    }
+
+    try {
+      setResendingVerification(true);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
+      await credential.user.reload();
+
+      if (credential.user.emailVerified) {
+        setShowResendVerification(false);
+        router.replace("/(tabs)");
+        return;
+      }
+
+      await sendEmailVerification(credential.user);
+      await signOut(auth);
+      setShowResendVerification(true);
+      setRemoveMessage(
+        `We sent a new verification email to ${email.trim()}. Check your inbox and spam folder.`,
+      );
+      showAlert(
+        "Verification email sent",
+        "We sent a new verification email. Please use the newest message in your inbox.",
+      );
+    } catch (e: any) {
+      showAlert("Could not resend email", e?.message ?? "Unknown error");
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -104,6 +183,19 @@ export default function Login() {
         style={styles.primaryButton}
         onPress={handleLogin}
       />
+
+      {showResendVerification ? (
+        <TouchableOpacity
+          onPress={handleResendVerification}
+          disabled={resendingVerification}
+        >
+          <Text style={styles.linkText}>
+            {resendingVerification
+              ? "Sending verification email..."
+              : "Resend verification email"}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Link href="/(auth)/signup" asChild>
         <TouchableOpacity>
