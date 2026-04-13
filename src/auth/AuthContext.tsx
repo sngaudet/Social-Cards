@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.emailVerified) return;
 
     registerPushTokenIfPossible({ promptIfNeeded: false }).catch((error) => {
       console.warn("Push token registration failed", error);
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!user) {
+    if (!user?.emailVerified) {
       setWebNotificationsGranted(notificationApi.permission === "granted");
       return;
     }
@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    if (!user || !webNotificationsGranted) return;
+    if (!user?.emailVerified || !webNotificationsGranted) return;
 
     const notificationApi =
       typeof globalThis !== "undefined" ? globalThis.Notification : undefined;

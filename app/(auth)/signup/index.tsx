@@ -14,6 +14,7 @@ import {
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
+import { isEduEmail } from "../../../src/auth/emailValidation";
 import { useSignup } from "../../../src/signup/context";
 import { checkEmailExists } from "../../../src/signup/service";
 
@@ -84,8 +85,11 @@ export default function SignupAccountStep() {
       showAlert("Missing fields", "Enter email and password.");
       return;
     }
-    if (!cleanEmail.includes("@") || !cleanEmail.includes("edu")) {
-      showAlert("Invalid email - Use a student email");
+    if (!isEduEmail(cleanEmail)) {
+      showAlert(
+        "Invalid email",
+        "Use a valid student email address ending in .edu.",
+      );
       return;
     }
     if (password.length < 6) {

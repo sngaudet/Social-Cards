@@ -14,7 +14,7 @@ export default function AuthLayout() {
     );
   }
 
-  if (user) {
+  if (user?.emailVerified) {
     return <Redirect href="/(tabs)" />;
   }
 

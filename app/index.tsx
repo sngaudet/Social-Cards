@@ -23,8 +23,20 @@ export default function Index() {
     return <Redirect href={{ pathname: "/(auth)/login", params }} />;
   }
 
-  if (user) {
+  if (user?.emailVerified) {
+    // return <Redirect href="/(tabs)" />;
     return <Redirect href={{ pathname: "/(tabs)", params }} />;
+  }
+
+  if (user && !user.emailVerified) {
+    return (
+      <Redirect
+        href={{
+          pathname: "/(auth)/login",
+          params: { showMessage: "VerifyEmail", email: user.email ?? undefined },
+        }}
+      />
+    );
   }
 
   if (shouldResumeSignup) {
