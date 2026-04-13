@@ -1,5 +1,6 @@
 const logger = require("firebase-functions/logger");
 const { getApp, getApps, initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -48,6 +49,11 @@ function getDb() {
   return cachedDb;
 }
 
+// this gets firebase auth admin from the shared app
+function getAdminAuth() {
+  return getAuth(getAdminApp());
+}
+
 // this gives firestore server timestamp without creating dates by hand
 function serverTimestamp() {
   return FieldValue.serverTimestamp();
@@ -60,6 +66,7 @@ function timestampFromDate(date) {
 
 module.exports = {
   getAdminApp,
+  getAdminAuth,
   getDb,
   serverTimestamp,
   timestampFromDate,

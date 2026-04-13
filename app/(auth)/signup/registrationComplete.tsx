@@ -91,7 +91,15 @@ export default function RegistrationCompletePage() {
     return fields;
   }, [draft, hobbies]);
 
-  const redirectToSignupWithError = (title: string, message: string) => {
+  const redirectToSignupWithError = (
+    title: string,
+    message: string,
+    options?: { resetDraftFirst?: boolean },
+  ) => {
+    if (options?.resetDraftFirst) {
+      resetDraft();
+    }
+
     router.replace({
       pathname: "/(auth)/signup",
       params: {
@@ -262,8 +270,9 @@ export default function RegistrationCompletePage() {
 
       if (code === "auth/email-already-in-use") {
         redirectToSignupWithError(
-          "Email already in use",
-          "Try logging in instead or use a different email.",
+          "Account already in use",
+          "That email is already registered. Please start again from Create your account.",
+          { resetDraftFirst: true },
         );
       } else if (code === "auth/invalid-email") {
         redirectToSignupWithError(

@@ -1,5 +1,10 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { getDb, serverTimestamp, timestampFromDate } = require("./firebase");
+const {
+  getAdminAuth,
+  getDb,
+  serverTimestamp,
+  timestampFromDate,
+} = require("./firebase");
 const {
   REGION,
   DEFAULT_RADIUS_FT,
@@ -75,6 +80,29 @@ function buildEmptyNearbyResponse() {
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
+
+// this checks whether an auth account already exists for an email
+const auth_checkEmailExists = onCall(
+  { region: REGION },
+  async (request) => {
+    const email = getTrimmedString(request.data?.email).toLowerCase();
+
+    if (!email) {
+      throw new HttpsError("invalid-argument", "email is required.");
+    }
+
+    try {
+      await getAdminAuth().getUserByEmail(email);
+      return { exists: true };
+    } catch (error) {
+      if (error?.code === "auth/user-not-found") {
+        return { exists: false };
+      }
+
+      throw new HttpsError("internal", "Could not check email availability.");
+    }
+  },
+);
 
 async function getBlockPreviewForUid(targetUid) {
   const [publicSnap, userSnap] = await Promise.all([
@@ -664,6 +692,7 @@ const blockUser = onCall(
 );
 
 module.exports = {
+  auth_checkEmailExists,
   location_registerPushToken,
   location_setSharing,
   location_getControlStatus,
