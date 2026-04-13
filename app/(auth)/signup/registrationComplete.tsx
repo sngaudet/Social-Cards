@@ -2,6 +2,7 @@ import { Href, useRouter } from "expo-router";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  sendEmailVerification,
   signOut,
   User,
 } from "firebase/auth";
@@ -30,6 +31,7 @@ import {
 } from "../../../src/lib/picture_upload";
 import { calculateAgeFromDateOfBirth } from "../../../src/lib/profileFields";
 import { DEFAULT_PRE_CONNECTION_VISIBILITY } from "../../../src/profile/visibility";
+import { isEduEmail } from "../../../src/auth/emailValidation";
 import { useSignup } from "../../../src/signup/context";
 
 const FALLBACK_ICEBREAKER_QUESTIONS = [
@@ -111,10 +113,10 @@ export default function RegistrationCompletePage() {
     const email = draft.email.trim();
     const password = draft.password;
 
-    if (!email.includes("@")) {
+    if (!isEduEmail(email)) {
       redirectToSignupWithError(
         "Invalid email",
-        "Enter a valid email address.",
+        "Use a valid student email address ending in .edu.",
       );
       return;
     }
@@ -132,6 +134,7 @@ export default function RegistrationCompletePage() {
 
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       createdUser = cred.user;
+      await sendEmailVerification(createdUser);
 
       for (const uri of draft.photoUris ?? []) {
         const url = await uploadProfilePhotoAsync(uri, cred.user.uid);
@@ -214,9 +217,17 @@ export default function RegistrationCompletePage() {
       });
 
       await batch.commit();
+      createdUser = null;
 
+      await signOut(auth);
       resetDraft();
-      router.replace("/(tabs)");
+      router.replace({
+        pathname: "/(auth)/login",
+        params: {
+          showMessage: "VerifyEmail",
+          email,
+        },
+      } as Href);
     } catch (e: any) {
       if (createdUser) {
         const cleanupTasks: Promise<unknown>[] = [

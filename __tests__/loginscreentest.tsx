@@ -1,5 +1,9 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import React from "react";
 import { Alert } from "react-native";
 
@@ -9,6 +13,7 @@ const mockReplace = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  useLocalSearchParams: () => ({}),
   Link: ({ children }: any) => children,
 }));
 
@@ -26,6 +31,8 @@ jest.mock("firebase/app", () => ({
 
 jest.mock("firebase/auth", () => ({
   signInWithEmailAndPassword: jest.fn(),
+  sendEmailVerification: jest.fn(),
+  signOut: jest.fn(),
   getAuth: jest.fn(() => ({})),
   initializeAuth: jest.fn(() => ({})),
   getReactNativePersistence: jest.fn(),
@@ -68,7 +75,12 @@ describe("<Login />", () => {
   });
 
   test("successful login calls firebase auth and navigates to tabs", async () => {
-    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({});
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({
+      user: {
+        emailVerified: true,
+        reload: jest.fn().mockResolvedValue(undefined),
+      },
+    });
 
     const { getByText, getByPlaceholderText } = render(<Login />);
 
@@ -80,6 +92,69 @@ describe("<Login />", () => {
       expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
     });
+  });
+
+  test("unverified login resends verification and blocks tabs access", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const reload = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      emailVerified: false,
+      reload,
+    };
+
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({ user });
+
+    const { getByText, getByPlaceholderText } = render(<Login />);
+
+    fireEvent.changeText(getByPlaceholderText("Email"), "test@school.edu");
+    fireEvent.changeText(getByPlaceholderText("Password"), "password123");
+    fireEvent.press(getByText("Log In"));
+
+    await waitFor(() => {
+      expect(signOut).toHaveBeenCalledTimes(1);
+      expect(mockReplace).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Verify your email",
+        "Your email is not verified yet. Use the resend button if you need a fresh verification email.",
+      );
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  test("resend verification button sends a fresh email", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const reload = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      emailVerified: false,
+      reload,
+    };
+
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({ user });
+    (signInWithEmailAndPassword as jest.Mock).mockResolvedValueOnce({ user });
+
+    const { getByText, getByPlaceholderText } = render(<Login />);
+
+    fireEvent.changeText(getByPlaceholderText("Email"), "test@school.edu");
+    fireEvent.changeText(getByPlaceholderText("Password"), "password123");
+    fireEvent.press(getByText("Log In"));
+
+    await waitFor(() => {
+      expect(getByText("Resend verification email")).toBeTruthy();
+    });
+
+    fireEvent.press(getByText("Resend verification email"));
+
+    await waitFor(() => {
+      expect(sendEmailVerification).toHaveBeenCalledWith(user);
+      expect(signOut).toHaveBeenCalledTimes(2);
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Verification email sent",
+        "We sent a new verification email. Please use the newest message in your inbox.",
+      );
+    });
+
+    alertSpy.mockRestore();
   });
 
   test("failed login shows an alert", async () => {
