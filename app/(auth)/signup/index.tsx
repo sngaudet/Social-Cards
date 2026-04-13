@@ -15,6 +15,7 @@ import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
+import { checkEmailExists } from "../../../src/signup/service";
 
 
 
@@ -40,6 +41,7 @@ export default function SignupAccountStep() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [checkingExistingAccount, setCheckingExistingAccount] = useState(false);
 
   useEffect(() => {
     const errorTitle = Array.isArray(params.errorTitle)
@@ -76,7 +78,7 @@ export default function SignupAccountStep() {
     }
   };
 
-  const onNext = () => {
+  const onNext = async () => {
     const cleanEmail = email.trim();
     if (!cleanEmail || !password || !confirmPassword.trim()) {
       showAlert("Missing fields", "Enter email and password.");
@@ -94,6 +96,27 @@ export default function SignupAccountStep() {
       showAlert("Passwords do not match");
       return;
     }
+
+    try {
+      setCheckingExistingAccount(true);
+      const emailExists = await checkEmailExists(cleanEmail);
+
+      if (emailExists) {
+        showAlert(
+          "Account already in use",
+          "That email is already registered. Please use a different email or log in.",
+        );
+        router.replace("/(auth)/signup" as Href);
+        return;
+      }
+    } catch (error) {
+      console.warn("Could not check whether signup email already exists", error);
+      showAlert("Error", "We couldn't verify that email right now. Please try again.");
+      return;
+    } finally {
+      setCheckingExistingAccount(false);
+    }
+
     updateDraft({ email: cleanEmail, password });
     router.push("/(auth)/signup/icebreakers");
   };
@@ -115,7 +138,9 @@ export default function SignupAccountStep() {
           placeholder="you@uwm.edu"
           placeholderTextColor="#4f4f4f"
           autoCapitalize="none"
+          autoComplete="email"
           keyboardType="email-address"
+          textContentType="emailAddress"
           value={email}
           onChangeText={setEmail}
           style={styles.input}
@@ -131,6 +156,9 @@ export default function SignupAccountStep() {
     placeholder="Min. 8 characters"
     placeholderTextColor="#4f4f4f"
     secureTextEntry={!showPassword}
+    autoComplete="new-password"
+    textContentType="newPassword"
+    passwordRules="minlength: 8;"
     value={password}
     onChangeText={setPassword}
     style={styles.input}
@@ -156,6 +184,9 @@ export default function SignupAccountStep() {
     placeholder="Min. 8 characters"
     placeholderTextColor="#4f4f4f"
     secureTextEntry={!showConfirmPassword}
+    autoComplete="new-password"
+    textContentType="newPassword"
+    passwordRules="minlength: 8;"
     value={confirmPassword}
     onChangeText={setConfirmPassword}
     style={styles.input}
@@ -169,7 +200,13 @@ export default function SignupAccountStep() {
   </TouchableOpacity>
 </View>
 
-      <PrimaryButton title="Next Step" showArrow style={styles.primaryButton} onPress={onNext} />
+      <PrimaryButton
+        title={checkingExistingAccount ? "Checking..." : "Next Step"}
+        showArrow={!checkingExistingAccount}
+        style={styles.primaryButton}
+        onPress={onNext}
+        disabled={checkingExistingAccount}
+      />
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/(auth)/login")}>
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

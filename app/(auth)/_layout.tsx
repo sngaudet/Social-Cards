@@ -1,11 +1,10 @@
-import { Redirect, Stack, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthContext";
 
 export default function AuthLayout() {
   const { user, initializing } = useAuth();
-  const params = useLocalSearchParams();
 
   if (initializing) {
     return (

@@ -139,7 +139,7 @@ function normalizeResumeRoute(value: unknown): SignupResumeRoute {
 
 function hasDraftProgress(draft: SignupDraft): boolean {
   return Boolean(
-    draft.email.trim() ||
+      draft.email.trim() ||
       draft.password ||
       draft.firstName.trim() ||
       draft.lastName.trim() ||
