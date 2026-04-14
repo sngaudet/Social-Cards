@@ -97,6 +97,11 @@ type BlockUserResponse = {
   hasMessageHistory: boolean;
 };
 
+type PruneDeletedAccountsResponse = {
+  ok: true;
+  prunedUidCount: number;
+};
+
 const functions = getFunctions(app, "us-central1");
 const blockUserCallable = httpsCallable<BlockUserPayload, BlockUserResponse>(
   functions,
@@ -110,6 +115,10 @@ const declineConnectionRequestCallable = httpsCallable<
   DeclineConnectionRequestPayload,
   DeclineConnectionRequestResponse
 >(functions, "declineConnectionRequest");
+const pruneDeletedAccountsCallable = httpsCallable<
+  Record<string, never>,
+  PruneDeletedAccountsResponse
+>(functions, "pruneDeletedAccounts");
 
 function sortedPair(uid1: string, uid2: string): [string, string] {
   return [uid1, uid2].sort() as [string, string];
@@ -178,6 +187,14 @@ export async function blockUser(otherUid: string): Promise<BlockUserResponse> {
 
   const result = await blockUserCallable({ targetUid: otherUid });
   return result.data;
+}
+
+export async function pruneDeletedAccounts(): Promise<number> {
+  const currentUid = auth.currentUser?.uid;
+  if (!currentUid) return 0;
+
+  const result = await pruneDeletedAccountsCallable({});
+  return result.data?.prunedUidCount ?? 0;
 }
 
 export async function sendConnectionRequest(toUid: string): Promise<void> {

@@ -14,6 +14,7 @@ import {
   getConnectionExpiresAt,
   getUserProfile,
   isConnectionActive,
+  pruneDeletedAccounts,
   PublicUserProfile,
   subscribeToConnections,
 } from "../../src/connections/service";
@@ -64,6 +65,14 @@ export default function MessagesPage() {
     {},
   );
   const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!currentUid) return;
+
+    pruneDeletedAccounts().catch((error) => {
+      console.warn("Failed to prune deleted accounts from messages", error);
+    });
+  }, [currentUid]);
 
   useEffect(() => {
     if (!currentUid) return;
@@ -145,6 +154,15 @@ export default function MessagesPage() {
     [connectionsWithProfiles],
   );
 
+  // this keeps the remaining-time label fresh without manual refresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const visibleConnections = showCurrent ? currentConnections : pastConnections;
 
   if (!currentUid) {
@@ -155,17 +173,6 @@ export default function MessagesPage() {
       </View>
     );
   }
-  
-  //set up to update the "now" time every minute so that the remaining time display updates without refreshing the page
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 60_000); // update every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
-
   const openMessages = (
     connectionId: string,
     otherUid: string,
