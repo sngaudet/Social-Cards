@@ -3,7 +3,6 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
-  signOut,
 } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
+import { signOutCurrentUser } from "../../src/auth/session";
 import PrimaryButton from "../../src/components/PrimaryButton";
 
 function showAlert(title: string, message?: string) {
@@ -97,7 +97,7 @@ export default function Login() {
       await credential.user.reload();
 
       if (!credential.user.emailVerified) {
-        await signOut(auth);
+        await signOutCurrentUser();
         setShowResendVerification(true);
         showAlert(
           "Verify your email",
@@ -138,7 +138,7 @@ export default function Login() {
       }
 
       await sendEmailVerification(credential.user);
-      await signOut(auth);
+      await signOutCurrentUser();
       setShowResendVerification(true);
       setRemoveMessage(
         `We sent a new verification email to ${email.trim()}. Check your inbox and spam folder.`,

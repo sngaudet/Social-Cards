@@ -3,7 +3,6 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   sendEmailVerification,
-  signOut,
   User,
 } from "firebase/auth";
 import {
@@ -22,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../../../firebaseConfig";
+import { signOutCurrentUser } from "../../../src/auth/session";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
@@ -227,7 +227,7 @@ export default function RegistrationCompletePage() {
       await batch.commit();
       createdUser = null;
 
-      await signOut(auth);
+      await signOutCurrentUser();
       resetDraft();
       router.replace({
         pathname: "/(auth)/login",
@@ -256,7 +256,7 @@ export default function RegistrationCompletePage() {
             cleanupError,
           );
           if (auth.currentUser?.uid === createdUser.uid) {
-            await signOut(auth).catch((signOutError) => {
+            await signOutCurrentUser().catch((signOutError) => {
               console.warn(
                 "Could not sign out after failed signup cleanup",
                 signOutError,

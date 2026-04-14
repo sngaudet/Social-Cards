@@ -23,6 +23,8 @@ import {
 } from "react-native";
 
 import { auth } from "../../firebaseConfig";
+import { signOutCurrentUser } from "../../src/auth/session";
+import { prepareLocationServicesForSessionExit } from "../../src/location/service";
 
 
 
@@ -43,7 +45,7 @@ export default function SettingsPage(){
     //     router.replace("/(auth)/signup/hobbies");
     // }
     const handleLogout = async () => {
-        await signOut(auth);
+        await signOutCurrentUser();
     };
     
     const toggleQ1 = () => {
@@ -100,6 +102,7 @@ export default function SettingsPage(){
     };
 
     const finalizeDeleteAccount = async (userToDelete: User) => {
+        await prepareLocationServicesForSessionExit();
         await deleteUser(userToDelete);
         await signOut(auth).catch(() => {});
         setReauthPassword("");
@@ -131,7 +134,7 @@ export default function SettingsPage(){
             "This account cannot be reauthenticated automatically. Please log in again and try deleting your account.",
           );
           closeReauthModal();
-          await signOut(auth).catch(() => {});
+          await signOutCurrentUser().catch(() => {});
           router.replace("/(auth)/login");
           return;
         }
@@ -210,7 +213,7 @@ export default function SettingsPage(){
                 "Please log in again",
                 "For security, please log in again and then try deleting your account.",
               );
-              await signOut(auth).catch(() => {});
+              await signOutCurrentUser().catch(() => {});
               router.replace("/(auth)/login");
               return;
             }

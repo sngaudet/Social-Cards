@@ -15,6 +15,7 @@ import { showAlert } from "../lib/showAlert";
 import {
   registerPushTokenIfPossible,
   requestNotificationPermissions,
+  stopLocationUpdatesForCurrentUser,
 } from "../location/service";
 
 type AuthContextType = {
@@ -101,6 +102,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (initializing || user) return;
+
+    stopLocationUpdatesForCurrentUser().catch((error) => {
+      console.warn("Could not stop location updates after sign-out", error);
+    });
+  }, [initializing, user]);
 
   useEffect(() => {
     if (!user?.emailVerified) return;

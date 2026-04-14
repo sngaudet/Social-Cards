@@ -245,6 +245,20 @@ const location_getControlStatus = onCall(
   }),
 );
 
+// this clears the caller's live presence without changing sharing preferences
+const location_clearPresence = onCall(
+  { region: REGION },
+  withAuth(async (uid) => {
+    await getDb()
+      .collection("presence")
+      .doc(uid)
+      .delete()
+      .catch(() => {});
+
+    return { ok: true };
+  }),
+);
+
 // this saves latest location and runs crowd alert checks
 const location_upsertPing = onCall(
   { region: REGION, timeoutSeconds: 60 },
@@ -696,6 +710,7 @@ module.exports = {
   location_registerPushToken,
   location_setSharing,
   location_getControlStatus,
+  location_clearPresence,
   location_upsertPing,
   location_getNearby,
   reportUser,
