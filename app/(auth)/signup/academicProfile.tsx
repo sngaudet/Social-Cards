@@ -344,6 +344,7 @@ export default function SignupAcademicProfileStep() {
                 style={styles.customInputIcon}
               />
             </View>
+
           ) : (
             <AutocompleteDropdown
               dataSet={ACADEMIC_PROGRAM_OPTIONS}
@@ -576,18 +577,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 0,
     minHeight: 56,
+    overflow: "visible",
+    justifyContent: "center",
   },
   autocompleteInput: {
     fontSize: 18,
     lineHeight: 24,
     color: "#000000",
     paddingLeft: 10,
+    paddingRight: 46,
   },
   autocompleteRightButtons: {
-    right: 10,
+    width: 46,
+    flexDirection: "row",
+    transform: [{ translateX: -1 }],
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 9,
   },
   autocompleteIcon: {
-    marginRight: 2,
+    alignSelf: "center",
   },
   customInputRow: {
     flex: 1,

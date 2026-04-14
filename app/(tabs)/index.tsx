@@ -504,7 +504,7 @@ export default function HomeTab() {
 
         <View style={styles.summaryCard}>
           <Text style={styles.summaryText}>
-            Within 300 ft: {nearby.crowdCount}
+            Nearby users: {nearby.crowdCount}
           </Text>
           <Text style={styles.subtleText}>
             Updated: {new Date(nearby.asOf).toLocaleTimeString()}
@@ -605,10 +605,7 @@ export default function HomeTab() {
                 <View style={styles.userBody}>
                   <View style={styles.headerTopRow}>
                     <Text style={styles.userName}>{displayName}</Text>
-                    <Text style={styles.distancePill}>
-                      {user.distanceFt} ft away
-                    </Text>
-                  </View>
+                  </View> 
 
                   <View style={styles.metaRow}>
                     {showPronouns && pronouns ? (
@@ -648,21 +645,6 @@ export default function HomeTab() {
                       </View>
                     </View>
                   ) : null}
-{/* 
-                  {primaryPrompt ? (
-                    <View style={styles.promptBlock}>
-                      <Text style={styles.promptLabel}>
-                        Conversation Starter
-                      </Text>
-                      <Text style={styles.promptValue}>{primaryPrompt}</Text>
-                      {secondaryPrompt ? (
-                        <Text style={styles.promptSubValue}>
-                          {secondaryPrompt}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  new icebreaker prompt below*/}
                   
                   {primaryIcebreaker ? (
                     <View style={styles.promptBlock}>
@@ -671,15 +653,14 @@ export default function HomeTab() {
                       </Text>
 
                       
-{showBio && user.bio ? (
-  <View style={styles.bioBlock}>
-    <Text style={styles.bioText}>
-      <Text style={styles.bioLabel}>Bio: </Text>
-      {user.bio}
-    </Text>
-  </View>
-) : null}
-
+                  {showBio && user.bio ? (
+                    <View style={styles.bioBlock}>
+                      <Text style={styles.bioText}>
+                        <Text style={styles.bioLabel}>Bio: </Text>                       
+                        {user.bio}
+                      </Text>
+                    </View>
+                  ) : null}
 
                       {!!primaryIcebreaker.question && (
                         <Text style={styles.promptQuestion}>
@@ -1082,17 +1063,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  distancePill: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#1d4ed8",
-    backgroundColor: "#eef4ff",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1273,6 +1243,5 @@ bioText: {
   color: "#374151",
    textAlign: "center",
 },
-
 
 });
