@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
@@ -92,6 +93,8 @@ function formatPronouns(value: string | undefined): string {
 export default function HomeTab() {
   const router = useRouter();
   const currentUid = auth.currentUser?.uid;
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompactCardLayout = windowWidth < 430;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -537,8 +540,6 @@ export default function HomeTab() {
           const showGradYear = canSeeField("gradYear");
           const showHobbies = canSeeField("hobbies");
           const showIceBreakerOne = canSeeField("iceBreakerOne");
-          const showIceBreakerTwo = canSeeField("iceBreakerTwo");
-          const showIceBreakerThree = canSeeField("iceBreakerThree");
           const showBio = canSeeField("bio");
           const showPhotoBeforeConnection = canSeeField("photoURL");
           const fallbackProfile = nearbyProfileFallbacks[user.uid];
@@ -693,8 +694,18 @@ export default function HomeTab() {
                     </View>
                   ) : null}
 
-                  <View style={styles.footerRow}>
-                    <View style={styles.footerInfo}>
+                  <View
+                    style={[
+                      styles.footerRow,
+                      isCompactCardLayout && styles.footerRowCompact,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.footerInfo,
+                        isCompactCardLayout && styles.footerInfoCompact,
+                      ]}
+                    >
                       {showMajor ? (
                         <>
                           <Text style={styles.footerLabel}>Major</Text>
@@ -710,9 +721,17 @@ export default function HomeTab() {
                       )}
                     </View>
 
-                    <View style={styles.actionRow}>
+                    <View
+                      style={[
+                        styles.actionRow,
+                        isCompactCardLayout && styles.actionRowCompact,
+                      ]}
+                    >
                       <TouchableOpacity
-                        style={styles.viewPillButton}
+                        style={[
+                          styles.viewPillButton,
+                          isCompactCardLayout && styles.actionPillButtonCompact,
+                        ]}
                         onPress={() => openUserProfile(user.uid)}
                       >
                         <Text style={styles.viewPillButtonText}>
@@ -722,13 +741,21 @@ export default function HomeTab() {
 
                       {isConnected ? (
                         <>
-                          <View style={styles.connectedPill}>
+                          <View
+                            style={[
+                              styles.connectedPill,
+                              isCompactCardLayout && styles.actionPillButtonCompact,
+                            ]}
+                          >
                             <Text style={styles.connectedPillText}>
                               Connected
                             </Text>
                           </View>
                           <TouchableOpacity
-                            style={styles.connectPillButton}
+                            style={[
+                              styles.connectPillButton,
+                              isCompactCardLayout && styles.actionPillButtonCompact,
+                            ]}
                             onPress={() =>
                               openChat(connectionIdsByUid[user.uid], user.uid)
                             }
@@ -740,7 +767,10 @@ export default function HomeTab() {
                         </>
                       ) : (
                         <TouchableOpacity
-                          style={styles.connectPillButton}
+                          style={[
+                            styles.connectPillButton,
+                            isCompactCardLayout && styles.actionPillButtonCompact,
+                          ]}
                           onPress={() => handleConnect(user.uid)}
                         >
                           <Text style={styles.connectPillButtonText}>
@@ -752,6 +782,7 @@ export default function HomeTab() {
                       <TouchableOpacity
                         style={[
                           styles.reportPillButton,
+                          isCompactCardLayout && styles.actionPillButtonCompact,
                           reportingUid === user.uid && styles.disabledPillButton,
                         ]}
                         onPress={() => openReportModal(user)}
@@ -765,6 +796,7 @@ export default function HomeTab() {
                       <TouchableOpacity
                         style={[
                           styles.blockPillButton,
+                          isCompactCardLayout && styles.actionPillButtonCompact,
                           blockingUid === user.uid && styles.disabledPillButton,
                         ]}
                         onPress={() => handleBlockUser(user)}
@@ -1166,9 +1198,16 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 4,
   },
+  footerRowCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
+  },
   footerInfo: {
     flex: 1,
     gap: 2,
+  },
+  footerInfoCompact: {
+    width: "100%",
   },
   footerLabel: {
     fontSize: 10,
@@ -1190,6 +1229,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
+  },
+  actionRowCompact: {
+    width: "100%",
+    flexWrap: "wrap",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    rowGap: 8,
+  },
+  actionPillButtonCompact: {
+    width: "48%",
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
   },
   viewPillButton: {
     backgroundColor: "#ffd45f",
