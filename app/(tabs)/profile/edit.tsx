@@ -379,14 +379,13 @@ export default function EditProfile() {
       setPhotoURL(updatedPhotoURL);
       setNewPhotoUri(null);
       setHobbies(hobbiesToInputValue(normalizedHobbies));
-      router.replace("/profile/view")
       Alert.alert("Saved", "Your profile has been updated.", [
-    { text: "OK", onPress: () => router.replace("/profile/view") },
-  ]);
-} catch (e: any) {
-  Alert.alert("Save failed", e?.message ?? "Unknown error");
-} finally {
-  setSaving(false);
+        { text: "OK", onPress: () => router.replace("/profile/view") },
+      ]);
+    } catch (e: any) {
+      Alert.alert("Save failed", e?.message ?? "Unknown error");
+    } finally {
+      setSaving(false);
     }
   };
 

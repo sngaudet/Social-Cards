@@ -53,7 +53,7 @@ export default function Login() {
 
         if (wasDeleted === 'true'){
           setRemoveMessage("Your account has been successfully deleted!")
-        
+          setShowResendVerification(false);
           await AsyncStorage.removeItem('accountDeleted');
         }
     };
@@ -62,7 +62,7 @@ export default function Login() {
       ? params.showMessage[0]
       : params.showMessage;
 
-    if(showMessage === 'DeletedAccount'){
+    if (showMessage === 'DeletedAccount') {
       setRemoveMessage("Your account has been sucessfully deleted");
       setShowResendVerification(false);
     } else if (showMessage === "VerifyEmail") {
@@ -73,6 +73,9 @@ export default function Login() {
           : "Check your inbox and tap the verification link before logging in.",
       );
       setShowResendVerification(true);
+    } else {
+      setRemoveMessage("");
+      setShowResendVerification(false);
     }
 
     checkStoredMessage();
@@ -218,6 +221,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: "center",
+    backgroundColor: "#D9E0F0",
   },
 
   title: {

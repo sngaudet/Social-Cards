@@ -179,8 +179,13 @@ export default function SignupPersonalProfileStep() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+  },
   trailingIcon: {
     marginLeft: 12,
   },

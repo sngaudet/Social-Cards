@@ -77,7 +77,7 @@ export default function SignupPictures() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <ProgressHeader currentStep={7} />
 
       <SignupScreenHeader
@@ -175,11 +175,16 @@ export default function SignupPictures() {
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+    backgroundColor: "#D9E0F0",
+  },
   container: {
     flexGrow: 1,
     padding: 24,
     paddingBottom: 48,
     alignItems: "center",
+    backgroundColor: "#D9E0F0",
   },
   uploadButton: {
     marginBottom: 4,

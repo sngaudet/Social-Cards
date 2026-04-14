@@ -136,7 +136,7 @@ export default function OnboardingPermissionPage() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
   content: {
     flexGrow: 1,
     padding: 24,
