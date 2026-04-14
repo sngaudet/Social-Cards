@@ -33,7 +33,6 @@ export default function Login() {
     showMessage?: string | string[];
     email?: string | string[];
   }>();
-  console.log("Current Params:", params);
   const [removeMessage, setRemoveMessage] = useState("");
 
   // const curRoute = useRoute()

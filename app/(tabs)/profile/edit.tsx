@@ -1,7 +1,6 @@
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -23,7 +22,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
+import { useAuth } from "../../../src/auth/AuthContext";
 import {
   hobbiesToInputValue,
   parseHobbiesInput,
@@ -93,6 +93,7 @@ const toIntOrNull = (v: any): number | null => {
 
 export default function EditProfile() {
   const router = useRouter();
+  const { user, initializing } = useAuth();
 
 
   
@@ -174,7 +175,7 @@ export default function EditProfile() {
     setPhotoURL(d.photoURL ?? "");
     setNewPhotoUri(null); // reset local selection when reloading
 
-    setEmail(d.email ?? auth.currentUser?.email ?? "");
+    setEmail(d.email ?? user?.email ?? "");
 
     setFirstName(d.firstName ?? "");
     setLastName(d.lastName ?? "");
@@ -201,15 +202,21 @@ export default function EditProfile() {
     setPreConnectionVisibility(
       normalizePreConnectionVisibility(d.preConnectionVisibility),
     );
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/(auth)/login");
-        return;
-      }
+    if (initializing) return;
 
+    if (!user) {
+      setUid(null);
+      setEmail("");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
       try {
         setLoading(true);
         setUid(user.uid);
@@ -217,14 +224,22 @@ export default function EditProfile() {
         await loadProfile(user.uid);
         await refreshLocationControl();
       } catch (e: any) {
-        Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        if (!cancelled) {
+          Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return unsub;
-  }, [router, loadProfile, refreshLocationControl]);
+    run().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, loadProfile, refreshLocationControl, user]);
 
   const pickNewPhoto = async () => {
     try {
@@ -310,7 +325,7 @@ export default function EditProfile() {
 
       // If user picked a new photo, upload it now and store the download URL
       if (newPhotoUri) {
-        updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri);
+        updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri, uid);
       }
 
       const normalizedHobbies = parseHobbiesInput(hobbies);
@@ -318,7 +333,7 @@ export default function EditProfile() {
       const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
 
       await updateDoc(doc(db, "users", uid), {
-        email: auth.currentUser?.email ?? email,
+        email: user?.email ?? email,
 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
