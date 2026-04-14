@@ -1,14 +1,25 @@
 import { useRouter } from "expo-router";
-import { deleteUser, signOut, User } from "firebase/auth";
+import {
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signOut,
+  User,
+} from "firebase/auth";
 import React, { useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
 
 import { auth } from "../../firebaseConfig";
@@ -25,11 +36,9 @@ export default function SettingsPage(){
     const [isVisible4, setIsVisible4] = useState(false)
     const [isVisible5, setIsVisible5] = useState(false)
     const [deleting, setDeleting] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [uid, setUid] = useState<string | null>(null);
-    
-    // 1. Add a piece of state at the top of your component
-    const [isProcessingDeletion, setIsProcessingDeletion] = useState(false);
+    const [reauthModalVisible, setReauthModalVisible] = useState(false);
+    const [reauthPassword, setReauthPassword] = useState("");
+    const [reauthenticating, setReauthenticating] = useState(false);
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");
     // }
@@ -84,6 +93,95 @@ export default function SettingsPage(){
     };
 
 
+    const closeReauthModal = () => {
+        if (reauthenticating) return;
+        setReauthPassword("");
+        setReauthModalVisible(false);
+    };
+
+    const finalizeDeleteAccount = async (userToDelete: User) => {
+        await deleteUser(userToDelete);
+        await signOut(auth).catch(() => {});
+        setReauthPassword("");
+        setReauthModalVisible(false);
+
+        Alert.alert("Account deleted", "Your account has been deleted.", [
+          {
+            text: "OK",
+            onPress: () =>
+              router.replace({
+                pathname: "/",
+                params: { showMessage: "DeletedAccount" },
+              }),
+          },
+        ]);
+    };
+
+    const handleReauthenticateAndDelete = async () => {
+        const user = auth.currentUser;
+        if (!user) {
+          closeReauthModal();
+          router.replace("/(auth)/login");
+          return;
+        }
+
+        if (!user.email) {
+          Alert.alert(
+            "Delete failed",
+            "This account cannot be reauthenticated automatically. Please log in again and try deleting your account.",
+          );
+          closeReauthModal();
+          await signOut(auth).catch(() => {});
+          router.replace("/(auth)/login");
+          return;
+        }
+
+        if (!reauthPassword.trim()) {
+          Alert.alert(
+            "Password required",
+            "Enter your current password to delete your account.",
+          );
+          return;
+        }
+
+        try {
+          setReauthenticating(true);
+          const credential = EmailAuthProvider.credential(
+            user.email,
+            reauthPassword,
+          );
+
+          await reauthenticateWithCredential(user, credential);
+          setDeleting(true);
+          await finalizeDeleteAccount(auth.currentUser ?? user);
+        } catch (e: any) {
+          const code = e?.code as string | undefined;
+
+          if (
+            code === "auth/wrong-password"
+            || code === "auth/invalid-credential"
+          ) {
+            Alert.alert(
+              "Incorrect password",
+              "Enter the current password for this account and try again.",
+            );
+          } else if (code === "auth/too-many-requests") {
+            Alert.alert(
+              "Too many attempts",
+              "Wait a moment, then try entering your password again.",
+            );
+          } else {
+            Alert.alert(
+              "Delete failed",
+              e?.message ?? "We could not verify your account. Try again.",
+            );
+          }
+        } finally {
+          setReauthenticating(false);
+          setDeleting(false);
+        }
+    };
+
     const onDeleteAccount = async () => {
         // if (!uid) return;
     
@@ -92,50 +190,33 @@ export default function SettingsPage(){
     
         const user: User | null = auth.currentUser;
         if (!user) {
-          // router.replace("/(auth)/login");
-          // router.replace({pathname: '/(auth)/login', params: { showMessage: 'DeletedAccount' },});
-          router.replace({
-            pathname: "/(auth)/login", 
-            params: { showMessage: 'DeletedAccount' }}
+          Alert.alert(
+            "Please log in again",
+            "Your session expired. Log in again, then retry deleting your account.",
           );
+          router.replace("/(auth)/login");
           return;
         }
     
         try {
           setDeleting(true);
-          
-          // 2. SET THE FLAG: This tells the rest of the app to stay quiet
-          setIsProcessingDeletion(true);
-          //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
-          //   await deleteFirestoreProfile(uid);
-          
-          // 2) Delete Auth user
-          await deleteUser(user);
-    
-          await signOut(auth);
-          // Alert.alert("Account deleted", "Your account has been deleted.", [
-          //   { text: "OK", onPress: () => router.replace("/(auth)/login") },
-          // ]);
-          
-          Alert.alert("Account deleted", "Your account has been deleted.", [
-            { text: "OK", onPress: () => router.replace({pathname: "/", params: { showMessage: 'DeletedAccount' }}) },
-          ]);
-          // 4. RESET THE FLAG: After we've safely arrived
-          setIsProcessingDeletion(false);
-
+          await finalizeDeleteAccount(user);
         } catch (e: any) {
           const code = e?.code as string | undefined;
     
           if (code === "auth/requires-recent-login") {
-            Alert.alert(
-              "Please log in again",
-              "For security, please log in again and then try deleting your account.",
-            );
-            // optional: sign out and send them to login
-            try {
-              await signOut(auth);
-            } catch {}
-            router.replace("/(auth)/login");
+            if (!user.email) {
+              Alert.alert(
+                "Please log in again",
+                "For security, please log in again and then try deleting your account.",
+              );
+              await signOut(auth).catch(() => {});
+              router.replace("/(auth)/login");
+              return;
+            }
+
+            setReauthPassword("");
+            setReauthModalVisible(true);
           } else {
             Alert.alert(
               "Delete failed",
@@ -149,6 +230,7 @@ export default function SettingsPage(){
 
     
     return (
+      <>
         <ScrollView contentContainerStyle = {styles.content} >
             {/* this is how to reference an image */}
             {/* <Image
@@ -188,9 +270,9 @@ export default function SettingsPage(){
                 There are a couple of things you can do if there is account that is acting unfriendly towards you. If
                 they are not inherently breaking any of the Terms of Service rules, the best thing you can do is block them.
                 This will make it so that the user you blocked can no longer see your profile and will appear in a special section in the connections
-                page titled "Blocked Users". You can still see chats had with blocked users bu they will be read-only.
+                page titled &quot;Blocked Users&quot;. You can still see chats had with blocked users bu they will be read-only.
                 If a user is being unfriendly and harrasing you in a way that does break Terms of Service, please Report them 
-                using the red "Report" button. Fill out the report form and it be investigated and the offending user will recieve
+                using the red &quot;Report&quot; button. Fill out the report form and it be investigated and the offending user will recieve
                 an fitting punishment for said misconduct whether that be temporarily banning or account deletion. 
             </Text>
             )
@@ -205,7 +287,7 @@ export default function SettingsPage(){
             <Text style={styles.foruthText}>
                 This is a common question we have here at Social Cards. Currently there is no way to recover an account
                 that you do not know the email of. However, password recovery is a feature implemented on this application.
-                To start this process, go to the Login Page and click "Forgot Password". This will prompt the user to check out their
+                To start this process, go to the Login Page and click &quot;Forgot Password&quot;. This will prompt the user to check out their
                 email and click the link. This link will bring you to a page where you can update your password, which will update for all 
                 future uses on the page.
 
@@ -227,7 +309,7 @@ export default function SettingsPage(){
                 This will make it so that people who intially see your social card see you avatar icon, and only those that match with you will see your profile picture.
               
                 If you have made an account and opted to skip taking a profile picture, worry not! To add your first profile picture or update your current pciture, simply go to
-                Profile, then click Edit, then on the top of the page, under Profile Image, click "Take New Photo". This will then update after the user
+                Profile, then click Edit, then on the top of the page, under Profile Image, click &quot;Take New Photo&quot;. This will then update after the user
                 confirms that this picture is the one that they would like to overwrite their current photo with.
             </Text>
             )
@@ -239,10 +321,10 @@ export default function SettingsPage(){
             
             { isVisible5 && (
             <Text style={styles.foruthText}>
-                There are two locations where you can report another user from. The first option is on the Home page. On the offending user's social card, there is 
-                several buttons on the bottom right of the card. The red button titled "Report", when clicked, will display a report form that after being filled out will be
+                There are two locations where you can report another user from. The first option is on the Home page. On the offending user&apos;s social card, there is 
+                several buttons on the bottom right of the card. The red button titled &quot;Report&quot;, when clicked, will display a report form that after being filled out will be
                 investigated by someone on the Social Cards Developemnt team and an appropriate punishment will be given to the offending user. The second location that the report button
-                can be found is in the personal message page between two users. On the top right of the message page, there should be a similar red button titled "Report", that gives the same report form 
+                can be found is in the personal message page between two users. On the top right of the message page, there should be a similar red button titled &quot;Report&quot;, that gives the same report form 
                 as the one on the Home Page. It is also recomended that if you report a user for malicous behavior that you also Block them as well so that the have no further way of contacting you or viewing 
                 your profile.
             </Text>
@@ -257,10 +339,10 @@ export default function SettingsPage(){
             <TouchableOpacity
                     style={[
                       styles.dangerButton,
-                      (saving || deleting) && styles.disabledButton,
+                      (deleting || reauthenticating) && styles.disabledButton,
                     ]}
                     onPress={onDeleteAccount}
-                    disabled={saving || deleting}
+                    disabled={deleting || reauthenticating}
                   >
                     <Text style={styles.dangerText}>
                       {deleting ? "Deleting..." : "Delete Account"}
@@ -272,6 +354,67 @@ export default function SettingsPage(){
                 <Text>Next Step</Text>
             </TouchableOpacity> */}
         </ScrollView>
+        <Modal
+          visible={reauthModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeReauthModal}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.reauthModalRoot}
+          >
+            <Pressable style={styles.reauthBackdrop} onPress={closeReauthModal} />
+            <View style={styles.reauthCard}>
+              <Text style={styles.reauthTitle}>Confirm your password</Text>
+              <Text style={styles.reauthSubtitle}>
+                Firebase requires a recent login before deleting your account.
+                Enter your current password to continue.
+              </Text>
+
+              <TextInput
+                value={reauthPassword}
+                onChangeText={setReauthPassword}
+                placeholder="Current password"
+                placeholderTextColor="#6B7280"
+                style={styles.reauthInput}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!reauthenticating}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  handleReauthenticateAndDelete().catch(() => {});
+                }}
+              />
+
+              <View style={styles.reauthActionRow}>
+                <TouchableOpacity
+                  style={styles.reauthCancelButton}
+                  onPress={closeReauthModal}
+                  disabled={reauthenticating}
+                >
+                  <Text style={styles.reauthCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.reauthDeleteButton,
+                    reauthenticating && styles.disabledButton,
+                  ]}
+                  onPress={() => {
+                    handleReauthenticateAndDelete().catch(() => {});
+                  }}
+                  disabled={reauthenticating}
+                >
+                  <Text style={styles.reauthDeleteText}>
+                    {reauthenticating ? "Verifying..." : "Delete account"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </>
     );
 }
 
@@ -412,5 +555,76 @@ const styles = StyleSheet.create({
 
   disabledButton: {
     opacity: 0.6,
+  },
+
+  reauthModalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  reauthBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+  },
+
+  reauthCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    gap: 14,
+  },
+
+  reauthTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+
+  reauthSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#475569",
+  },
+
+  reauthInput: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#0F172A",
+    backgroundColor: "#F8FAFC",
+  },
+
+  reauthActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "flex-end",
+  },
+
+  reauthCancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#E2E8F0",
+  },
+
+  reauthCancelText: {
+    color: "#0F172A",
+    fontWeight: "600",
+  },
+
+  reauthDeleteButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#DC2626",
+  },
+
+  reauthDeleteText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });
