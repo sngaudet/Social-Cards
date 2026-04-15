@@ -44,6 +44,8 @@ import {
   PreConnectionVisibility,
 } from "../../../src/profile/visibility";
 
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { CalendarDays } from "lucide-react-native";
 const DEFAULT_ICEBREAKER_QUESTIONS = [
   "What's your ideal weekend?",
   "What food can you never say no to?",
@@ -112,6 +114,8 @@ export default function EditProfile() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+const [pickerDate, setPickerDate] = useState<Date>(new Date());
   const [bio, setBio] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [gradYear, setGradYear] = useState<number | null>(null);
@@ -313,7 +317,20 @@ export default function EditProfile() {
     }
     return true;
   };
+const openDatePicker = () => {
+  setShowDatePicker(true);
+};
 
+const onDateChange = (_: any, selectedDate?: Date) => {
+  setShowDatePicker(false);
+  if (selectedDate) {
+    setPickerDate(selectedDate);
+
+    // convert to YYYY-MM-DD (your existing format)
+    const iso = selectedDate.toISOString().split("T")[0];
+    setDateOfBirth(iso);
+  }
+};
   const onSave = async () => {
     if (!uid) return;
     if (!validate()) return;
@@ -665,16 +682,62 @@ export default function EditProfile() {
           onChangeText={setLastName}
           style={styles.input}
         />
+<Text style={styles.metaLabel}>Date of Birth</Text>
 
-        <Text style={styles.metaLabel}>Date of Birth</Text>
-        <TextInput
-          value={dateOfBirth}
-          onChangeText={(value) => setDateOfBirth(value)}
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          autoCapitalize="none"
-        />
+{Platform.OS === "web" ? (
+  <View style={styles.input}>
+    <input
+      type="date"
+      value={dateOfBirth || ""}
+      onChange={(e: any) => {
+        const value = e.target.value;
+        setDateOfBirth(value);
+        if (value) {
+          setPickerDate(new Date(value));
+        }
+      }}
+      style={{
+        width: "100%",
+        border: "none",
+        outline: "none",
+        backgroundColor: "transparent",
+        fontSize: 16,
+      }}
+    />
+  </View>
+) : (
+  <>
+    <TouchableOpacity
+      style={styles.input}
+      onPress={openDatePicker}
+      activeOpacity={0.7}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: dateOfBirth ? "#000" : "#999" }}>
+          {dateOfBirth || "Select date of birth"}
+        </Text>
 
+        <CalendarDays size={20} color="#0b0b0b" />
+      </View>
+    </TouchableOpacity>
+
+    {showDatePicker && (
+      <DateTimePicker
+        value={pickerDate}
+        mode="date"
+        display="default"
+        maximumDate={new Date()}
+        onChange={onDateChange}
+      />
+    )}
+  </>
+)}
         <Text style={styles.metaLabel}>Bio</Text>
         <TextInput
           value={bio}

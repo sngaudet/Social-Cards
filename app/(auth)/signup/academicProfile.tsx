@@ -23,7 +23,7 @@ import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
-const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them"] as const;
+const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them", "He/They", "She/They", "Other", "Prefer not to say"] as const;
 // const RIGHT_PRONOUN_OPTIONS = ["her", "him", "they", "them"] as const;
 const OTHER_PROGRAM_OPTION_ID = "other";
 const ACADEMIC_PROGRAM_OPTIONS: AutocompleteDropdownItem[] = [
