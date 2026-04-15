@@ -127,7 +127,7 @@ function showAlert(title: string, message?: string) {
 //   return { leftPronoun: normalizedLeft, rightPronoun: normalizedRight };
 // }
 function getInitialPronouns(value: string | undefined) {
-  const [left, right] = (value ?? "").split("/")[0];
+  const left = (value ?? "").split("/")[0];
   const normalizedLeft = LEFT_PRONOUN_OPTIONS.includes(
     left as (typeof LEFT_PRONOUN_OPTIONS)[number],
   )
@@ -525,8 +525,13 @@ export default function SignupAcademicProfileStep() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+  },
   pronounsField: {
     paddingHorizontal: Platform.OS === "ios" ? 8 : 12,
     minHeight: Platform.OS === "ios" ? 170 : 64,

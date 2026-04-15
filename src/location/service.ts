@@ -100,6 +100,12 @@ const getControlStatusCallable = httpsCallable<Record<string, never>, LocationCo
   "location_getControlStatus",
 );
 
+// this clears current user's live presence on logout or account removal
+const clearPresenceCallable = httpsCallable<Record<string, never>, { ok: true }>(
+  functions,
+  "location_clearPresence",
+);
+
 // this is a tiny delay helper for retries
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -483,6 +489,25 @@ export async function stopLocationUpdatesForCurrentUser(): Promise<void> {
   if (!started) return;
 
   await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+}
+
+// this removes live presence and stops local tracking before session exit
+export async function prepareLocationServicesForSessionExit(): Promise<void> {
+  const cleanupTasks: Promise<unknown>[] = [stopLocationUpdatesForCurrentUser()];
+
+  if (auth.currentUser) {
+    cleanupTasks.push(
+      callWithRetry(() => clearPresenceCallable({})),
+    );
+  }
+
+  const results = await Promise.allSettled(cleanupTasks);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      throw result.reason;
+    }
+  }
 }
 
 // this sends one immediate foreground ping

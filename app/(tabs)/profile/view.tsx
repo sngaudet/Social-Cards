@@ -1,5 +1,4 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
+import { useFocusEffect } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -12,7 +11,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
+import { useAuth } from "../../../src/auth/AuthContext";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { formatHobbies } from "../../../src/lib/hobbies";
 import { formatDateOfBirth } from "../../../src/lib/profileFields";
@@ -54,14 +54,13 @@ const pretty = (v: unknown) => {
 };
 
 export default function ViewProfile() {
-  const router = useRouter();
+  const { user, initializing } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<UserDoc | null>(null);
 
   const loadProfile = useCallback(async () => {
-    const user = auth.currentUser;
     if (!user) return;
 
     const ref = doc(db, "users", user.uid);
@@ -73,35 +72,52 @@ export default function ViewProfile() {
     }
 
     setData(snap.data() as UserDoc);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/(auth)/login");
-        return;
-      }
+    if (initializing) return;
 
+    if (!user) {
+      setLoading(false);
+      setRefreshing(false);
+      setData(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
       try {
         setLoading(true);
         await loadProfile();
       } catch (e: any) {
-        Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        if (!cancelled) {
+          Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return unsub;
-  }, [router, loadProfile]);
+    run().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, loadProfile, user]);
 
   useFocusEffect(
     useCallback(() => {
+      if (!user) return undefined;
+
       // Runs every time this tab/screen becomes active
       loadProfile().catch((e: any) =>
         Alert.alert("Could not load profile", e?.message ?? "Unknown error"),
       );
-    }, [loadProfile]),
+      return undefined;
+    }, [loadProfile, user]),
   );
 
   const onRefresh = useCallback(async () => {

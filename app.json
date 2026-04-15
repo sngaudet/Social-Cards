@@ -4,6 +4,7 @@
     "slug": "SocialCards",
     "version": "1.0.0",
     "orientation": "portrait",
+    "backgroundColor": "#D9E0F0",
     "icon": "./assets/images/icon.png",
     "scheme": "socialcards",
     "userInterfaceStyle": "automatic",
@@ -58,9 +59,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#D9E0F0",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#D9E0F0"
           }
         }
       ],

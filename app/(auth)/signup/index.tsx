@@ -211,7 +211,7 @@ export default function SignupAccountStep() {
         onPress={onNext}
         disabled={checkingExistingAccount}
       />
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/(auth)/login")}>
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace("/")}>
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -219,8 +219,13 @@ export default function SignupAccountStep() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+  },
 
 
   label: { fontWeight: "600", color: "#333", marginBottom: 6 },

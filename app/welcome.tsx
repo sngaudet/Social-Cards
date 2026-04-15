@@ -5,7 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PrimaryButton from "../src/components/PrimaryButton";
 import SecondaryButton from "../src/components/SecondaryButton";
 import { useSignup } from "../src/signup/context";
@@ -14,12 +16,27 @@ import { useSignup } from "../src/signup/context";
 export default function WelcomePage(){
     const router = useRouter();
     const { resumeRoute, shouldResumeSignup } = useSignup();
+    const insets = useSafeAreaInsets();
     // const onLogin = () => {
     //     router.replace("/(auth)/signup/hobbies");
     // }
     
     return (
-        <ScrollView contentContainerStyle = {styles.content} >
+      <View style={styles.page}>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.topBleed,
+            { height: insets.top + 160, top: -(insets.top + 120) },
+          ]}
+        />
+        <ScrollView
+          style={styles.scroll}
+          automaticallyAdjustContentInsets={false}
+          automaticallyAdjustsScrollIndicatorInsets={false}
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={styles.content}
+        >
             
             <Image
               source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
@@ -50,14 +67,27 @@ export default function WelcomePage(){
             />
             <Text style={styles.secondaryText}>University email is required</Text>
         </ScrollView>
+      </View>
     );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
+  page: {
+    flex: 1,
+    backgroundColor: "#D9E0F0",
+    position: "relative",
+  },
+  topBleed: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "#D9E0F0",
+  },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
   content: { 
     flexGrow: 1,
     padding: 24,
+    paddingTop: 0,
     paddingBottom: 48, 
     justifyContent: "center",
     alignItems: "center",
