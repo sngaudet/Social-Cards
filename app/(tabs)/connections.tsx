@@ -18,6 +18,7 @@ import {
   getConnectionExpiresAt,
   getUserProfile,
   isConnectionActive,
+  pruneDeletedAccounts,
   PublicUserProfile,
   subscribeToBlockedRelationships,
   subscribeToConnections,
@@ -51,6 +52,14 @@ export default function ConnectionsPage() {
     Record<string, PublicUserProfile>
   >({});
   const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUid) return;
+
+    pruneDeletedAccounts().catch((error) => {
+      console.warn("Failed to prune deleted accounts from connections", error);
+    });
+  }, [currentUid]);
 
   useEffect(() => {
     if (!currentUid) return;

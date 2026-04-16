@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const functionsV1 = require("firebase-functions");
 const {
   getAdminAuth,
   getDb,
@@ -52,6 +53,88 @@ function pairDocId(uid1, uid2) {
 
 function getPublicProfileRef(uid) {
   return getDb().collection("publicProfiles").doc(uid);
+}
+
+function chunkArray(items, chunkSize) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+async function deleteDocRefsInBatches(refs) {
+  const db = getDb();
+  const uniqueRefs = Array.from(
+    new Map(refs.map((ref) => [ref.path, ref])).values(),
+  );
+
+  for (const chunk of chunkArray(uniqueRefs, 400)) {
+    const batch = db.batch();
+
+    for (const ref of chunk) {
+      batch.delete(ref);
+    }
+
+    await batch.commit();
+  }
+}
+
+async function deleteConnectionRef(connectionRef) {
+  const db = getDb();
+
+  if (typeof db.recursiveDelete === "function") {
+    await db.recursiveDelete(connectionRef).catch(() => {});
+    return;
+  }
+
+  await connectionRef.delete().catch(() => {});
+}
+
+async function cleanupDeletedUserData(uid) {
+  const db = getDb();
+  const userRef = getUserRef(uid);
+  const publicProfileRef = getPublicProfileRef(uid);
+  const presenceRef = db.collection("presence").doc(uid);
+  const notificationStateRef = db.collection("notificationState").doc(uid);
+
+  const [
+    deviceSnap,
+    outgoingRequestsSnap,
+    incomingRequestsSnap,
+    relationshipsSnap,
+    connectionsSnap,
+  ] = await Promise.all([
+    userRef.collection("devices").get(),
+    db.collection("connectionRequests").where("fromUid", "==", uid).get(),
+    db.collection("connectionRequests").where("toUid", "==", uid).get(),
+    db.collection("relationships").where("users", "array-contains", uid).get(),
+    db.collection("connections").where("users", "array-contains", uid).get(),
+  ]);
+
+  await Promise.all(
+    connectionsSnap.docs.map((connectionSnap) =>
+      deleteConnectionRef(connectionSnap.ref),
+    ),
+  );
+
+  await deleteDocRefsInBatches([
+    userRef,
+    publicProfileRef,
+    presenceRef,
+    notificationStateRef,
+    ...deviceSnap.docs.map((doc) => doc.ref),
+    ...outgoingRequestsSnap.docs.map((doc) => doc.ref),
+    ...incomingRequestsSnap.docs.map((doc) => doc.ref),
+    ...relationshipsSnap.docs.map((doc) => doc.ref),
+  ]);
+}
+
+function getOtherUidFromUsers(users, uid) {
+  if (!Array.isArray(users)) return "";
+  return users.find((candidateUid) => candidateUid && candidateUid !== uid) || "";
 }
 
 // this makes permission values safe before saving
@@ -245,6 +328,20 @@ const location_getControlStatus = onCall(
   }),
 );
 
+// this clears the caller's live presence without changing sharing preferences
+const location_clearPresence = onCall(
+  { region: REGION },
+  withAuth(async (uid) => {
+    await getDb()
+      .collection("presence")
+      .doc(uid)
+      .delete()
+      .catch(() => {});
+
+    return { ok: true };
+  }),
+);
+
 // this saves latest location and runs crowd alert checks
 const location_upsertPing = onCall(
   { region: REGION, timeoutSeconds: 60 },
@@ -379,6 +476,59 @@ const location_getNearby = onCall(
       users,
       crowdCount: users.length,
       asOf: nowDate().toISOString(),
+    };
+  }),
+);
+
+// this removes stale relationship data that points at deleted auth accounts
+const pruneDeletedAccounts = onCall(
+  { region: REGION, timeoutSeconds: 60 },
+  withAuth(async (uid) => {
+    const db = getDb();
+    const [relationshipsSnap, outgoingRequestsSnap, incomingRequestsSnap] =
+      await Promise.all([
+        db.collection("relationships").where("users", "array-contains", uid).get(),
+        db.collection("connectionRequests").where("fromUid", "==", uid).get(),
+        db.collection("connectionRequests").where("toUid", "==", uid).get(),
+      ]);
+
+    const relatedUids = new Set();
+
+    for (const relationshipSnap of relationshipsSnap.docs) {
+      const otherUid = getOtherUidFromUsers(relationshipSnap.data()?.users, uid);
+      if (otherUid) relatedUids.add(otherUid);
+    }
+
+    for (const requestSnap of [...outgoingRequestsSnap.docs, ...incomingRequestsSnap.docs]) {
+      const data = requestSnap.data() || {};
+      const otherUid =
+        getTrimmedString(data.fromUid) === uid
+          ? getTrimmedString(data.toUid)
+          : getTrimmedString(data.fromUid);
+      if (otherUid) relatedUids.add(otherUid);
+    }
+
+    const deletedUids = new Set();
+
+    for (const chunk of chunkArray(Array.from(relatedUids), 100)) {
+      const result = await getAdminAuth().getUsers(
+        chunk.map((relatedUid) => ({ uid: relatedUid })),
+      );
+
+      for (const identifier of result.notFound) {
+        if ("uid" in identifier && identifier.uid) {
+          deletedUids.add(identifier.uid);
+        }
+      }
+    }
+
+    await Promise.all(
+      Array.from(deletedUids).map((deletedUid) => cleanupDeletedUserData(deletedUid)),
+    );
+
+    return {
+      ok: true,
+      prunedUidCount: deletedUids.size,
     };
   }),
 );
@@ -691,13 +841,24 @@ const blockUser = onCall(
   }),
 );
 
+// this cleans up Firestore records after a Firebase Auth account is deleted
+const auth_cleanupDeletedUser = functionsV1
+  .region(REGION)
+  .auth.user()
+  .onDelete(async (user) => {
+    await cleanupDeletedUserData(user.uid);
+  });
+
 module.exports = {
   auth_checkEmailExists,
+  auth_cleanupDeletedUser,
   location_registerPushToken,
   location_setSharing,
   location_getControlStatus,
+  location_clearPresence,
   location_upsertPing,
   location_getNearby,
+  pruneDeletedAccounts,
   reportUser,
   acceptConnectionRequest,
   declineConnectionRequest,

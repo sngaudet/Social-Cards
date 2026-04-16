@@ -1,5 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -13,7 +12,8 @@ import {
   View,
 } from "react-native";
 
-import { auth, db } from "../../firebaseConfig";
+import { db } from "../../firebaseConfig";
+import { useAuth } from "../../src/auth/AuthContext";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import {
   getRelationshipStatusForPair,
@@ -61,7 +61,7 @@ const pretty = (value: unknown) => {
 };
 
 export default function UserProfileView() {
-  const router = useRouter();
+  const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ uid?: string | string[] }>();
   const uid = Array.isArray(params.uid) ? params.uid[0] : params.uid;
 
@@ -70,7 +70,7 @@ export default function UserProfileView() {
   const [data, setData] = useState<UserDoc | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [profileUnavailable, setProfileUnavailable] = useState(false);
-  const currentUid = auth.currentUser?.uid;
+  const currentUid = user?.uid;
 
   const loadProfile = useCallback(async () => {
     if (!uid) {
@@ -146,12 +146,19 @@ export default function UserProfileView() {
   }, [currentUid, uid]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/(auth)/login");
-        return;
-      }
+    if (initializing) return;
 
+    if (!user) {
+      setLoading(false);
+      setRefreshing(false);
+      setData(null);
+      setProfileUnavailable(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
       try {
         setLoading(true);
         await loadProfile();
@@ -159,19 +166,25 @@ export default function UserProfileView() {
         if (error?.code === "permission-denied") {
           setData(null);
           setProfileUnavailable(true);
-        } else {
+        } else if (!cancelled) {
           Alert.alert(
             "Could not load profile",
             error?.message ?? "Unknown error",
           );
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return unsub;
-  }, [loadProfile, router]);
+    run().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, loadProfile, user]);
 
   const onRefresh = useCallback(async () => {
     try {

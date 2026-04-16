@@ -1,7 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, usePathname } from "expo-router";
 import React, { ReactNode, useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../src/auth/AuthContext";
 import NotificationCoordinator from "../../src/notifications/NotificationCoordinator";
 
@@ -40,6 +41,8 @@ function AnimatedIcon({
 
 export default function TabDisplay() {
   const { user, initializing } = useAuth();
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
 
   if (initializing) {
     return (
@@ -49,19 +52,39 @@ export default function TabDisplay() {
     );
   }
 
-  if (!user?.emailVerified) {
+  if (!user) {
+    return <Redirect href="/welcome" />;
+  }
+
+  if (!user.emailVerified) {
     return (
       <Redirect
         href={{
           pathname: "/(auth)/login",
-          params: { showMessage: "VerifyEmail" },
+          params: {
+            showMessage: "VerifyEmail",
+            email: user.email ?? undefined,
+          },
         }}
       />
     );
   }
 
+  const backgroundColor =
+    pathname === "/(tabs)" ||
+    pathname === "/(tabs)/index" ||
+    pathname.startsWith("/(tabs)/profile")
+      ? "#DFE7F6"
+      : "#D9E0F0";
+
   return (
-    <>
+    <View
+      style={{
+        flex: 1,
+        paddingTop: insets.top - 20,
+        backgroundColor,
+      }}
+    >
       <NotificationCoordinator />
       <Tabs
         screenOptions={{
@@ -147,6 +170,6 @@ export default function TabDisplay() {
         <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
         <Tabs.Screen name="uid" options={{ href: null }} />
       </Tabs>
-    </>
+    </View>
   );
 }

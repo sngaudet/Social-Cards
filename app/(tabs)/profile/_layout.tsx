@@ -50,7 +50,21 @@ export default function ProfileLayout() {
   }
 
   if (!user) {
-    return <Redirect href="/(auth)/login" />;
+    return <Redirect href="/welcome" />;
+  }
+
+  if (!user.emailVerified) {
+    return (
+      <Redirect
+        href={{
+          pathname: "/(auth)/login",
+          params: {
+            showMessage: "VerifyEmail",
+            email: user.email ?? undefined,
+          },
+        }}
+      />
+    );
   }
 
   return (
@@ -99,10 +113,6 @@ export default function ProfileLayout() {
           ),
         }}
       />
-
-
-      <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
-      <Tabs.Screen name="uid" options={{ href: null }} />
     </Tabs>
   );
 }

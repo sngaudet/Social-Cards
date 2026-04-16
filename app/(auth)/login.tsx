@@ -3,7 +3,6 @@ import { Href, Link, useLocalSearchParams, useRouter } from "expo-router";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
-  signOut,
 } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
+import { signOutCurrentUser } from "../../src/auth/session";
 import PrimaryButton from "../../src/components/PrimaryButton";
 
 function showAlert(title: string, message?: string) {
@@ -33,7 +33,6 @@ export default function Login() {
     showMessage?: string | string[];
     email?: string | string[];
   }>();
-  console.log("Current Params:", params);
   const [removeMessage, setRemoveMessage] = useState("");
 
   // const curRoute = useRoute()
@@ -53,7 +52,7 @@ export default function Login() {
 
         if (wasDeleted === 'true'){
           setRemoveMessage("Your account has been successfully deleted!")
-        
+          setShowResendVerification(false);
           await AsyncStorage.removeItem('accountDeleted');
         }
     };
@@ -62,26 +61,29 @@ export default function Login() {
       ? params.showMessage[0]
       : params.showMessage;
 
-    if(showMessage === 'DeletedAccount'){
-      setRemoveMessage("Your account has been sucessfully deleted");
-      setShowResendVerification(false);
-    } else if (showMessage === "VerifyEmail") {
-      const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
-      setRemoveMessage(
-        emailParam
-          ? `Check ${emailParam} and tap the verification link before logging in.`
-          : "Check your inbox and tap the verification link before logging in.",
-      );
-      setShowResendVerification(true);
-    } else if (showMessage === "PasswordResetSent") {
-      const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
-      setRemoveMessage(
-        emailParam
-          ? `We sent a password reset email to ${emailParam}. Follow the link in that email to choose a new password.`
-          : "We sent a password reset email. Follow the link in that email to choose a new password.",
-      );
-      setShowResendVerification(false);
-    }
+    if (showMessage === "DeletedAccount") {
+  setRemoveMessage("Your account has been successfully deleted");
+  setShowResendVerification(false);
+} else if (showMessage === "VerifyEmail") {
+  const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
+  setRemoveMessage(
+    emailParam
+      ? `Check ${emailParam} and tap the verification link before logging in.`
+      : "Check your inbox and tap the verification link before logging in.",
+  );
+  setShowResendVerification(true);
+} else if (showMessage === "PasswordResetSent") {
+  const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
+  setRemoveMessage(
+    emailParam
+      ? `We sent a password reset email to ${emailParam}. Follow the link in that email to choose a new password.`
+      : "We sent a password reset email. Follow the link in that email to choose a new password.",
+  );
+  setShowResendVerification(false);
+} else {
+  setRemoveMessage("");
+  setShowResendVerification(false);
+}
 
     checkStoredMessage();
   }, [params.email, params.showMessage]);
@@ -105,7 +107,7 @@ export default function Login() {
       await credential.user.reload();
 
       if (!credential.user.emailVerified) {
-        await signOut(auth);
+        await signOutCurrentUser();
         setShowResendVerification(true);
         showAlert(
           "Verify your email",
@@ -146,7 +148,7 @@ export default function Login() {
       }
 
       await sendEmailVerification(credential.user);
-      await signOut(auth);
+      await signOutCurrentUser();
       setShowResendVerification(true);
       setRemoveMessage(
         `We sent a new verification email to ${email.trim()}. Check your inbox and spam folder.`,
@@ -232,6 +234,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: "center",
+    backgroundColor: "#D9E0F0",
   },
 
   title: {

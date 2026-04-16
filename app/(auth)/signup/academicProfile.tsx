@@ -23,7 +23,7 @@ import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { useSignup } from "../../../src/signup/context";
 
-const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them"] as const;
+const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them", "He/They", "She/They", "Other", "Prefer not to say"] as const;
 // const RIGHT_PRONOUN_OPTIONS = ["her", "him", "they", "them"] as const;
 const OTHER_PROGRAM_OPTION_ID = "other";
 const ACADEMIC_PROGRAM_OPTIONS: AutocompleteDropdownItem[] = [
@@ -127,7 +127,7 @@ function showAlert(title: string, message?: string) {
 //   return { leftPronoun: normalizedLeft, rightPronoun: normalizedRight };
 // }
 function getInitialPronouns(value: string | undefined) {
-  const [left, right] = (value ?? "").split("/")[0];
+  const left = (value ?? "").split("/")[0];
   const normalizedLeft = LEFT_PRONOUN_OPTIONS.includes(
     left as (typeof LEFT_PRONOUN_OPTIONS)[number],
   )
@@ -344,6 +344,7 @@ export default function SignupAcademicProfileStep() {
                 style={styles.customInputIcon}
               />
             </View>
+
           ) : (
             <AutocompleteDropdown
               dataSet={ACADEMIC_PROGRAM_OPTIONS}
@@ -525,8 +526,13 @@ export default function SignupAcademicProfileStep() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { flexGrow: 1, padding: 24, paddingBottom: 48 },
+  scroll: { flex: 1, backgroundColor: "#D9E0F0" },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 48,
+    backgroundColor: "#D9E0F0",
+  },
   pronounsField: {
     paddingHorizontal: Platform.OS === "ios" ? 8 : 12,
     minHeight: Platform.OS === "ios" ? 170 : 64,
@@ -576,18 +582,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 0,
     minHeight: 56,
+    overflow: "visible",
+    justifyContent: "center",
   },
   autocompleteInput: {
     fontSize: 18,
     lineHeight: 24,
     color: "#000000",
     paddingLeft: 10,
+    paddingRight: 46,
   },
   autocompleteRightButtons: {
-    right: 10,
+    width: 46,
+    flexDirection: "row",
+    transform: [{ translateX: -1 }],
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 9,
   },
   autocompleteIcon: {
-    marginRight: 2,
+    alignSelf: "center",
   },
   customInputRow: {
     flex: 1,

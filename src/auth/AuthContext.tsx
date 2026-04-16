@@ -15,6 +15,7 @@ import { showAlert } from "../lib/showAlert";
 import {
   registerPushTokenIfPossible,
   requestNotificationPermissions,
+  stopLocationUpdatesForCurrentUser,
 } from "../location/service";
 
 type AuthContextType = {
@@ -81,26 +82,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    console.log("AuthProvider mounted");
-    console.log("Initial auth.currentUser =", auth.currentUser?.uid ?? null);
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log(
-        "onAuthStateChanged fired, firebaseUser =",
-        firebaseUser?.uid ?? null,
-      );
-
       setUser(firebaseUser);
       setInitializing(false);
-
-      console.log("After setUser, initializing -> false");
     });
 
-    return () => {
-      console.log("AuthProvider unmounted");
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (initializing || user) return;
+
+    stopLocationUpdatesForCurrentUser().catch((error) => {
+      console.warn("Could not stop location updates after sign-out", error);
+    });
+  }, [initializing, user]);
 
   useEffect(() => {
     if (!user?.emailVerified) return;
@@ -224,11 +220,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [user, initializing],
   );
-
-  console.log("AuthProvider render", {
-    user: user?.uid ?? null,
-    initializing,
-  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

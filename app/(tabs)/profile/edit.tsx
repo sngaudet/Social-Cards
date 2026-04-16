@@ -1,7 +1,6 @@
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -23,7 +22,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
+import { useAuth } from "../../../src/auth/AuthContext";
 import {
   hobbiesToInputValue,
   parseHobbiesInput,
@@ -44,6 +44,8 @@ import {
   PreConnectionVisibility,
 } from "../../../src/profile/visibility";
 
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { CalendarDays } from "lucide-react-native";
 const DEFAULT_ICEBREAKER_QUESTIONS = [
   "What's your ideal weekend?",
   "What food can you never say no to?",
@@ -93,6 +95,7 @@ const toIntOrNull = (v: any): number | null => {
 
 export default function EditProfile() {
   const router = useRouter();
+  const { user, initializing } = useAuth();
 
 
   
@@ -111,6 +114,8 @@ export default function EditProfile() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+const [pickerDate, setPickerDate] = useState<Date>(new Date());
   const [bio, setBio] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [gradYear, setGradYear] = useState<number | null>(null);
@@ -174,7 +179,7 @@ export default function EditProfile() {
     setPhotoURL(d.photoURL ?? "");
     setNewPhotoUri(null); // reset local selection when reloading
 
-    setEmail(d.email ?? auth.currentUser?.email ?? "");
+    setEmail(d.email ?? user?.email ?? "");
 
     setFirstName(d.firstName ?? "");
     setLastName(d.lastName ?? "");
@@ -201,15 +206,21 @@ export default function EditProfile() {
     setPreConnectionVisibility(
       normalizePreConnectionVisibility(d.preConnectionVisibility),
     );
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/(auth)/login");
-        return;
-      }
+    if (initializing) return;
 
+    if (!user) {
+      setUid(null);
+      setEmail("");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
       try {
         setLoading(true);
         setUid(user.uid);
@@ -217,14 +228,22 @@ export default function EditProfile() {
         await loadProfile(user.uid);
         await refreshLocationControl();
       } catch (e: any) {
-        Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        if (!cancelled) {
+          Alert.alert("Could not load profile", e?.message ?? "Unknown error");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return unsub;
-  }, [router, loadProfile, refreshLocationControl]);
+    run().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, loadProfile, refreshLocationControl, user]);
 
   const pickNewPhoto = async () => {
     try {
@@ -298,7 +317,20 @@ export default function EditProfile() {
     }
     return true;
   };
+const openDatePicker = () => {
+  setShowDatePicker(true);
+};
 
+const onDateChange = (_: any, selectedDate?: Date) => {
+  setShowDatePicker(false);
+  if (selectedDate) {
+    setPickerDate(selectedDate);
+
+    // convert to YYYY-MM-DD (your existing format)
+    const iso = selectedDate.toISOString().split("T")[0];
+    setDateOfBirth(iso);
+  }
+};
   const onSave = async () => {
     if (!uid) return;
     if (!validate()) return;
@@ -310,7 +342,7 @@ export default function EditProfile() {
 
       // If user picked a new photo, upload it now and store the download URL
       if (newPhotoUri) {
-        updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri);
+        updatedPhotoURL = await uploadProfilePhotoAsync(newPhotoUri, uid);
       }
 
       const normalizedHobbies = parseHobbiesInput(hobbies);
@@ -318,7 +350,7 @@ export default function EditProfile() {
       const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
 
       await updateDoc(doc(db, "users", uid), {
-        email: auth.currentUser?.email ?? email,
+        email: user?.email ?? email,
 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -379,14 +411,13 @@ export default function EditProfile() {
       setPhotoURL(updatedPhotoURL);
       setNewPhotoUri(null);
       setHobbies(hobbiesToInputValue(normalizedHobbies));
-      router.replace("/profile/view")
       Alert.alert("Saved", "Your profile has been updated.", [
-    { text: "OK", onPress: () => router.replace("/profile/view") },
-  ]);
-} catch (e: any) {
-  Alert.alert("Save failed", e?.message ?? "Unknown error");
-} finally {
-  setSaving(false);
+        { text: "OK", onPress: () => router.replace("/profile/view") },
+      ]);
+    } catch (e: any) {
+      Alert.alert("Save failed", e?.message ?? "Unknown error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -651,16 +682,62 @@ export default function EditProfile() {
           onChangeText={setLastName}
           style={styles.input}
         />
+<Text style={styles.metaLabel}>Date of Birth</Text>
 
-        <Text style={styles.metaLabel}>Date of Birth</Text>
-        <TextInput
-          value={dateOfBirth}
-          onChangeText={(value) => setDateOfBirth(value)}
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          autoCapitalize="none"
-        />
+{Platform.OS === "web" ? (
+  <View style={styles.input}>
+    <input
+      type="date"
+      value={dateOfBirth || ""}
+      onChange={(e: any) => {
+        const value = e.target.value;
+        setDateOfBirth(value);
+        if (value) {
+          setPickerDate(new Date(value));
+        }
+      }}
+      style={{
+        width: "100%",
+        border: "none",
+        outline: "none",
+        backgroundColor: "transparent",
+        fontSize: 16,
+      }}
+    />
+  </View>
+) : (
+  <>
+    <TouchableOpacity
+      style={styles.input}
+      onPress={openDatePicker}
+      activeOpacity={0.7}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: dateOfBirth ? "#000" : "#999" }}>
+          {dateOfBirth || "Select date of birth"}
+        </Text>
 
+        <CalendarDays size={20} color="#0b0b0b" />
+      </View>
+    </TouchableOpacity>
+
+    {showDatePicker && (
+      <DateTimePicker
+        value={pickerDate}
+        mode="date"
+        display="default"
+        maximumDate={new Date()}
+        onChange={onDateChange}
+      />
+    )}
+  </>
+)}
         <Text style={styles.metaLabel}>Bio</Text>
         <TextInput
           value={bio}
