@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Verify your email | SocialCards</title>
+    <title>Account action | SocialCards</title>
     <style>
       :root {
         color-scheme: light;
@@ -95,6 +95,34 @@
         margin-top: 22px;
       }
 
+      .reset-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .field-label {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+
+      .field-input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        font: inherit;
+        color: var(--ink);
+        background: #fff;
+      }
+
+      .field-input:focus {
+        outline: 2px solid rgba(31, 74, 170, 0.2);
+        border-color: var(--accent);
+      }
+
       button,
       a.button-link {
         appearance: none;
@@ -143,10 +171,9 @@
   <body>
     <main class="card">
       <p class="eyebrow">SocialCards</p>
-      <h1>Verify your email</h1>
-      <p>
-        To avoid mail scanners accidentally consuming one-time links, verification
-        only happens after you press the button below.
+      <h1 id="pageTitle">Account action</h1>
+      <p id="pageDescription">
+        Finish the account action you requested for SocialCards.
       </p>
 
       <div id="status" class="status" role="status" aria-live="polite">
@@ -155,6 +182,33 @@
 
       <div class="actions">
         <button id="verifyButton" type="button" hidden>Verify email</button>
+        <form id="resetForm" class="reset-form" hidden>
+          <label>
+            <span class="field-label">New password</span>
+            <input
+              id="newPassword"
+              class="field-input"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+          </label>
+
+          <label>
+            <span class="field-label">Confirm new password</span>
+            <input
+              id="confirmPassword"
+              class="field-input"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+          </label>
+
+          <button id="resetButton" type="submit">Reset password</button>
+        </form>
         <a
           id="continueLink"
           class="button-link secondary"
@@ -166,8 +220,8 @@
       </div>
 
       <p class="footer">
-        If this link no longer works, return to the app and request a new
-        verification email.
+        If this link no longer works, return to the app and request a fresh
+        account email.
       </p>
     </main>
 
@@ -177,7 +231,13 @@
     <script>
       (function () {
         var statusEl = document.getElementById("status");
+        var pageTitle = document.getElementById("pageTitle");
+        var pageDescription = document.getElementById("pageDescription");
         var verifyButton = document.getElementById("verifyButton");
+        var resetForm = document.getElementById("resetForm");
+        var resetButton = document.getElementById("resetButton");
+        var newPasswordInput = document.getElementById("newPassword");
+        var confirmPasswordInput = document.getElementById("confirmPassword");
         var continueLink = document.getElementById("continueLink");
         var params = new URLSearchParams(window.location.search);
         var mode = params.get("mode");
@@ -189,45 +249,123 @@
           statusEl.className = "status" + (tone ? " " + tone : "");
         }
 
-        if (mode !== "verifyEmail" || !actionCode) {
+        function setPageContent(title, description) {
+          pageTitle.textContent = title;
+          pageDescription.textContent = description;
+        }
+
+        function showContinueLink(label) {
+          if (!continueUrl) return;
+          continueLink.href = continueUrl;
+          continueLink.textContent = label || "Continue";
+          continueLink.hidden = false;
+        }
+
+        if (!actionCode || (mode !== "verifyEmail" && mode !== "resetPassword")) {
           setStatus(
-            "This verification link is incomplete or unsupported. Please request a new one from the app.",
+            "This account link is incomplete or unsupported. Please request a new one from the app.",
             "error",
           );
           return;
         }
 
-        setStatus(
-          "Press Verify email to complete verification for this account.",
-        );
-        verifyButton.hidden = false;
+        if (mode === "verifyEmail") {
+          setPageContent(
+            "Verify your email",
+            "To avoid mail scanners accidentally consuming one-time links, verification only happens after you press the button below.",
+          );
+          setStatus(
+            "Press Verify email to complete verification for this account.",
+          );
+          verifyButton.hidden = false;
 
-        verifyButton.addEventListener("click", function () {
-          verifyButton.disabled = true;
-          verifyButton.textContent = "Verifying...";
-          setStatus("Checking your verification link...");
+          verifyButton.addEventListener("click", function () {
+            verifyButton.disabled = true;
+            verifyButton.textContent = "Verifying...";
+            setStatus("Checking your verification link...");
+
+            firebase
+              .auth()
+              .applyActionCode(actionCode)
+              .then(function () {
+                setStatus(
+                  "Your email has been verified. Return to SocialCards and log in again.",
+                  "success",
+                );
+                verifyButton.hidden = true;
+                showContinueLink("Continue");
+              })
+              .catch(function () {
+                verifyButton.disabled = false;
+                verifyButton.textContent = "Verify email";
+                setStatus(
+                  "This verification link is no longer valid. Request a new verification email from the app and use the newest message.",
+                  "error",
+                );
+              });
+          });
+
+          return;
+        }
+
+        setPageContent(
+          "Reset your password",
+          "Choose a new password for your SocialCards account below.",
+        );
+        setStatus("Checking your password reset link...");
+
+        firebase
+          .auth()
+          .verifyPasswordResetCode(actionCode)
+          .then(function (email) {
+            resetForm.hidden = false;
+            setStatus(
+              "Enter a new password for " + email + " to finish resetting your account.",
+            );
+          })
+          .catch(function () {
+            setStatus(
+              "This password reset link is no longer valid. Return to the app and request a new password reset email.",
+              "error",
+            );
+          });
+
+        resetForm.addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          var newPassword = newPasswordInput.value;
+          var confirmPassword = confirmPasswordInput.value;
+
+          if (newPassword.length < 6) {
+            setStatus("Your new password must be at least 6 characters long.", "error");
+            return;
+          }
+
+          if (newPassword !== confirmPassword) {
+            setStatus("Your passwords do not match. Enter them again.", "error");
+            return;
+          }
+
+          resetButton.disabled = true;
+          resetButton.textContent = "Resetting...";
+          setStatus("Saving your new password...");
 
           firebase
             .auth()
-            .applyActionCode(actionCode)
+            .confirmPasswordReset(actionCode, newPassword)
             .then(function () {
               setStatus(
-                "Your email has been verified. Return to SocialCards and log in again.",
+                "Your password has been reset. Return to SocialCards and log in with your new password.",
                 "success",
               );
-              verifyButton.hidden = true;
-
-              if (continueUrl) {
-                continueLink.href = continueUrl;
-                continueLink.textContent = "Continue";
-                continueLink.hidden = false;
-              }
+              resetForm.hidden = true;
+              showContinueLink("Back to app");
             })
             .catch(function () {
-              verifyButton.disabled = false;
-              verifyButton.textContent = "Verify email";
+              resetButton.disabled = false;
+              resetButton.textContent = "Reset password";
               setStatus(
-                "This verification link is no longer valid. Request a new verification email from the app and use the newest message.",
+                "We could not reset your password with this link. Request a new password reset email from the app and try again.",
                 "error",
               );
             });

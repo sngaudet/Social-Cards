@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { Href, Link, useLocalSearchParams, useRouter } from "expo-router";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
@@ -73,6 +73,14 @@ export default function Login() {
           : "Check your inbox and tap the verification link before logging in.",
       );
       setShowResendVerification(true);
+    } else if (showMessage === "PasswordResetSent") {
+      const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
+      setRemoveMessage(
+        emailParam
+          ? `We sent a password reset email to ${emailParam}. Follow the link in that email to choose a new password.`
+          : "We sent a password reset email. Follow the link in that email to choose a new password.",
+      );
+      setShowResendVerification(false);
     }
 
     checkStoredMessage();
@@ -196,6 +204,12 @@ export default function Login() {
           </Text>
         </TouchableOpacity>
       ) : null}
+
+      <Link href={"/(auth)/forgot-password" as Href} asChild>
+        <TouchableOpacity>
+          <Text style={styles.linkText}>Forgot password?</Text>
+        </TouchableOpacity>
+      </Link>
 
       <Link href="/(auth)/signup" asChild>
         <TouchableOpacity>
