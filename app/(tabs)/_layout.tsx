@@ -53,7 +53,7 @@ export default function TabDisplay() {
   }
 
   if (!user) {
-    return <Redirect href="/welcome" />;
+    return <Redirect href="/" />;
   }
 
   if (!user.emailVerified) {

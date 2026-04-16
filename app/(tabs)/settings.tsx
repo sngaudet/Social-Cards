@@ -25,12 +25,14 @@ import {
 import { auth } from "../../firebaseConfig";
 import { signOutCurrentUser } from "../../src/auth/session";
 import { prepareLocationServicesForSessionExit } from "../../src/location/service";
+import { useSignup } from "../../src/signup/context";
 
 
 
 export default function SettingsPage(){
     // const router = useRouter();
     const router = useRouter();
+    const { resetDraft } = useSignup();
     
     const [isVisible, setIsVisible] = useState(false)
     const [isVisible2, setIsVisible2] = useState(false)
@@ -38,6 +40,7 @@ export default function SettingsPage(){
     const [isVisible4, setIsVisible4] = useState(false)
     const [isVisible5, setIsVisible5] = useState(false)
     const [deleting, setDeleting] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
     const [reauthModalVisible, setReauthModalVisible] = useState(false);
     const [reauthPassword, setReauthPassword] = useState("");
     const [reauthenticating, setReauthenticating] = useState(false);
@@ -45,7 +48,20 @@ export default function SettingsPage(){
     //     router.replace("/(auth)/signup/hobbies");
     // }
     const handleLogout = async () => {
-        await signOutCurrentUser();
+        if (loggingOut) return;
+
+        try {
+          setLoggingOut(true);
+          await signOutCurrentUser();
+          router.replace("/(auth)/login");
+        } catch (e: any) {
+          Alert.alert(
+            "Logout failed",
+            e?.message ?? "We could not log you out right now. Please try again.",
+          );
+        } finally {
+          setLoggingOut(false);
+        }
     };
     
     const toggleQ1 = () => {
@@ -101,6 +117,14 @@ export default function SettingsPage(){
         setReauthModalVisible(false);
     };
 
+    const redirectToDeletedAccountLogin = () => {
+        resetDraft();
+        router.replace({
+          pathname: "/(auth)/login",
+          params: { showMessage: "DeletedAccount" },
+        });
+    };
+
     const finalizeDeleteAccount = async (userToDelete: User) => {
         await prepareLocationServicesForSessionExit();
         await deleteUser(userToDelete);
@@ -108,14 +132,16 @@ export default function SettingsPage(){
         setReauthPassword("");
         setReauthModalVisible(false);
 
+        if (Platform.OS === "web") {
+          (globalThis as any).alert?.("Your account has been deleted.");
+          redirectToDeletedAccountLogin();
+          return;
+        }
+
         Alert.alert("Account deleted", "Your account has been deleted.", [
           {
             text: "OK",
-            onPress: () =>
-              router.replace({
-                pathname: "/",
-                params: { showMessage: "DeletedAccount" },
-              }),
+            onPress: redirectToDeletedAccountLogin,
           },
         ]);
     };
@@ -335,8 +361,17 @@ export default function SettingsPage(){
             }
 
             {/* end of questions */}
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleLogout}>
-                <Text style={styles.secondaryButtonText}>Log Out</Text>
+            <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  loggingOut && styles.disabledButton,
+                ]}
+                onPress={handleLogout}
+                disabled={loggingOut}
+            >
+                <Text style={styles.secondaryButtonText}>
+                  {loggingOut ? "Logging out..." : "Log Out"}
+                </Text>
             </TouchableOpacity>
 
             <TouchableOpacity

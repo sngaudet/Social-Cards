@@ -16,48 +16,15 @@ import {
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
+import {
+  AVAILABLE_ICEBREAKER_QUESTIONS,
+  DEFAULT_ICEBREAKER_QUESTIONS,
+  getInitialSelectedIceBreakers,
+  MAX_ICEBREAKERS,
+  SelectedIceBreaker,
+} from "../../../src/lib/icebreakers";
 import { useSignup } from "../../../src/signup/context";
 import type { SignupDraft } from "../../../src/signup/types";
-
-const MAX_ICEBREAKERS = 3;
-
-const DEFAULT_ICEBREAKER_QUESTIONS = [
-  "What's your ideal weekend?",
-  "What food can you never say no to?",
-  "Share one fun fact about yourself",
-];
-
-const AVAILABLE_ICEBREAKER_QUESTIONS = [
-  ...DEFAULT_ICEBREAKER_QUESTIONS,
-  "What's your go-to coffee or energy drink?",
-  "Early bird or night owl?",
-  "What's one class you're excited about this semester?",
-  "Sweet snacks or salty snacks?",
-  "What music do you listen to while studying?",
-  "iPhone or Android?",
-  "What's your favorite campus spot to hang out?",
-  "What's the weirdest food combo you like?",
-  "If you could only eat one meal on campus forever, what would it be?",
-  "What's a TV show you can rewatch endlessly?",
-  "What's your most unpopular opinion?",
-  "If your life had a theme song, what would it be?",
-  "Would you rather have no homework ever again or free tuition?",
-  "What's the last thing you Googled?",
-  "What fictional world would you want to live in?",
-  "What's the best place to study on campus?",
-  "What class has challenged you the most so far?",
-  "Commuter or on-campus?",
-  "What's one campus event everyone should attend at least once?",
-  "What's your favorite thing about this school?",
-  "What's a campus secret or life hack you've learned?",
-  "Dining hall favorite or least favorite?",
-  "What building do you get lost in every time?",
-];
-
-type SelectedIceBreaker = {
-  question: string;
-  answer: string;
-};
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -68,7 +35,7 @@ function showAlert(title: string, message?: string) {
 }
 
 function getInitialIceBreakers(draft: SignupDraft) {
-  const slots = [
+  return getInitialSelectedIceBreakers([
     {
       question: draft.iceBreakerOneQuestion?.trim() ?? "",
       answer: draft.iceBreakerOne ?? "",
@@ -84,19 +51,7 @@ function getInitialIceBreakers(draft: SignupDraft) {
       answer: draft.iceBreakerThree ?? "",
       fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[2],
     },
-  ];
-
-  return slots.reduce<SelectedIceBreaker[]>((selected, slot) => {
-    const question = slot.question || (slot.answer.trim() ? slot.fallbackQuestion : "");
-    if (!question) return selected;
-    if (selected.some((item) => item.question === question)) return selected;
-
-    selected.push({
-      question,
-      answer: slot.answer,
-    });
-    return selected;
-  }, []);
+  ]);
 }
 
 export default function SignupIceBreakersStep() {

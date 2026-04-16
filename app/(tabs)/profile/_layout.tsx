@@ -50,7 +50,7 @@ export default function ProfileLayout() {
   }
 
   if (!user) {
-    return <Redirect href="/welcome" />;
+    return <Redirect href="/" />;
   }
 
   if (!user.emailVerified) {
