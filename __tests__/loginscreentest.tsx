@@ -57,6 +57,7 @@ describe("<Login />", () => {
     expect(getByPlaceholderText("Email")).toBeTruthy();
     expect(getByPlaceholderText("Password")).toBeTruthy();
     expect(getByText("Log In")).toBeTruthy();
+    expect(getByText("Forgot password?")).toBeTruthy();
     expect(getByText("Need an account? Sign Up Here")).toBeTruthy();
   });
 

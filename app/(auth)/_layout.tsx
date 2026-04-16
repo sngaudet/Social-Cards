@@ -30,6 +30,14 @@ export default function AuthLayout() {
   const backgroundColor = isAuthRoute ? SIGNUP_BACKGROUND_COLOR : "#FFFFFF";
 
   return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" options={{ title: "Login" }} />
+      <Stack.Screen
+        name="forgot-password"
+        options={{ title: "Forgot Password" }}
+      />
+      <Stack.Screen name="signup" options={{ title: "Sign Up" }} />
+    </Stack>
     <View
       style={{
         flex: 1,
