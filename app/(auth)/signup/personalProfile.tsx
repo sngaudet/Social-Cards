@@ -3,7 +3,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { CalendarDays, IdCard } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -26,6 +26,8 @@ import { useSignup } from "../../../src/signup/context";
 const DEFAULT_BIRTH_DATE = new Date(2000, 0, 1);
 const MIN_BIRTH_DATE = new Date(1900, 0, 1);
 const MAX_BIRTH_DATE = new Date();
+const webBirthDateRef = useRef<HTMLInputElement>(null);
+const dateInputRef = useRef<HTMLInputElement>(null);
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -176,13 +178,12 @@ export default function SignupPersonalProfileStep() {
             }}
             style={{
               width: "100%",
-              padding: "16px 0",
+              padding: "16px",
               fontSize: "18px",
               border: "none",
               background: "transparent",
               color: "#6B7280",
               outline: "none",
-              cursor: "pointer",
             }}
           />
         ) : (
@@ -194,10 +195,14 @@ export default function SignupPersonalProfileStep() {
             <Text style={dateOfBirth ? styles.dateText : styles.datePlaceholder}>
               {dateOfBirth ? formatDateForDisplay(dateOfBirth) : "Select date of birth"}
             </Text>
-            <CalendarDays size={20} color="#0b0b0b" />
+            <CalendarDays size={20} color="#000000" />
           </TouchableOpacity>
         )}
       </SignupFormField>
+
+
+
+
 
       <Text style={styles.dateHint}>You must be 18 or older to use Icebreakers.</Text>
 

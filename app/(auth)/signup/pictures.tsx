@@ -8,6 +8,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,43 +33,86 @@ export default function SignupPictures() {
   const [images, setImages] = useState<string[]>(initial);
   const [busy, setBusy] = useState(false);
 
-  const pickImage = async () => {
+  //
+const handleUpdateImages = (nextImages: string[]) => {
+    setImages(nextImages);
+    updateDraft({ photoUris: nextImages });
+  };
+
+
+const takePhoto = async () => {
     try {
       setBusy(true);
 
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Please allow photo library access.");
-        return;
+      if (Platform.OS !== "web") {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission needed", "Please allow camera access.");
+          return;
+        }
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsMultipleSelection: false,
-        quality: 0.7,
-        // New API: ImagePicker.MediaType / array of types
+      const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
       });
 
       if (result.canceled) return;
-
-      const uri = result.assets[0].uri;
-      const nextImages = images.includes(uri) ? images : [...images, uri];
-
-      setImages(nextImages);
-      updateDraft({ photoUris: nextImages });
-      //    router.push("/(auth)/signup/onboardingIntro");
+      const uri = result.assets?.[0]?.uri;
+      if (uri) {
+        const nextImages = [...images, uri];
+        handleUpdateImages(nextImages);
+      }
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "Failed to pick image.");
+      Alert.alert("Camera failed", e?.message ?? "Unknown error");
     } finally {
       setBusy(false);
     }
   };
 
+
+
+  // const pickImage = async () => {
+  //   try {
+  //     setBusy(true);
+
+  //     const { status } =
+  //       await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //     if (status !== "granted") {
+  //       Alert.alert("Permission needed", "Please allow photo library access.");
+  //       return;
+  //     }
+
+
+  //     const result = await ImagePicker.launchImageLibraryAsync({
+  //       allowsMultipleSelection: false,
+  //       quality: 0.7,
+  //       // New API: ImagePicker.MediaType / array of types
+  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     });
+
+  //     if (result.canceled) return;
+
+  //     const uri = result.assets[0].uri;
+  //     const nextImages = images.includes(uri) ? images : [...images, uri];
+
+  //     setImages(nextImages);
+  //     updateDraft({ photoUris: nextImages });
+  //     //    router.push("/(auth)/signup/onboardingIntro");
+  //   } catch (e: any) {
+  //     Alert.alert("Error", e?.message ?? "Failed to pick image.");
+  //   } finally {
+  //     setBusy(false);
+  //   }
+  // };
+
   const removeImage = (uri: string) => {
     const nextImages = images.filter((x) => x !== uri);
-    setImages(nextImages);
-    updateDraft({ photoUris: nextImages });
+    // setImages(nextImages);
+    // updateDraft({ photoUris: nextImages });
+    handleUpdateImages(nextImages);
   };
 
   const handleSkip = () => {
@@ -89,7 +133,7 @@ export default function SignupPictures() {
         {images.length === 0 ? (
           <View style={styles.placeholder}>
             <Feather name="image" size={40} color="#999" />
-            <Text style={styles.placeholderText}>Upload a photo</Text>
+            <Text style={styles.placeholderText}>Take a photo</Text>
           </View>
         ) : (
           <View style={styles.previewContainer}>
@@ -136,8 +180,8 @@ export default function SignupPictures() {
           images.length === 0
             ? busy
               ? "Opening..."
-              : "Upload Photo"
-            : "Keep Photo"
+              : "Take a Photo"
+            : "Continue"
         }
         //leftIcon={<Feather name="upload" size={18} color="#FFFFFF" />}
         leftIcon={
@@ -149,7 +193,7 @@ export default function SignupPictures() {
         //onPress={pickImage}
         onPress={() => {
           if (images.length === 0) {
-            pickImage();
+            takePhoto();
           } else {
             router.push("/(auth)/signup/onboardingIntro");
           }
