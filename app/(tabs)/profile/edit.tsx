@@ -371,23 +371,73 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
     };
   }, [initializing, loadProfile, refreshLocationControl, user]);
 
-  const pickNewPhoto = async () => {
+  // const pickNewPhoto = async () => {
+  //   try {
+  //     // Ask permission (mobile). On web, this is typically handled by the browser.
+  //     if (Platform.OS !== "web") {
+  //       const { status } =
+  //         await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //       if (status !== "granted") {
+  //         showAlert(
+  //           "Permission needed",
+  //           "Please allow photo library access.",
+  //         );
+  //         return;
+  //       }
+  //     }
+
+  //     const result = await ImagePicker.launchImageLibraryAsync({
+  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //       allowsEditing: true,
+  //       aspect: [1, 1],
+  //       quality: 0.85,
+  //     });
+
+  //     if (result.canceled) return;
+
+  //     const uri = result.assets?.[0]?.uri;
+  //     if (!uri) return;
+
+  //     setNewPhotoUri(uri);
+  //   } catch (e: any) {
+  //     showAlert("Photo pick failed", e?.message ?? "Unknown error");
+  //   }
+  // };
+  
+  const takePhoto = async () => {
     try {
       // Ask permission (mobile). On web, this is typically handled by the browser.
       if (Platform.OS !== "web") {
         const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
+          await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
           showAlert(
             "Permission needed",
-            "Please allow photo library access.",
+            "Please allow camera access to take a profile picture.",
           );
           return;
         }
       }
+      // else if (Platform.OS === "web"){
+      //   const input = document.createElement("input");
+      //   input.type = "file";
+      //   input.accept = "image/*"
+      //   input.setAttribute("capture", "user");
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      //   input.onchange = (event: any) => {
+      //     const file = event.target.files?.[0];
+      //     if (file) {
+      //       const uri = URL.createObjectURL(file);
+      //       setNewPhotoUri(uri);
+      //     }
+      //   };
+
+      //   input.click();
+      //   return;
+      // }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -400,7 +450,7 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
 
       setNewPhotoUri(uri);
     } catch (e: any) {
-      showAlert("Photo pick failed", e?.message ?? "Unknown error");
+      showAlert("Camera failed", e?.message ?? "Unknown error");
     }
   };
 
@@ -726,12 +776,12 @@ const onDateChange = (_: any, selectedDate?: Date) => {
               (saving) && styles.disabledButton,
               // (saving || deleting) && styles.disabledButton,
             ]}
-            onPress={pickNewPhoto}
+            onPress={takePhoto}
             // disabled={saving || deleting}
             disabled={saving}
           >
             <Text style={styles.secondaryOutlineText}>
-              {newPhotoUri ? "Change Selected Photo" : "Choose Photo"}
+              {newPhotoUri ? "Retake Photo" : "Take Photo"}
             </Text>
           </TouchableOpacity>
 
@@ -741,7 +791,7 @@ const onDateChange = (_: any, selectedDate?: Date) => {
             </Text>
           ) : (
             <Text style={styles.helperText}>
-              Tap “Choose Photo” to change or set your profile picture. Users
+              Tap "Take Photo” to take a picture with your device's camera. Users
               without a photo will have their avatar displayed instead.
             </Text>
           )}
@@ -840,7 +890,7 @@ const onDateChange = (_: any, selectedDate?: Date) => {
 <Text style={styles.metaLabel}>Date of Birth</Text>
 
 {Platform.OS === "web" ? (
-  <View style={styles.input}>
+  <View style={[styles.input, {padding: 0, position: 'relative'}]}>
     <input
       type="date"
       value={dateOfBirth || ""}
@@ -853,10 +903,19 @@ const onDateChange = (_: any, selectedDate?: Date) => {
       }}
       style={{
         width: "100%",
+        height: "100%",
+        padding: "10px",
         border: "none",
         outline: "none",
         backgroundColor: "transparent",
         fontSize: 16,
+        cursor: "pointer",
+        appearance: "none"
+        // width: "100%",
+        // border: "none",
+        // outline: "none",
+        // backgroundColor: "transparent",
+        // fontSize: 16,
       }}
     />
   </View>
@@ -878,7 +937,7 @@ const onDateChange = (_: any, selectedDate?: Date) => {
           {dateOfBirth || "Select date of birth"}
         </Text>
 
-        <CalendarDays size={20} color="#0b0b0b" />
+        <CalendarDays size={20} color="#a62222" />
       </View>
     </TouchableOpacity>
 

@@ -323,10 +323,13 @@ const styles = StyleSheet.create({
 
   imageDisplayView:{
     flexDirection: "row",
-    alignContent: "center",
+    // alignContent: "center",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 600,
+    justifyContent: "space-evenly",
+    paddingVertical: 20,
+    width: '100%',
+    // justifyContent: "space-between",
+    // paddingHorizontal: 600,
   },
 
   profileImage: {
