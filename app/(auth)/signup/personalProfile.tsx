@@ -26,8 +26,6 @@ import { useSignup } from "../../../src/signup/context";
 const DEFAULT_BIRTH_DATE = new Date(2000, 0, 1);
 const MIN_BIRTH_DATE = new Date(1930, 0, 1);
 const MAX_BIRTH_DATE = new Date();
-//const webBirthDateRef = useRef<HTMLInputElement>(null);
-//const dateInputRef = useRef<HTMLInputElement>(null);
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
