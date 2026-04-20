@@ -24,10 +24,8 @@ import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { useSignup } from "../../../src/signup/context";
 
 const DEFAULT_BIRTH_DATE = new Date(2000, 0, 1);
-const MIN_BIRTH_DATE = new Date(1900, 0, 1);
+const MIN_BIRTH_DATE = new Date(1930, 0, 1);
 const MAX_BIRTH_DATE = new Date();
-const webBirthDateRef = useRef<HTMLInputElement>(null);
-const dateInputRef = useRef<HTMLInputElement>(null);
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -62,13 +60,16 @@ export default function SignupPersonalProfileStep() {
   const router = useRouter();
   const { draft, updateDraft } = useSignup();
   const initialDateOfBirth = parseStoredDateOfBirth(draft.dateOfBirth);
+  const webDateInputRef = useRef<HTMLInputElement>(null);
 
   const [firstName, setFirstName] = useState(draft.firstName ?? "");
   const [lastName, setLastName] = useState(draft.lastName ?? "");
- 
+
   const [bio, setBio] = useState(draft.bio ?? "");
 
-  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(initialDateOfBirth);
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(
+    initialDateOfBirth,
+  );
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(
     initialDateOfBirth ?? DEFAULT_BIRTH_DATE,
@@ -97,6 +98,25 @@ export default function SignupPersonalProfileStep() {
     setShowPicker(true);
   };
 
+  const openWebDatePicker = () => {
+    const input = webDateInputRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
+
+    if (!input) return;
+
+    try {
+      input.showPicker?.();
+    } catch {
+      // Fall through to click/focus for browsers without showPicker support.
+    }
+
+    if (!input.showPicker) {
+      input.focus();
+      input.click();
+    }
+  };
+
   const closeDatePicker = () => {
     setShowPicker(false);
     setPickerDate(dateOfBirth ?? DEFAULT_BIRTH_DATE);
@@ -108,24 +128,24 @@ export default function SignupPersonalProfileStep() {
   };
 
   const onNext = () => {
-  const trimmedBio = bio.trim();
+    const trimmedBio = bio.trim();
 
-  if (!firstName.trim() || !lastName.trim() || !dateOfBirth || !trimmedBio) {
-    showAlert("Missing fields", "Please complete all fields.");
+    if (!firstName.trim() || !lastName.trim() || !dateOfBirth || !trimmedBio) {
+      showAlert("Missing fields", "Please complete all fields.");
       return;
-  }
+    }
 
-  const normalizedDOB = formatDateForStorage(dateOfBirth);
+    const normalizedDOB = formatDateForStorage(dateOfBirth);
 
-  updateDraft({
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    dateOfBirth: normalizedDOB,
-    bio: trimmedBio,
-  });
+    updateDraft({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      dateOfBirth: normalizedDOB,
+      bio: trimmedBio,
+    });
 
-  router.push("/(auth)/signup/academicProfile");
-};
+    router.push("/(auth)/signup/academicProfile");
+  };
 
   return (
     <ScrollView
@@ -141,7 +161,13 @@ export default function SignupPersonalProfileStep() {
       />
       {/* <Text style={styles.requiredText}>* All fields are required to be filled in</Text> */}
       <Text> </Text>
-      <SignupFormField label={<Text>First Name<Text style={styles.requiredText}>*</Text></Text>} >
+      <SignupFormField
+        label={
+          <Text>
+            First Name<Text style={styles.requiredText}>*</Text>
+          </Text>
+        }
+      >
         <TextInput
           placeholder="e.g. Alex"
           placeholderTextColor="#9CA3AF"
@@ -149,10 +175,21 @@ export default function SignupPersonalProfileStep() {
           onChangeText={setFirstName}
           style={styles.input}
         />
-        <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
+        <IdCard
+          size={20}
+          color="#0b0b0b"
+          strokeWidth={2}
+          style={styles.trailingIcon}
+        />
       </SignupFormField>
 
-      <SignupFormField label={<Text>Last Name<Text style={styles.requiredText}>*</Text></Text>}>
+      <SignupFormField
+        label={
+          <Text>
+            Last Name<Text style={styles.requiredText}>*</Text>
+          </Text>
+        }
+      >
         <TextInput
           placeholder="e.g. Fauly"
           placeholderTextColor="#9CA3AF"
@@ -160,54 +197,108 @@ export default function SignupPersonalProfileStep() {
           onChangeText={setLastName}
           style={styles.input}
         />
-        <IdCard size={20} color="#0b0b0b" strokeWidth={2} style={styles.trailingIcon} />
+        <IdCard
+          size={20}
+          color="#0b0b0b"
+          strokeWidth={2}
+          style={styles.trailingIcon}
+        />
       </SignupFormField>
 
-      <SignupFormField label={<Text>Date of Birth<Text style={styles.requiredText}>*</Text></Text>}>
+      <SignupFormField
+        label={
+          <Text>
+            Date of Birth<Text style={styles.requiredText}>*</Text>
+          </Text>
+        }
+      >
         {Platform.OS === "web" ? (
-          <input
-            type="date"
-            value={dateOfBirth ? formatDateForStorage(dateOfBirth) : ""}
-            max={formatDateForStorage(MAX_BIRTH_DATE)}
-            onChange={(e) => {
-              const nextDate = parseStoredDateOfBirth(e.target.value);
-              setDateOfBirth(nextDate);
-              if (nextDate) {
-                setPickerDate(nextDate);
-              }
-            }}
-            style={{
-              width: "100%",
-              padding: "16px",
-              fontSize: "18px",
-              border: "none",
-              background: "transparent",
-              color: "#6B7280",
-              outline: "none",
-            }}
-          />
+          <Pressable
+            style={styles.webDateField}
+            onPress={openWebDatePicker}
+            accessibilityRole="button"
+          >
+            <View style={styles.webDateDisplay} pointerEvents="none">
+              <Text
+                style={dateOfBirth ? styles.dateText : styles.datePlaceholder}
+              >
+                {dateOfBirth
+                  ? formatDateForDisplay(dateOfBirth)
+                  : "Select date of birth"}
+              </Text>
+              <CalendarDays size={20} color="#000000" />
+            </View>
+            <input
+              ref={webDateInputRef}
+              type="date"
+              value={dateOfBirth ? formatDateForStorage(dateOfBirth) : ""}
+              min={formatDateForStorage(MIN_BIRTH_DATE)}
+              max={formatDateForStorage(MAX_BIRTH_DATE)}
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                const nextDate = parseStoredDateOfBirth(e.target.value);
+                setDateOfBirth(nextDate);
+                if (nextDate) {
+                  setPickerDate(nextDate);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (
+                  event.key.length === 1 ||
+                  [
+                    "ArrowDown",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "ArrowUp",
+                    "Backspace",
+                    "Delete",
+                    "End",
+                    "Home",
+                    "PageDown",
+                    "PageUp",
+                  ].includes(event.key)
+                ) {
+                  event.preventDefault();
+                }
+              }}
+              onPaste={(event) => event.preventDefault()}
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 0,
+                pointerEvents: "none",
+              }}
+            />
+          </Pressable>
         ) : (
           <TouchableOpacity
             style={styles.datePressable}
             onPress={openDatePicker}
             activeOpacity={0.7}
           >
-            <Text style={dateOfBirth ? styles.dateText : styles.datePlaceholder}>
-              {dateOfBirth ? formatDateForDisplay(dateOfBirth) : "Select date of birth"}
+            <Text
+              style={dateOfBirth ? styles.dateText : styles.datePlaceholder}
+            >
+              {dateOfBirth
+                ? formatDateForDisplay(dateOfBirth)
+                : "Select date of birth"}
             </Text>
             <CalendarDays size={20} color="#000000" />
           </TouchableOpacity>
         )}
       </SignupFormField>
 
-
-
-
-
-      <Text style={styles.dateHint}>You must be 18 or older to use Icebreakers.</Text>
+      <Text style={styles.dateHint}>
+        You must be 18 or older to use Icebreakers.
+      </Text>
 
       <SignupFormField
-        label={<Text>Short Bio<Text style={styles.requiredText}>*</Text></Text>}
+        label={
+          <Text>
+            Short Bio<Text style={styles.requiredText}>*</Text>
+          </Text>
+        }
         rightLabel={`${bio.length}/140`}
         contentStyle={styles.bioWrapper}
       >
@@ -230,7 +321,10 @@ export default function SignupPersonalProfileStep() {
         onPress={onNext}
       />
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => router.back()}
+      >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
 
@@ -242,9 +336,14 @@ export default function SignupPersonalProfileStep() {
           onRequestClose={closeDatePicker}
         >
           <View style={styles.dateModalRoot}>
-            <Pressable style={styles.dateModalBackdrop} onPress={closeDatePicker} />
+            <Pressable
+              style={styles.dateModalBackdrop}
+              onPress={closeDatePicker}
+            />
             <View style={styles.dateModalCard}>
-              <Text style={styles.dateModalTitle}>Select your date of birth</Text>
+              <Text style={styles.dateModalTitle}>
+                Select your date of birth
+              </Text>
               <DateTimePicker
                 value={pickerDate}
                 mode="date"
@@ -332,6 +431,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  webDateField: {
+    flex: 1,
+    marginHorizontal: -18,
+    paddingHorizontal: 18,
+  },
+  webDateDisplay: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+  },
   dateText: {
     fontSize: 18,
     color: "#6B7280",
@@ -393,7 +503,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-  requiredText: { color: "#aa1515", fontSize: 20,},
+  requiredText: { color: "#aa1515", fontSize: 20 },
   primaryButton: { alignSelf: "center", marginBottom: 16 },
   secondaryButton: { padding: 12, alignItems: "center" },
   secondaryText: { color: "#444", fontSize: 14 },
