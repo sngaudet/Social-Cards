@@ -1,14 +1,19 @@
 import { Feather } from "@expo/vector-icons";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -68,9 +73,6 @@ import {
   PreConnectionVisibility,
 } from "../../../src/profile/visibility";
 
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
-
 type UserDoc = {
   email?: string;
   firstName?: string;
@@ -112,12 +114,36 @@ const toIntOrNull = (v: any): number | null => {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 };
 
+const DEFAULT_BIRTH_DATE = new Date(2000, 0, 1);
+const MIN_BIRTH_DATE = new Date(1930, 0, 1);
+const MAX_BIRTH_DATE = new Date();
+
+function parseStoredDateOfBirth(value: string | undefined): Date | null {
+  const normalized = normalizeDateOfBirth(value);
+  if (!normalized) return null;
+
+  const [year, month, day] = normalized.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateForStorage(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function formatDateForDisplay(value: Date): string {
+  return value.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function EditProfile() {
   const router = useRouter();
   const { user, initializing } = useAuth();
+  const webDateInputRef = useRef<HTMLInputElement>(null);
 
-
-  
   // const viewSave = () => {
   //       setSaveComplete(true);
   //   };
@@ -134,7 +160,7 @@ export default function EditProfile() {
   const [lastName, setLastName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
-const [pickerDate, setPickerDate] = useState<Date>(new Date());
+  const [pickerDate, setPickerDate] = useState<Date>(DEFAULT_BIRTH_DATE);
   const [bio, setBio] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [gradYear, setGradYear] = useState<number | null>(null);
@@ -167,7 +193,7 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
 
   const selectedIceBreakerCount = selectedIceBreakers.length;
   const filledIceBreakerCount = selectedIceBreakers.filter((item) =>
-    item.answer.trim()
+    item.answer.trim(),
   ).length;
   const icebreakerProgressWidth =
     `${(selectedIceBreakerCount / MAX_ICEBREAKERS) * 100}%` as `${number}%`;
@@ -260,79 +286,87 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
     setLocationControl(status);
   }, []);
 
-  const loadProfile = useCallback(async (userId: string) => {
-    const ref = doc(db, "users", userId);
-    const snap = await getDoc(ref);
+  const loadProfile = useCallback(
+    async (userId: string) => {
+      const ref = doc(db, "users", userId);
+      const snap = await getDoc(ref);
 
-    if (!snap.exists()) {
-      // doc missing: keep everything blank
-      setFirstName("");
-      setLastName("");
-      setDateOfBirth("");
-      setBio("");
-      setPronouns("");
-      setGradYear(null);
-      setMajor("");
-      setMajorSearchText("");
-      setIsCustomMajor(false);
-      setMinor("");
-      setMinorSearchText("");
-      setIsCustomMinor(false);
-      setSelectedIceBreakers([]);
-      setSelectedHobbies([]);
-      setPreConnectionVisibility(normalizePreConnectionVisibility(undefined));
-      return;
-    }
+      if (!snap.exists()) {
+        // doc missing: keep everything blank
+        setFirstName("");
+        setLastName("");
+        setDateOfBirth("");
+        setPickerDate(DEFAULT_BIRTH_DATE);
+        setBio("");
+        setPronouns("");
+        setGradYear(null);
+        setMajor("");
+        setMajorSearchText("");
+        setIsCustomMajor(false);
+        setMinor("");
+        setMinorSearchText("");
+        setIsCustomMinor(false);
+        setSelectedIceBreakers([]);
+        setSelectedHobbies([]);
+        setPreConnectionVisibility(normalizePreConnectionVisibility(undefined));
+        return;
+      }
 
-    const d = snap.data() as UserDoc;
+      const d = snap.data() as UserDoc;
 
-    setPhotoURL(d.photoURL ?? "");
-    setNewPhotoUri(null); // reset local selection when reloading
+      setPhotoURL(d.photoURL ?? "");
+      setNewPhotoUri(null); // reset local selection when reloading
 
-    setEmail(d.email ?? user?.email ?? "");
+      setEmail(d.email ?? user?.email ?? "");
 
-    setFirstName(d.firstName ?? "");
-    setLastName(d.lastName ?? "");
-    setDateOfBirth(normalizeDateOfBirth(d.dateOfBirth));
-    setBio(d.bio ?? "");
-    setPronouns(d.pronouns ?? d.Gender ?? "");
-    setGradYear(toIntOrNull(d.gradYear));
-    const nextMajor = d.major ?? "";
-    const nextMinor = d.minor ?? "";
-    setMajor(nextMajor);
-    setMajorSearchText(nextMajor);
-    setIsCustomMajor(
-      Boolean(nextMajor.trim()) && !isPresetAcademicProgram(nextMajor),
-    );
-    setMinor(nextMinor);
-    setMinorSearchText(nextMinor);
-    setIsCustomMinor(
-      Boolean(nextMinor.trim()) && !isPresetAcademicProgram(nextMinor),
-    );
-    setSelectedIceBreakers(
-      getInitialSelectedIceBreakers([
-        {
-          question: d.iceBreakerOneQuestion?.trim() ?? "",
-          answer: d.iceBreakerOne ?? "",
-          fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[0],
-        },
-        {
-          question: d.iceBreakerTwoQuestion?.trim() ?? "",
-          answer: d.iceBreakerTwo ?? "",
-          fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[1],
-        },
-        {
-          question: d.iceBreakerThreeQuestion?.trim() ?? "",
-          answer: d.iceBreakerThree ?? "",
-          fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[2],
-        },
-      ]),
-    );
-    setSelectedHobbies(getInitialSelectedHobbyKeys(d.hobbies));
-    setPreConnectionVisibility(
-      normalizePreConnectionVisibility(d.preConnectionVisibility),
-    );
-  }, [user]);
+      setFirstName(d.firstName ?? "");
+      setLastName(d.lastName ?? "");
+      const normalizedDateOfBirth = normalizeDateOfBirth(d.dateOfBirth);
+      setDateOfBirth(normalizedDateOfBirth);
+      setPickerDate(
+        parseStoredDateOfBirth(normalizedDateOfBirth) ?? DEFAULT_BIRTH_DATE,
+      );
+      setBio(d.bio ?? "");
+      setPronouns(d.pronouns ?? d.Gender ?? "");
+      setGradYear(toIntOrNull(d.gradYear));
+      const nextMajor = d.major ?? "";
+      const nextMinor = d.minor ?? "";
+      setMajor(nextMajor);
+      setMajorSearchText(nextMajor);
+      setIsCustomMajor(
+        Boolean(nextMajor.trim()) && !isPresetAcademicProgram(nextMajor),
+      );
+      setMinor(nextMinor);
+      setMinorSearchText(nextMinor);
+      setIsCustomMinor(
+        Boolean(nextMinor.trim()) && !isPresetAcademicProgram(nextMinor),
+      );
+      setSelectedIceBreakers(
+        getInitialSelectedIceBreakers([
+          {
+            question: d.iceBreakerOneQuestion?.trim() ?? "",
+            answer: d.iceBreakerOne ?? "",
+            fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[0],
+          },
+          {
+            question: d.iceBreakerTwoQuestion?.trim() ?? "",
+            answer: d.iceBreakerTwo ?? "",
+            fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[1],
+          },
+          {
+            question: d.iceBreakerThreeQuestion?.trim() ?? "",
+            answer: d.iceBreakerThree ?? "",
+            fallbackQuestion: DEFAULT_ICEBREAKER_QUESTIONS[2],
+          },
+        ]),
+      );
+      setSelectedHobbies(getInitialSelectedHobbyKeys(d.hobbies));
+      setPreConnectionVisibility(
+        normalizePreConnectionVisibility(d.preConnectionVisibility),
+      );
+    },
+    [user],
+  );
 
   useEffect(() => {
     if (initializing) return;
@@ -403,13 +437,12 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
   //     showAlert("Photo pick failed", e?.message ?? "Unknown error");
   //   }
   // };
-  
+
   const takePhoto = async () => {
     try {
       // Ask permission (mobile). On web, this is typically handled by the browser.
       if (Platform.OS !== "web") {
-        const { status } =
-          await ImagePicker.requestCameraPermissionsAsync();
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
           showAlert(
             "Permission needed",
@@ -437,7 +470,7 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
       // }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'images',
+        mediaTypes: "images",
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
@@ -492,20 +525,60 @@ const [pickerDate, setPickerDate] = useState<Date>(new Date());
     }
     return true;
   };
-const openDatePicker = () => {
-  setShowDatePicker(true);
-};
+  const openDatePicker = () => {
+    const currentValue = parseStoredDateOfBirth(dateOfBirth) ?? pickerDate;
 
-const onDateChange = (_: any, selectedDate?: Date) => {
-  setShowDatePicker(false);
-  if (selectedDate) {
-    setPickerDate(selectedDate);
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: currentValue,
+        mode: "date",
+        display: "calendar",
+        maximumDate: MAX_BIRTH_DATE,
+        minimumDate: MIN_BIRTH_DATE,
+        onChange: (event, selectedDate) => {
+          if (event.type !== "set" || !selectedDate) return;
+          setDateOfBirth(formatDateForStorage(selectedDate));
+          setPickerDate(selectedDate);
+        },
+      });
+      return;
+    }
 
-    // convert to YYYY-MM-DD (your existing format)
-    const iso = selectedDate.toISOString().split("T")[0];
-    setDateOfBirth(iso);
-  }
-};
+    setPickerDate(currentValue);
+    setShowDatePicker(true);
+  };
+
+  const openWebDatePicker = () => {
+    const input = webDateInputRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
+
+    if (!input) return;
+
+    try {
+      input.showPicker?.();
+    } catch {
+      // Fall through to click/focus for browsers without showPicker support.
+    }
+
+    if (!input.showPicker) {
+      input.focus();
+      input.click();
+    }
+  };
+
+  const closeDatePicker = () => {
+    setShowDatePicker(false);
+    setPickerDate(parseStoredDateOfBirth(dateOfBirth) ?? DEFAULT_BIRTH_DATE);
+  };
+
+  const confirmDatePicker = () => {
+    setDateOfBirth(formatDateForStorage(pickerDate));
+    setShowDatePicker(false);
+  };
+
+  const displayedDateOfBirth = parseStoredDateOfBirth(dateOfBirth);
+
   const onSave = async () => {
     if (!uid) return;
     if (!validate()) return;
@@ -524,7 +597,7 @@ const onDateChange = (_: any, selectedDate?: Date) => {
       const normalizedDateOfBirth = normalizeDateOfBirth(dateOfBirth);
       const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
       const completedIceBreakers = selectedIceBreakers.filter((item) =>
-        item.answer.trim()
+        item.answer.trim(),
       );
 
       if (completedIceBreakers.length < MAX_ICEBREAKERS) {
@@ -621,90 +694,6 @@ const onDateChange = (_: any, selectedDate?: Date) => {
     }
   };
 
-  // // ===== Delete account (Firestore doc + Auth user) =====
-
-  // const confirmDeleteAccount = () => {
-  //   if (Platform.OS === "web") {
-  //     const first = (globalThis as any).confirm?.(
-  //       "Delete account?\nThis will permanently delete your profile.",
-  //     );
-  //     if (!first) return Promise.resolve(false);
-
-  //     const second = (globalThis as any).confirm?.(
-  //       "This cannot be undone. Delete your account?",
-  //     );
-  //     return Promise.resolve(Boolean(second));
-  //   }
-
-  //   return new Promise<boolean>((resolve) => {
-  //     Alert.alert(
-  //       "Delete account?",
-  //       "This will permanently delete your account.",
-  //       [
-  //         { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-  //         {
-  //           text: "Delete",
-  //           style: "destructive",
-  //           onPress: () => resolve(true),
-  //         },
-  //       ],
-  //     );
-  //   });
-  // };
-
-  // const deleteFirestoreProfile = async (userId: string) => {
-  //   // If you later store more collections (matches/chats/photos), you’ll delete those here too.
-  //   await deleteDoc(doc(db, "users", userId));
-  // };
-
-  // const onDeleteAccount = async () => {
-  //   if (!uid) return;
-
-  //   const confirmed = await confirmDeleteAccount();
-  //   if (!confirmed) return;
-
-  //   const user: User | null = auth.currentUser;
-  //   if (!user) {
-  //     router.replace("/(auth)/login");
-  //     return;
-  //   }
-
-  //   try {
-  //     setDeleting(true);
-
-  //     //   // 1) Delete Firestore profile doc first (so you don't leave orphaned data)
-  //     //   await deleteFirestoreProfile(uid);
-
-  //     // 2) Delete Auth user
-  //     await deleteUser(user);
-
-  //     Alert.alert("Account deleted", "Your account has been deleted.", [
-  //       { text: "OK", onPress: () => router.replace("/(auth)/login") },
-  //     ]);
-  //   } catch (e: any) {
-  //     const code = e?.code as string | undefined;
-
-  //     if (code === "auth/requires-recent-login") {
-  //       Alert.alert(
-  //         "Please log in again",
-  //         "For security, please log in again and then try deleting your account.",
-  //       );
-  //       // optional: sign out and send them to login
-  //       try {
-  //         await signOut(auth);
-  //       } catch {}
-  //       router.replace("/(auth)/login");
-  //     } else {
-  //       Alert.alert(
-  //         "Delete failed",
-  //         e?.message ?? "Please log in again and try deleting your account.",
-  //       );
-  //     }
-  //   } finally {
-  //     setDeleting(false);
-  //   }
-  // };
-
   const onToggleLocationSharing = async (nextValue: boolean) => {
     try {
       setLocationBusy(true);
@@ -751,655 +740,724 @@ const onDateChange = (_: any, selectedDate?: Date) => {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-      {/* {saveComplete && router.replace("/(auth)/login")} */}
+        {/* {saveComplete && router.replace("/(auth)/login")} */}
 
-      <Text style={styles.title}>Edit Profile</Text>
+        <Text style={styles.title}>Edit Profile</Text>
 
-      <Text style={styles.sectionTitle}>Profile Photo</Text>
+        <Text style={styles.sectionTitle}>Profile Photo</Text>
 
-      <View style={styles.photoRow}>
-        {newPhotoUri || photoURL ? (
-          <Image
-            source={{ uri: newPhotoUri ?? photoURL }}
-            style={styles.profileImage}
-          />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Text style={{ color: "#999" }}>No Photo</Text>
-          </View>
-        )}
-
-        <View style={{ flex: 1 }}>
-          <TouchableOpacity
-            style={[
-              styles.secondaryOutlineButton,
-              (saving) && styles.disabledButton,
-              // (saving || deleting) && styles.disabledButton,
-            ]}
-            onPress={takePhoto}
-            // disabled={saving || deleting}
-            disabled={saving}
-          >
-            <Text style={styles.secondaryOutlineText}>
-              {newPhotoUri ? "Retake Photo" : "Take Photo"}
-            </Text>
-          </TouchableOpacity>
-
-          {newPhotoUri ? (
-            <Text style={styles.helperText}>
-              New photo selected. Tap “Save Changes” to upload.
-            </Text>
+        <View style={styles.photoRow}>
+          {newPhotoUri || photoURL ? (
+            <Image
+              source={{ uri: newPhotoUri ?? photoURL }}
+              style={styles.profileImage}
+            />
           ) : (
-            <Text style={styles.helperText}>
-              Tap "Take Photo” to take a picture with your device's camera. Users
-              without a photo will have their avatar displayed instead.
-            </Text>
+            <View style={styles.placeholderImage}>
+              <Text style={{ color: "#999" }}>No Photo</Text>
+            </View>
           )}
-        </View>
-      </View>
 
-      <View style={styles.divider} />
-
-      <View style={styles.userCard}>
-        <Text style={styles.sectionTitle}>Account</Text>
-
-        <Text style={styles.metaLabel}>Email (read-only)</Text>
-        <Text style={styles.readonlyValue}>{email || "-"}</Text>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.sectionTitle}>Location Control</Text>
-
-        <View style={styles.locationRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.metaLabel}>
-              Share my location for nearby matches
-            </Text>
-            <Text style={styles.helperText}>
-              Background/minimized updates are supported. iOS force-closed
-              behavior is best effort.
-            </Text>
-          </View>
-          <Switch
-            value={locationControl?.sharingEnabled ?? true}
-            onValueChange={onToggleLocationSharing}
-            // disabled={locationBusy || saving || deleting}
-            disabled={locationBusy || saving}
-          />
-        </View>
-
-        <Text style={styles.metaLabel}>Permission</Text>
-        <Text style={styles.readonlyValue}>
-          {prettyPermission(locationControl?.permissionStatus)}
-        </Text>
-
-        <Text style={styles.metaLabel}>Last location update</Text>
-        <Text style={styles.readonlyValue}>
-          {prettyLastSeen(locationControl?.lastLocationAt)}
-        </Text>
-
-        <Text style={styles.metaLabel}>Last accuracy (meters)</Text>
-        <Text style={styles.readonlyValue}>
-          {locationControl?.lastAccuracyM == null
-            ? "-"
-            : String(Math.round(locationControl.lastAccuracyM))}
-        </Text>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.sectionTitle}>Visible Before Connection</Text>
-        <Text style={styles.helperText}>
-          Connected users can always see your full profile. These toggles only
-          control what non-connections can see first.
-        </Text>
-
-        {PRE_CONNECTION_VISIBILITY_FIELDS.map((field) => (
-          <View key={field.key} style={styles.visibilityRow}>
-            <Text style={styles.metaLabel}>{field.label}</Text>
-            <Switch
-              value={preConnectionVisibility[field.key]}
-              onValueChange={(value) =>
-                setPreConnectionVisibility((current) => ({
-                  ...current,
-                  [field.key]: value,
-                }))
-              }
+            <TouchableOpacity
+              style={[
+                styles.secondaryOutlineButton,
+                saving && styles.disabledButton,
+                // (saving || deleting) && styles.disabledButton,
+              ]}
+              onPress={takePhoto}
               // disabled={saving || deleting}
               disabled={saving}
-            />
+            >
+              <Text style={styles.secondaryOutlineText}>
+                {newPhotoUri ? "Retake Photo" : "Take Photo"}
+              </Text>
+            </TouchableOpacity>
+
+            {newPhotoUri ? (
+              <Text style={styles.helperText}>
+                New photo selected. Tap Save Changes to upload.
+              </Text>
+            ) : (
+              <Text style={styles.helperText}>
+                {
+                  'Tap "Take Photo" to take a picture with your device camera. Users without a photo will have their avatar displayed instead.'
+                }
+              </Text>
+            )}
           </View>
-        ))}
+        </View>
 
         <View style={styles.divider} />
 
-        <Text style={styles.sectionTitle}>Basics</Text>
+        <View style={styles.userCard}>
+          <Text style={styles.sectionTitle}>Account</Text>
 
-        <Text style={styles.metaLabel}>First Name</Text>
-        <TextInput
-          value={firstName}
-          onChangeText={setFirstName}
-          style={styles.input}
-        />
+          <Text style={styles.metaLabel}>Email (read-only)</Text>
+          <Text style={styles.readonlyValue}>{email || "-"}</Text>
 
-        <Text style={styles.metaLabel}>Last Name</Text>
-        <TextInput
-          value={lastName}
-          onChangeText={setLastName}
-          style={styles.input}
-        />
-<Text style={styles.metaLabel}>Date of Birth</Text>
+          <View style={styles.divider} />
 
-{Platform.OS === "web" ? (
-  <View style={[styles.input, {padding: 0, position: 'relative'}]}>
-    <input
-      type="date"
-      value={dateOfBirth || ""}
-      onChange={(e: any) => {
-        const value = e.target.value;
-        setDateOfBirth(value);
-        if (value) {
-          setPickerDate(new Date(value));
-        }
-      }}
-      style={{
-        width: "100%",
-        height: "100%",
-        padding: "10px",
-        border: "none",
-        outline: "none",
-        backgroundColor: "transparent",
-        fontSize: 16,
-        cursor: "pointer",
-        appearance: "none"
-        // width: "100%",
-        // border: "none",
-        // outline: "none",
-        // backgroundColor: "transparent",
-        // fontSize: 16,
-      }}
-    />
-  </View>
-) : (
-  <>
-    <TouchableOpacity
-      style={styles.input}
-      onPress={openDatePicker}
-      activeOpacity={0.7}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ color: dateOfBirth ? "#000" : "#999" }}>
-          {dateOfBirth || "Select date of birth"}
-        </Text>
+          <Text style={styles.sectionTitle}>Location Control</Text>
 
-        <CalendarDays size={20} color="#a62222" />
-      </View>
-    </TouchableOpacity>
+          <View style={styles.locationRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.metaLabel}>
+                Share my location for nearby matches
+              </Text>
+              <Text style={styles.helperText}>
+                Background/minimized updates are supported. iOS force-closed
+                behavior is best effort.
+              </Text>
+            </View>
+            <Switch
+              value={locationControl?.sharingEnabled ?? true}
+              onValueChange={onToggleLocationSharing}
+              // disabled={locationBusy || saving || deleting}
+              disabled={locationBusy || saving}
+            />
+          </View>
 
-    {showDatePicker && (
-      <DateTimePicker
-        value={pickerDate}
-        mode="date"
-        display="default"
-        maximumDate={new Date()}
-        onChange={onDateChange}
-      />
-    )}
-  </>
-)}
-        <Text style={styles.metaLabel}>Bio</Text>
-        <TextInput
-          value={bio}
-          onChangeText={(value) => setBio(value.slice(0, 140))}
-          style={[styles.input, styles.multiline]}
-          multiline
-          textAlignVertical="top"
-        />
+          <Text style={styles.metaLabel}>Permission</Text>
+          <Text style={styles.readonlyValue}>
+            {prettyPermission(locationControl?.permissionStatus)}
+          </Text>
 
-        <Text style={styles.metaLabel}>Pronouns</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={pronouns}
-            onValueChange={(v) => setPronouns(String(v))}
-          >
-            <Picker.Item label="Select pronouns..." value="" />
-            <Picker.Item label="He / Him" value="he/him" />
-            <Picker.Item label="She / Her" value="she/her" />
-            <Picker.Item label="They / Them" value="they/them" />
-            <Picker.Item label="He / They" value="he/they" />
-            <Picker.Item label="She / They" value="she/they" />
-            <Picker.Item label="Other" value="other" />
-            <Picker.Item label="Prefer not to say" value="prefer_not_to_say" />
-          </Picker>
-        </View>
+          <Text style={styles.metaLabel}>Last location update</Text>
+          <Text style={styles.readonlyValue}>
+            {prettyLastSeen(locationControl?.lastLocationAt)}
+          </Text>
 
-        <Text style={styles.metaLabel}>Graduation Year</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={gradYear}
-            onValueChange={(v) => setGradYear(v === null ? null : Number(v))}
-          >
-            <Picker.Item label="Select graduation year..." value={null} />
-            {years.map((y) => (
-              <Picker.Item key={y} label={String(y)} value={y} />
-            ))}
-          </Picker>
-        </View>
+          <Text style={styles.metaLabel}>Last accuracy (meters)</Text>
+          <Text style={styles.readonlyValue}>
+            {locationControl?.lastAccuracyM == null
+              ? "-"
+              : String(Math.round(locationControl.lastAccuracyM))}
+          </Text>
 
-        <Text style={styles.metaLabel}>Major</Text>
-        <View
-          style={[styles.autocompleteFieldShell, styles.topAutocompleteShell]}
-        >
-          {isCustomMajor ? (
-            <View style={styles.customInputRow}>
-              <TextInput
-                placeholder="Type your major"
-                placeholderTextColor="#9CA3AF"
-                value={major}
-                onChangeText={setMajor}
-                autoCapitalize="words"
-                autoCorrect={false}
-                style={styles.customInput}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  setIsCustomMajor(false);
-                  setMajor("");
-                  setMajorSearchText("");
-                }}
-                style={styles.swapFieldButton}
-              >
-                <Text style={styles.swapFieldButtonText}>Back to list</Text>
-              </TouchableOpacity>
-              <Feather
-                name="book"
-                size={20}
-                color="#90AEFF"
-                style={styles.customInputIcon}
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Visible Before Connection</Text>
+          <Text style={styles.helperText}>
+            Connected users can always see your full profile. These toggles only
+            control what non-connections can see first.
+          </Text>
+
+          {PRE_CONNECTION_VISIBILITY_FIELDS.map((field) => (
+            <View key={field.key} style={styles.visibilityRow}>
+              <Text style={styles.metaLabel}>{field.label}</Text>
+              <Switch
+                value={preConnectionVisibility[field.key]}
+                onValueChange={(value) =>
+                  setPreConnectionVisibility((current) => ({
+                    ...current,
+                    [field.key]: value,
+                  }))
+                }
+                // disabled={saving || deleting}
+                disabled={saving}
               />
             </View>
-          ) : (
-            <AutocompleteDropdown
-              dataSet={ACADEMIC_PROGRAM_OPTIONS}
-              initialValue={getAcademicProgramInitialValue(major)}
-              onSelectItem={(item) => {
-                if (item?.id === OTHER_PROGRAM_OPTION_ID) {
-                  setIsCustomMajor(true);
-                  setMajor("");
-                  setMajorSearchText("");
-                  return;
-                }
+          ))}
 
-                commitPresetAcademicProgram("major", item);
-              }}
-              onChangeText={setMajorSearchText}
-              onClear={() => {
-                setMajor("");
-                setMajorSearchText("");
-              }}
-              clearOnFocus={false}
-              closeOnBlur
-              closeOnSubmit
-              showChevron={false}
-              showClear
-              inputHeight={44}
-              suggestionsListMaxHeight={220}
-              containerStyle={styles.autocompleteContainer}
-              inputContainerStyle={styles.autocompleteInputContainer}
-              rightButtonsContainerStyle={styles.autocompleteRightButtons}
-              suggestionsListContainerStyle={styles.suggestionsListContainer}
-              suggestionsListTextStyle={styles.suggestionsListText}
-              textInputProps={{
-                placeholder: "Choose a major or select Other",
-                placeholderTextColor: "#9CA3AF",
-                value: majorSearchText,
-                autoCapitalize: "words",
-                autoCorrect: false,
-                onBlur: () => handleAcademicProgramBlur("major"),
-                style: styles.autocompleteInput,
-              }}
-              RightIconComponent={
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Basics</Text>
+
+          <Text style={styles.metaLabel}>First Name</Text>
+          <TextInput
+            value={firstName}
+            onChangeText={setFirstName}
+            style={styles.input}
+          />
+
+          <Text style={styles.metaLabel}>Last Name</Text>
+          <TextInput
+            value={lastName}
+            onChangeText={setLastName}
+            style={styles.input}
+          />
+          <Text style={styles.metaLabel}>Date of Birth</Text>
+
+          {Platform.OS === "web" ? (
+            <Pressable
+              style={[styles.input, styles.webDateField]}
+              onPress={openWebDatePicker}
+              accessibilityRole="button"
+            >
+              <View style={styles.webDateDisplay} pointerEvents="none">
+                <Text
+                  style={dateOfBirth ? styles.dateText : styles.datePlaceholder}
+                >
+                  {displayedDateOfBirth
+                    ? formatDateForDisplay(displayedDateOfBirth)
+                    : "Select date of birth"}
+                </Text>
+                <CalendarDays size={20} color="#000000" />
+              </View>
+              <input
+                ref={webDateInputRef}
+                type="date"
+                value={dateOfBirth || ""}
+                min={formatDateForStorage(MIN_BIRTH_DATE)}
+                max={formatDateForStorage(MAX_BIRTH_DATE)}
+                tabIndex={-1}
+                aria-hidden="true"
+                onChange={(e) => {
+                  const nextDate = parseStoredDateOfBirth(e.target.value);
+                  setDateOfBirth(
+                    nextDate ? formatDateForStorage(nextDate) : "",
+                  );
+                  if (nextDate) {
+                    setPickerDate(nextDate);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key.length === 1 ||
+                    [
+                      "ArrowDown",
+                      "ArrowLeft",
+                      "ArrowRight",
+                      "ArrowUp",
+                      "Backspace",
+                      "Delete",
+                      "End",
+                      "Home",
+                      "PageDown",
+                      "PageUp",
+                    ].includes(event.key)
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                onPaste={(event) => event.preventDefault()}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  opacity: 0,
+                  pointerEvents: "none",
+                }}
+              />
+            </Pressable>
+          ) : (
+            <TouchableOpacity
+              style={[styles.input, styles.datePressable]}
+              onPress={openDatePicker}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={dateOfBirth ? styles.dateText : styles.datePlaceholder}
+              >
+                {displayedDateOfBirth
+                  ? formatDateForDisplay(displayedDateOfBirth)
+                  : "Select date of birth"}
+              </Text>
+              <CalendarDays size={20} color="#000000" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.metaLabel}>Bio</Text>
+          <TextInput
+            value={bio}
+            onChangeText={(value) => setBio(value.slice(0, 140))}
+            style={[styles.input, styles.multiline]}
+            multiline
+            textAlignVertical="top"
+          />
+
+          <Text style={styles.metaLabel}>Pronouns</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={pronouns}
+              onValueChange={(v) => setPronouns(String(v))}
+            >
+              <Picker.Item label="Select pronouns..." value="" />
+              <Picker.Item label="He / Him" value="he/him" />
+              <Picker.Item label="She / Her" value="she/her" />
+              <Picker.Item label="They / Them" value="they/them" />
+              <Picker.Item label="He / They" value="he/they" />
+              <Picker.Item label="She / They" value="she/they" />
+              <Picker.Item label="Other" value="other" />
+              <Picker.Item
+                label="Prefer not to say"
+                value="prefer_not_to_say"
+              />
+            </Picker>
+          </View>
+
+          <Text style={styles.metaLabel}>Graduation Year</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={gradYear}
+              onValueChange={(v) => setGradYear(v === null ? null : Number(v))}
+            >
+              <Picker.Item label="Select graduation year..." value={null} />
+              {years.map((y) => (
+                <Picker.Item key={y} label={String(y)} value={y} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.metaLabel}>Major</Text>
+          <View
+            style={[styles.autocompleteFieldShell, styles.topAutocompleteShell]}
+          >
+            {isCustomMajor ? (
+              <View style={styles.customInputRow}>
+                <TextInput
+                  placeholder="Type your major"
+                  placeholderTextColor="#9CA3AF"
+                  value={major}
+                  onChangeText={setMajor}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  style={styles.customInput}
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsCustomMajor(false);
+                    setMajor("");
+                    setMajorSearchText("");
+                  }}
+                  style={styles.swapFieldButton}
+                >
+                  <Text style={styles.swapFieldButtonText}>Back to list</Text>
+                </TouchableOpacity>
                 <Feather
                   name="book"
                   size={20}
                   color="#90AEFF"
-                  style={styles.autocompleteIcon}
+                  style={styles.customInputIcon}
                 />
-              }
-            />
-          )}
-        </View>
+              </View>
+            ) : (
+              <AutocompleteDropdown
+                dataSet={ACADEMIC_PROGRAM_OPTIONS}
+                initialValue={getAcademicProgramInitialValue(major)}
+                onSelectItem={(item) => {
+                  if (item?.id === OTHER_PROGRAM_OPTION_ID) {
+                    setIsCustomMajor(true);
+                    setMajor("");
+                    setMajorSearchText("");
+                    return;
+                  }
 
-        <Text style={styles.metaLabel}>Minor</Text>
-        <View style={styles.autocompleteFieldShell}>
-          {isCustomMinor ? (
-            <View style={styles.customInputRow}>
-              <TextInput
-                placeholder="Type your minor"
-                placeholderTextColor="#9CA3AF"
-                value={minor}
-                onChangeText={setMinor}
-                autoCapitalize="words"
-                autoCorrect={false}
-                style={styles.customInput}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  setIsCustomMinor(false);
-                  setMinor("");
-                  setMinorSearchText("");
+                  commitPresetAcademicProgram("major", item);
                 }}
-                style={styles.swapFieldButton}
-              >
-                <Text style={styles.swapFieldButtonText}>Back to list</Text>
-              </TouchableOpacity>
-              <Feather
-                name="book-open"
-                size={20}
-                color="#90AEFF"
-                style={styles.customInputIcon}
-              />
-            </View>
-          ) : (
-            <AutocompleteDropdown
-              dataSet={ACADEMIC_PROGRAM_OPTIONS}
-              initialValue={getAcademicProgramInitialValue(minor)}
-              onSelectItem={(item) => {
-                if (item?.id === OTHER_PROGRAM_OPTION_ID) {
-                  setIsCustomMinor(true);
-                  setMinor("");
-                  setMinorSearchText("");
-                  return;
+                onChangeText={setMajorSearchText}
+                onClear={() => {
+                  setMajor("");
+                  setMajorSearchText("");
+                }}
+                clearOnFocus={false}
+                closeOnBlur
+                closeOnSubmit
+                showChevron={false}
+                showClear
+                inputHeight={44}
+                suggestionsListMaxHeight={220}
+                containerStyle={styles.autocompleteContainer}
+                inputContainerStyle={styles.autocompleteInputContainer}
+                rightButtonsContainerStyle={styles.autocompleteRightButtons}
+                suggestionsListContainerStyle={styles.suggestionsListContainer}
+                suggestionsListTextStyle={styles.suggestionsListText}
+                textInputProps={{
+                  placeholder: "Choose a major or select Other",
+                  placeholderTextColor: "#9CA3AF",
+                  value: majorSearchText,
+                  autoCapitalize: "words",
+                  autoCorrect: false,
+                  onBlur: () => handleAcademicProgramBlur("major"),
+                  style: styles.autocompleteInput,
+                }}
+                RightIconComponent={
+                  <Feather
+                    name="book"
+                    size={20}
+                    color="#90AEFF"
+                    style={styles.autocompleteIcon}
+                  />
                 }
+              />
+            )}
+          </View>
 
-                commitPresetAcademicProgram("minor", item);
-              }}
-              onChangeText={setMinorSearchText}
-              onClear={() => {
-                setMinor("");
-                setMinorSearchText("");
-              }}
-              clearOnFocus={false}
-              closeOnBlur
-              closeOnSubmit
-              showChevron={false}
-              showClear
-              inputHeight={44}
-              suggestionsListMaxHeight={220}
-              containerStyle={styles.autocompleteContainer}
-              inputContainerStyle={styles.autocompleteInputContainer}
-              rightButtonsContainerStyle={styles.autocompleteRightButtons}
-              suggestionsListContainerStyle={styles.suggestionsListContainer}
-              suggestionsListTextStyle={styles.suggestionsListText}
-              textInputProps={{
-                placeholder: "Choose a minor or select Other",
-                placeholderTextColor: "#9CA3AF",
-                value: minorSearchText,
-                autoCapitalize: "words",
-                autoCorrect: false,
-                onBlur: () => handleAcademicProgramBlur("minor"),
-                style: styles.autocompleteInput,
-              }}
-              RightIconComponent={
+          <Text style={styles.metaLabel}>Minor</Text>
+          <View style={styles.autocompleteFieldShell}>
+            {isCustomMinor ? (
+              <View style={styles.customInputRow}>
+                <TextInput
+                  placeholder="Type your minor"
+                  placeholderTextColor="#9CA3AF"
+                  value={minor}
+                  onChangeText={setMinor}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  style={styles.customInput}
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsCustomMinor(false);
+                    setMinor("");
+                    setMinorSearchText("");
+                  }}
+                  style={styles.swapFieldButton}
+                >
+                  <Text style={styles.swapFieldButtonText}>Back to list</Text>
+                </TouchableOpacity>
                 <Feather
                   name="book-open"
                   size={20}
                   color="#90AEFF"
-                  style={styles.autocompleteIcon}
+                  style={styles.customInputIcon}
                 />
-              }
-            />
-          )}
-        </View>
+              </View>
+            ) : (
+              <AutocompleteDropdown
+                dataSet={ACADEMIC_PROGRAM_OPTIONS}
+                initialValue={getAcademicProgramInitialValue(minor)}
+                onSelectItem={(item) => {
+                  if (item?.id === OTHER_PROGRAM_OPTION_ID) {
+                    setIsCustomMinor(true);
+                    setMinor("");
+                    setMinorSearchText("");
+                    return;
+                  }
 
-        <View style={styles.divider} />
+                  commitPresetAcademicProgram("minor", item);
+                }}
+                onChangeText={setMinorSearchText}
+                onClear={() => {
+                  setMinor("");
+                  setMinorSearchText("");
+                }}
+                clearOnFocus={false}
+                closeOnBlur
+                closeOnSubmit
+                showChevron={false}
+                showClear
+                inputHeight={44}
+                suggestionsListMaxHeight={220}
+                containerStyle={styles.autocompleteContainer}
+                inputContainerStyle={styles.autocompleteInputContainer}
+                rightButtonsContainerStyle={styles.autocompleteRightButtons}
+                suggestionsListContainerStyle={styles.suggestionsListContainer}
+                suggestionsListTextStyle={styles.suggestionsListText}
+                textInputProps={{
+                  placeholder: "Choose a minor or select Other",
+                  placeholderTextColor: "#9CA3AF",
+                  value: minorSearchText,
+                  autoCapitalize: "words",
+                  autoCorrect: false,
+                  onBlur: () => handleAcademicProgramBlur("minor"),
+                  style: styles.autocompleteInput,
+                }}
+                RightIconComponent={
+                  <Feather
+                    name="book-open"
+                    size={20}
+                    color="#90AEFF"
+                    style={styles.autocompleteIcon}
+                  />
+                }
+              />
+            )}
+          </View>
 
-        <Text style={styles.sectionTitle}>Ice Breakers</Text>
+          <View style={styles.divider} />
 
-        <Pressable
-          onPress={() => setIsIceBreakerPickerOpen(true)}
-          style={({ pressed }) => [
-            styles.iceSummaryCard,
-            pressed && styles.iceSummaryCardPressed,
-          ]}
-        >
-          <View style={styles.iceSummaryHeader}>
-            <View>
-              <Text style={styles.iceSummaryTitle}>Your Icebreakers</Text>
-              <Text style={styles.iceSummarySubtitle}>3 required</Text>
+          <Text style={styles.sectionTitle}>Ice Breakers</Text>
+
+          <Pressable
+            onPress={() => setIsIceBreakerPickerOpen(true)}
+            style={({ pressed }) => [
+              styles.iceSummaryCard,
+              pressed && styles.iceSummaryCardPressed,
+            ]}
+          >
+            <View style={styles.iceSummaryHeader}>
+              <View>
+                <Text style={styles.iceSummaryTitle}>Your Icebreakers</Text>
+                <Text style={styles.iceSummarySubtitle}>3 required</Text>
+              </View>
+              <Text style={styles.iceSummaryCount}>
+                {selectedIceBreakerCount}/{MAX_ICEBREAKERS}
+              </Text>
             </View>
-            <Text style={styles.iceSummaryCount}>
-              {selectedIceBreakerCount}/{MAX_ICEBREAKERS}
-            </Text>
-          </View>
 
-          <View style={styles.iceProgressTrack}>
-            <View
-              style={[
-                styles.iceProgressFill,
-                { width: icebreakerProgressWidth },
-              ]}
-            />
-          </View>
+            <View style={styles.iceProgressTrack}>
+              <View
+                style={[
+                  styles.iceProgressFill,
+                  { width: icebreakerProgressWidth },
+                ]}
+              />
+            </View>
 
-          <Text style={styles.iceProgressText}>
-            {selectedIceBreakerCount} of {MAX_ICEBREAKERS} selected
-          </Text>
-
-          <View style={styles.iceSlotList}>
-            {Array.from({ length: MAX_ICEBREAKERS }, (_, index) => {
-              const iceBreaker = selectedIceBreakers[index];
-              const hasAnswer = Boolean(iceBreaker?.answer.trim());
-
-              return (
-                <View key={index} style={styles.iceSlotCard}>
-                  <Text style={styles.iceSlotLabel}>
-                    Icebreaker {index + 1}
-                  </Text>
-                  <Text style={styles.iceSlotQuestion} numberOfLines={2}>
-                    {iceBreaker?.question || "Not selected yet"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.iceSlotAnswer,
-                      !hasAnswer && styles.iceSlotAnswerPending,
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {iceBreaker
-                      ? hasAnswer
-                        ? iceBreaker.answer.trim()
-                        : "Answer needed"
-                      : "Tap to choose a question"}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          <Text style={styles.iceEditHint}>
-            Tap to choose or edit your 3 icebreakers
-          </Text>
-        </Pressable>
-
-        <Text style={styles.iceSelectionCount}>
-          {filledIceBreakerCount} of {MAX_ICEBREAKERS} answered
-        </Text>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.sectionTitle}>Hobbies</Text>
-
-        <Text style={styles.hobbySelectionCount}>
-          {selectedHobbies.length} selected
-        </Text>
-        {hobbySections.map((section) => (
-          <View key={section.title} style={styles.hobbySelectionSection}>
-            <Text style={styles.hobbySelectionSectionTitle}>
-              {section.title}
+            <Text style={styles.iceProgressText}>
+              {selectedIceBreakerCount} of {MAX_ICEBREAKERS} selected
             </Text>
 
-            <View style={styles.hobbyButtonsWrap}>
-              {section.items.map((hobby) => {
-                const Icon = hobby.icon;
-                const isSelected = selectedHobbies.includes(hobby.key);
+            <View style={styles.iceSlotList}>
+              {Array.from({ length: MAX_ICEBREAKERS }, (_, index) => {
+                const iceBreaker = selectedIceBreakers[index];
+                const hasAnswer = Boolean(iceBreaker?.answer.trim());
 
                 return (
-                  <HobbyButton
-                    key={hobby.key}
-                    label={hobby.label}
-                    selected={isSelected}
-                    onPress={() => toggleHobby(hobby.key)}
-                    renderIcon={(color) => (
-                      <Icon size={20} color={color} strokeWidth={2.1} />
-                    )}
-                  />
+                  <View key={index} style={styles.iceSlotCard}>
+                    <Text style={styles.iceSlotLabel}>
+                      Icebreaker {index + 1}
+                    </Text>
+                    <Text style={styles.iceSlotQuestion} numberOfLines={2}>
+                      {iceBreaker?.question || "Not selected yet"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.iceSlotAnswer,
+                        !hasAnswer && styles.iceSlotAnswerPending,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {iceBreaker
+                        ? hasAnswer
+                          ? iceBreaker.answer.trim()
+                          : "Answer needed"
+                        : "Tap to choose a question"}
+                    </Text>
+                  </View>
                 );
               })}
             </View>
-          </View>
-        ))}
-      </View>
 
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          // (saving || deleting) && styles.disabledButton,
-          (saving) && styles.disabledButton,
-        ]}
-        onPress={onSave}
-        // disabled={saving || deleting}
-        disabled={saving}
-      >
-        <Text style={styles.primaryText}>
-          {saving ? "Saving..." : "Save Changes"}
-        </Text>
-      </TouchableOpacity>
+            <Text style={styles.iceEditHint}>
+              Tap to choose or edit your 3 icebreakers
+            </Text>
+          </Pressable>
 
-      <Modal
-        visible={isIceBreakerPickerOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsIceBreakerPickerOpen(false)}
-      >
-        <Pressable
-          style={styles.iceBackdrop}
-          onPress={() => setIsIceBreakerPickerOpen(false)}
-        />
-
-        <View style={styles.iceModalCard}>
-          <View style={styles.iceModalHeader}>
-            <View>
-              <Text style={styles.iceModalTitle}>Choose 3 Icebreakers</Text>
-              <Text style={styles.iceModalSubtitle}>
-                Scroll the list, select up to 3, and add answers below each one.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.iceModalClose}
-              onPress={() => setIsIceBreakerPickerOpen(false)}
-            >
-              <Text style={styles.iceModalCloseText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.iceProgressTrack}>
-            <View
-              style={[styles.iceProgressFill, { width: icebreakerProgressWidth }]}
-            />
-          </View>
-
-          <Text style={styles.iceModalProgressText}>
-            {selectedIceBreakerCount} of {MAX_ICEBREAKERS} selected -{" "}
+          <Text style={styles.iceSelectionCount}>
             {filledIceBreakerCount} of {MAX_ICEBREAKERS} answered
           </Text>
 
-          <ScrollView
-            style={styles.iceModalScroll}
-            contentContainerStyle={styles.iceModalScrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            {icebreakerOptions.map((question) => {
-              const selectedIceBreaker = selectedIceBreakers.find(
-                (item) => item.question === question,
-              );
-              const isSelected = Boolean(selectedIceBreaker);
-              const hasAnswer = Boolean(selectedIceBreaker?.answer.trim());
+          <View style={styles.divider} />
 
-              return (
-                <View
-                  key={question}
-                  style={[
-                    styles.iceOptionCard,
-                    isSelected && styles.iceOptionCardSelected,
-                  ]}
-                >
-                  {isSelected ? (
-                    <>
-                      <View style={styles.iceSelectedRowTop}>
-                        <View style={styles.iceSelectedBadge}>
-                          <Megaphone color="#89DBFB" size={14} />
-                          <Text style={styles.iceSelectedBadgeText}>
-                            SELECTED
-                          </Text>
+          <Text style={styles.sectionTitle}>Hobbies</Text>
+
+          <Text style={styles.hobbySelectionCount}>
+            {selectedHobbies.length} selected
+          </Text>
+          {hobbySections.map((section) => (
+            <View key={section.title} style={styles.hobbySelectionSection}>
+              <Text style={styles.hobbySelectionSectionTitle}>
+                {section.title}
+              </Text>
+
+              <View style={styles.hobbyButtonsWrap}>
+                {section.items.map((hobby) => {
+                  const Icon = hobby.icon;
+                  const isSelected = selectedHobbies.includes(hobby.key);
+
+                  return (
+                    <HobbyButton
+                      key={hobby.key}
+                      label={hobby.label}
+                      selected={isSelected}
+                      onPress={() => toggleHobby(hobby.key)}
+                      renderIcon={(color) => (
+                        <Icon size={20} color={color} strokeWidth={2.1} />
+                      )}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            // (saving || deleting) && styles.disabledButton,
+            saving && styles.disabledButton,
+          ]}
+          onPress={onSave}
+          // disabled={saving || deleting}
+          disabled={saving}
+        >
+          <Text style={styles.primaryText}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Text>
+        </TouchableOpacity>
+
+        {Platform.OS === "ios" ? (
+          <Modal
+            visible={showDatePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={closeDatePicker}
+          >
+            <View style={styles.dateModalRoot}>
+              <Pressable
+                style={styles.dateModalBackdrop}
+                onPress={closeDatePicker}
+              />
+              <View style={styles.dateModalCard}>
+                <Text style={styles.dateModalTitle}>
+                  Select your date of birth
+                </Text>
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="date"
+                  display="inline"
+                  maximumDate={MAX_BIRTH_DATE}
+                  minimumDate={MIN_BIRTH_DATE}
+                  themeVariant="light"
+                  onChange={(_, selectedDate) => {
+                    if (!selectedDate) return;
+                    setPickerDate(selectedDate);
+                  }}
+                />
+                <View style={styles.dateModalActionRow}>
+                  <TouchableOpacity
+                    style={styles.dateModalCancelButton}
+                    onPress={closeDatePicker}
+                  >
+                    <Text style={styles.dateModalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.dateModalConfirmButton}
+                    onPress={confirmDatePicker}
+                  >
+                    <Text style={styles.dateModalConfirmText}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
+
+        <Modal
+          visible={isIceBreakerPickerOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsIceBreakerPickerOpen(false)}
+        >
+          <Pressable
+            style={styles.iceBackdrop}
+            onPress={() => setIsIceBreakerPickerOpen(false)}
+          />
+
+          <View style={styles.iceModalCard}>
+            <View style={styles.iceModalHeader}>
+              <View>
+                <Text style={styles.iceModalTitle}>Choose 3 Icebreakers</Text>
+                <Text style={styles.iceModalSubtitle}>
+                  Scroll the list, select up to 3, and add answers below each
+                  one.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.iceModalClose}
+                onPress={() => setIsIceBreakerPickerOpen(false)}
+              >
+                <Text style={styles.iceModalCloseText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.iceProgressTrack}>
+              <View
+                style={[
+                  styles.iceProgressFill,
+                  { width: icebreakerProgressWidth },
+                ]}
+              />
+            </View>
+
+            <Text style={styles.iceModalProgressText}>
+              {selectedIceBreakerCount} of {MAX_ICEBREAKERS} selected -{" "}
+              {filledIceBreakerCount} of {MAX_ICEBREAKERS} answered
+            </Text>
+
+            <ScrollView
+              style={styles.iceModalScroll}
+              contentContainerStyle={styles.iceModalScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {icebreakerOptions.map((question) => {
+                const selectedIceBreaker = selectedIceBreakers.find(
+                  (item) => item.question === question,
+                );
+                const isSelected = Boolean(selectedIceBreaker);
+                const hasAnswer = Boolean(selectedIceBreaker?.answer.trim());
+
+                return (
+                  <View
+                    key={question}
+                    style={[
+                      styles.iceOptionCard,
+                      isSelected && styles.iceOptionCardSelected,
+                    ]}
+                  >
+                    {isSelected ? (
+                      <>
+                        <View style={styles.iceSelectedRowTop}>
+                          <View style={styles.iceSelectedBadge}>
+                            <Megaphone color="#89DBFB" size={14} />
+                            <Text style={styles.iceSelectedBadgeText}>
+                              SELECTED
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.iceOptionCloseButton}
+                            onPress={() => toggleIceBreaker(question)}
+                          >
+                            <X color="#94a3b8" size={18} />
+                          </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity
-                          style={styles.iceOptionCloseButton}
-                          onPress={() => toggleIceBreaker(question)}
-                        >
-                          <X color="#94a3b8" size={18} />
-                        </TouchableOpacity>
-                      </View>
+                        <Text style={styles.iceOptionTitleSelected}>
+                          {question}
+                        </Text>
 
-                      <Text style={styles.iceOptionTitleSelected}>
-                        {question}
-                      </Text>
+                        <View style={styles.iceAnswerBubble}>
+                          <TextInput
+                            value={selectedIceBreaker?.answer ?? ""}
+                            onChangeText={(value) =>
+                              updateIceBreakerAnswer(question, value)
+                            }
+                            placeholder="Type your answer..."
+                            placeholderTextColor="#9ca3af"
+                            style={styles.iceOptionInput}
+                            multiline
+                          />
 
-                      <View style={styles.iceAnswerBubble}>
-                        <TextInput
-                          value={selectedIceBreaker?.answer ?? ""}
-                          onChangeText={(value) =>
-                            updateIceBreakerAnswer(question, value)
-                          }
-                          placeholder="Type your answer..."
-                          placeholderTextColor="#9ca3af"
-                          style={styles.iceOptionInput}
-                          multiline
-                        />
+                          {hasAnswer ? (
+                            <View style={styles.iceAnswerCheck}>
+                              <Check color="white" size={18} />
+                            </View>
+                          ) : null}
+                        </View>
+                      </>
+                    ) : (
+                      <Pressable
+                        onPress={() => toggleIceBreaker(question)}
+                        style={styles.iceOptionHeader}
+                      >
+                        <Text style={styles.iceOptionTitle}>{question}</Text>
 
-                        {hasAnswer ? (
-                          <View style={styles.iceAnswerCheck}>
-                            <Check color="white" size={18} />
-                          </View>
-                        ) : null}
-                      </View>
-                    </>
-                  ) : (
-                    <Pressable
-                      onPress={() => toggleIceBreaker(question)}
-                      style={styles.iceOptionHeader}
-                    >
-                      <Text style={styles.iceOptionTitle}>{question}</Text>
+                        <View style={styles.iceOptionPlusCircle}>
+                          <Plus color="#94a3b8" size={22} />
+                        </View>
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Modal>
 
-                      <View style={styles.iceOptionPlusCircle}>
-                        <Plus color="#94a3b8" size={22} />
-                      </View>
-                    </Pressable>
-                  )}
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* <TouchableOpacity
+        {/* <TouchableOpacity
         style={[
           styles.dangerButton,
           (saving || deleting) && styles.disabledButton,
@@ -1455,6 +1513,82 @@ const styles = StyleSheet.create({
   },
 
   multiline: { minHeight: 90 },
+
+  datePressable: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  webDateField: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  webDateDisplay: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  dateText: {
+    fontSize: 16,
+    color: "#000000",
+  },
+  datePlaceholder: {
+    fontSize: 16,
+    color: "#999999",
+  },
+  dateModalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  dateModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+  },
+  dateModalCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "#FFFDFB",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  dateModalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  dateModalActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 12,
+  },
+  dateModalCancelButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#E5E7EB",
+  },
+  dateModalCancelText: {
+    color: "#374151",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  dateModalConfirmButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#89DBFB",
+  },
+  dateModalConfirmText: {
+    color: "#0B1533",
+    fontSize: 13,
+    fontWeight: "800",
+  },
 
   autocompleteFieldShell: {
     borderWidth: 1,
@@ -1902,7 +2036,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  
+
   //////////
   //////////
   //////////
@@ -2416,5 +2550,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-
 });

@@ -172,41 +172,28 @@ export default function ViewProfile() {
     >
       <Text style={styles.title}>Your Profile</Text>
 
-      {data?.photoURL ? (
-        <View style={styles.imageDisplayView}>
-          <View style={styles.imageContainer}>
-            <Text style={styles.sectionTitle}>Profile Picture</Text>
+      <View style={styles.imageDisplayView}>
+        <View style={styles.imageContainer}>
+          <Text style={styles.sectionTitle}>Profile Picture</Text>
+          {data?.photoURL ? (
             <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
-          </View>
-          <View style={styles.imageContainer}>
-            <Text style={styles.sectionTitle}>Avatar Icon</Text>
-            <Image source={avatarSource ?? undefined} style={styles.profileImage} />
-          </View>
-        </View>
-      ) : avatarSource ? (
-        <View style={styles.imageDisplayView}>
-          <View style={styles.imageContainer}>
-            <Text style={styles.sectionTitle}>Profile Picture</Text>
-            <Image source={avatarSource} style={styles.profileImage} />
-          </View>
-          <View style={styles.imageContainer}>
-            <Text style={styles.sectionTitle}>Avatar Icon</Text>
+          ) : (
             <View style={styles.placeholderImage}>
               <Text style={{ color: "#999" }}>No Profile Photo</Text>
             </View>
-          </View>
+          )}
         </View>
-
-      ) : (
         <View style={styles.imageContainer}>
-          <View style={styles.placeholderImage}>
-            <Text style={{ color: "#999" }}>No Profile Photo</Text>
-          </View>
-          <View style={styles.placeholderImage}>
-            <Text style={{ color: "#999" }}>No Avatar Icon</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Avatar Icon</Text>
+          {avatarSource ? (
+            <Image source={avatarSource} style={styles.profileImage} />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Text style={{ color: "#999" }}>No Avatar</Text>
+            </View>
+          )}
         </View>
-      )}
+      </View>
 
       {!data ? (
         <View style={styles.userCard}>
