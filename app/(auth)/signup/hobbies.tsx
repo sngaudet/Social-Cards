@@ -19,6 +19,7 @@ import {
   hobbySections,
 } from "../../../src/lib/hobbyCatalog";
 import { useSignup } from "../../../src/signup/context";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 
 function showAlert(title: string, message?: string) {
   if (Platform.OS === "web") {
@@ -107,7 +108,7 @@ export default function SignupHobbiesStep() {
         style={styles.primaryButton}
         onPress={onNext}
       />
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => NavigationService.goBack("/(auth)/signup/icebreakers")}>
               <Text style={styles.secondaryText}>Back</Text>
             </TouchableOpacity>
     </ScrollView>

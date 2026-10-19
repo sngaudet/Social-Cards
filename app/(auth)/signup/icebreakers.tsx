@@ -24,6 +24,7 @@ import {
   SelectedIceBreaker,
 } from "../../../src/lib/icebreakers";
 import { useSignup } from "../../../src/signup/context";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 import type { SignupDraft } from "../../../src/signup/types";
 
 function showAlert(title: string, message?: string) {
@@ -217,7 +218,7 @@ export default function SignupIceBreakersStep() {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.back()}
+        onPress={() => NavigationService.goBack("/(auth)/signup")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

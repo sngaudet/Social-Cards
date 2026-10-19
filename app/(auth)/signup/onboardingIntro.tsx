@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import PrimaryButton from "../../../src/components/PrimaryButton";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 
 export default function Onboarding() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function Onboarding() {
       />
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.back()}
+        onPress={() => NavigationService.goBack("/(auth)/signup/pictures")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

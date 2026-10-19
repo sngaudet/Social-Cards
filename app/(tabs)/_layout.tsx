@@ -87,6 +87,7 @@ export default function TabDisplay() {
     >
       <NotificationCoordinator />
       <Tabs
+        backBehavior="fullHistory"
         screenOptions={{
           headerShown: false,
 

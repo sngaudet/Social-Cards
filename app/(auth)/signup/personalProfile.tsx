@@ -22,6 +22,7 @@ import SignupFormField from "../../../src/components/SignupFormField";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { useSignup } from "../../../src/signup/context";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 
 const DEFAULT_BIRTH_DATE = new Date(2000, 0, 1);
 const MIN_BIRTH_DATE = new Date(1930, 0, 1);
@@ -323,7 +324,7 @@ export default function SignupPersonalProfileStep() {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.back()}
+        onPress={() => NavigationService.goBack("/(auth)/signup/hobbies")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

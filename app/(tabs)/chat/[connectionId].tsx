@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,6 +32,7 @@ import {
   subscribeToMessages,
 } from "../../../src/chat/service";
 import { showAlert } from "../../../src/lib/showAlert";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 import { reportUser } from "../../../src/reporting/service";
 
 const REPORT_DETAILS_MAX_LENGTH = 1000;
@@ -350,7 +352,30 @@ export default function ConnectionChatPage() {
     >
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <Text style={styles.title}>{title}</Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => NavigationService.goBack("/(tabs)/message_cur")}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Feather name="arrow-left" size={20} color="#2452ce" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTitleColumn}>
+            <Text style={[styles.title, styles.headerTitle]} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={[styles.statusText, styles.headerStatusText]}>
+              {blockedByCurrentUser
+                ? "This user is blocked. You can read message history, but neither side can send new messages."
+                : isActive
+                ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }) ?? "unknown"}`
+                : "This connection has expired. You can still read previous messages."}
+            </Text>
+          </View>
           <View style={styles.headerActionRow}>
             <TouchableOpacity
               style={[styles.reportButton, reporting && styles.disabledButton]}
@@ -372,16 +397,6 @@ export default function ConnectionChatPage() {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.statusText}>
-          {blockedByCurrentUser
-            ? "This user is blocked. You can read message history, but neither side can send new messages."
-            : isActive
-            ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              }) ?? "unknown"}`
-            : "This connection has expired. You can still read previous messages."}
-        </Text>
       </View>
 
       <FlatList
@@ -526,14 +541,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 8,
   },
+  backButton: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 44,
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2452ce",
+  },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
+  },
+  headerTitleColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerTitle: {
+    textAlign: "center",
+  },
+  headerStatusText: {
+    textAlign: "center",
   },
   headerActionRow: {
     flexDirection: "row",
+    flexShrink: 0,
     gap: 8,
   },
   title: {

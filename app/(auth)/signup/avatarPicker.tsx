@@ -15,6 +15,7 @@ import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { AVATAR_IMAGE_OPTIONS } from "../../../src/lib/avatarImages";
 import { useSignup } from "../../../src/signup/context";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 
 const GRID_SIZE = 15;
 
@@ -91,7 +92,7 @@ export default function SignupAvatarPickerStep() {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.back()}
+        onPress={() => NavigationService.goBack("/(auth)/signup/academicProfile")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>
