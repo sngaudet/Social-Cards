@@ -19,6 +19,7 @@ import PrimaryButton from "../../../src/components/PrimaryButton";
 import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import SubButton from "../../../src/components/SubButton";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 import { useSignup } from "../../../src/signup/context"; // adjust if your path differs
 
 export default function SignupPictures() {
@@ -210,7 +211,7 @@ const takePhoto = async () => {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.back()}
+        onPress={() => NavigationService.goBack("/(auth)/signup/avatarPicker")}
       >
         <Text style={styles.secondaryText}>Back</Text>
       </TouchableOpacity>

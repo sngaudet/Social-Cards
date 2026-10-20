@@ -29,6 +29,7 @@ import {
   OTHER_PROGRAM_OPTION_ID,
 } from "../../../src/lib/academicPrograms";
 import { useSignup } from "../../../src/signup/context";
+import { NavigationService } from "../../../src/navigation/NavigationService";
 
 const LEFT_PRONOUN_OPTIONS = ["She/Her", "He/Him", "They/Them", "He/They", "She/They", "Other", "Prefer not to say"] as const;
 // const RIGHT_PRONOUN_OPTIONS = ["her", "him", "they", "them"] as const;
@@ -421,7 +422,7 @@ export default function SignupAcademicProfileStep() {
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => router.back()}
+          onPress={() => NavigationService.goBack("/(auth)/signup/personalProfile")}
         >
           <Text style={styles.secondaryText}>Back</Text>
         </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -19,6 +20,7 @@ import {
   subscribeToConnections,
 } from "../../src/connections/service";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
+import { NavigationService } from "../../src/navigation/NavigationService";
 
 type InboxConnection = ConnectionDoc & {
   otherUid: string;
@@ -191,6 +193,15 @@ export default function MessagesPage() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => NavigationService.goBack("/(tabs)")}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <Feather name="arrow-left" size={20} color="#2452ce" />
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Messages</Text>
       <Text style={styles.subtitle}>
         Current connections can chat for 24 hours. Past connections stay here as
@@ -380,6 +391,19 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     backgroundColor: "#D9E0F0",
     gap: 16,
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 44,
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2452ce",
   },
   title: {
     fontSize: 34,

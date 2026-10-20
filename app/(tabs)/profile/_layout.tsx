@@ -69,6 +69,7 @@ export default function ProfileLayout() {
 
   return (
     <Tabs
+      backBehavior="fullHistory"
       screenOptions={{
         headerShown: false,
         tabBarPosition: 'top',
