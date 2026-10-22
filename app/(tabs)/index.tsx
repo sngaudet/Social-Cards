@@ -1,8 +1,10 @@
+import { Feather } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -18,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
+import NearbyProfileCard from "../../src/components/NearbyProfileCard";
 import {
   blockUser,
   getRelationshipStatus,
@@ -27,19 +30,14 @@ import {
   sendConnectionRequest,
   subscribeToConnections,
 } from "../../src/connections/service";
-import { getAvatarImageSource } from "../../src/lib/avatarImages";
-import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import { showAlert } from "../../src/lib/showAlert";
 import {
   fetchNearbyUsers,
   NearbyResponse,
   sendForegroundPing,
 } from "../../src/location/service";
-import {
-  normalizePreConnectionVisibility,
-  PreConnectionVisibility,
-} from "../../src/profile/visibility";
 import { reportUser } from "../../src/reporting/service";
+import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 
 const emptyNearby: NearbyResponse = {
   users: [],
@@ -50,7 +48,6 @@ const emptyNearby: NearbyResponse = {
 const AUTO_REFRESH_MS = 5000;
 const AUTO_PING_MS = 30000;
 const MAX_PING_WAIT_MS = 1500;
-const HOBBY_PREVIEW_LIMIT = 4;
 const REPORT_DETAILS_MAX_LENGTH = 1000;
 const REPORT_REASON_OPTIONS = [
   "Harassment or bullying",
@@ -66,35 +63,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function formatPronouns(value: string | undefined): string {
-  const normalized = value?.trim().toLowerCase();
-  switch (normalized) {
-    case "male":
-      return "HE/HIM";
-    case "female":
-      return "SHE/HER";
-    case "nonbinary":
-      return "THEY/THEM";
-    case "mtf":
-      return "SHE/HER";
-    case "ftm":
-      return "HE/HIM";
-    case "genderfluid":
-      return "THEY/THEM";
-    case "agender":
-      return "THEY/THEM";
-    case "androgynous":
-      return "THEY/THEM";
-    default:
-      return normalized ? normalized.replaceAll("_", " ").toUpperCase() : "";
-  }
-}
-
 export default function HomeTab() {
   const router = useRouter();
   const currentUid = auth.currentUser?.uid;
   const { width: windowWidth } = useWindowDimensions();
-  const isCompactCardLayout = windowWidth < 430;
+  const isNarrowScreen = windowWidth < 360;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,7 +78,12 @@ export default function HomeTab() {
   >({});
   const [reportingUid, setReportingUid] = useState<string | null>(null);
   const [blockingUid, setBlockingUid] = useState<string | null>(null);
-  const [reportModalUser, setReportModalUser] = useState<NearbyResponse["users"][number] | null>(null);
+  const [optionsUser, setOptionsUser] = useState<
+    NearbyResponse["users"][number] | null
+  >(null);
+  const [reportModalUser, setReportModalUser] = useState<
+    NearbyResponse["users"][number] | null
+  >(null);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [nearbyProfileFallbacks, setNearbyProfileFallbacks] = useState<
@@ -134,36 +112,40 @@ export default function HomeTab() {
     setReportDetails("");
   }, [reportingUid]);
 
-  const submitReport = useCallback(async (
-    reportedUid: string,
-    reason: string,
-    details?: string,
-  ) => {
-    setReportingUid(reportedUid);
+  const submitReport = useCallback(
+    async (reportedUid: string, reason: string, details?: string) => {
+      setReportingUid(reportedUid);
 
-    try {
-      await reportUser(reportedUid, reason, details);
-      showAlert("Report submitted", "Thanks. Your report has been saved.");
-      setReportModalUser(null);
+      try {
+        await reportUser(reportedUid, reason, details);
+        showAlert("Report submitted", "Thanks. Your report has been saved.");
+        setReportModalUser(null);
+        setReportReason("");
+        setReportDetails("");
+      } catch (e: any) {
+        const code = e?.code ? ` (${e.code})` : "";
+        showAlert(
+          "Could not submit report",
+          `${e?.message ?? "Unknown error"}${code}`,
+        );
+      } finally {
+        setReportingUid((current) =>
+          current === reportedUid ? null : current,
+        );
+      }
+    },
+    [],
+  );
+
+  const openReportModal = useCallback(
+    (user: NearbyResponse["users"][number]) => {
+      if (reportingUid === user.uid) return;
+      setReportModalUser(user);
       setReportReason("");
       setReportDetails("");
-    } catch (e: any) {
-      const code = e?.code ? ` (${e.code})` : "";
-      showAlert(
-        "Could not submit report",
-        `${e?.message ?? "Unknown error"}${code}`,
-      );
-    } finally {
-      setReportingUid((current) => (current === reportedUid ? null : current));
-    }
-  }, []);
-
-  const openReportModal = useCallback((user: NearbyResponse["users"][number]) => {
-    if (reportingUid === user.uid) return;
-    setReportModalUser(user);
-    setReportReason("");
-    setReportDetails("");
-  }, [reportingUid]);
+    },
+    [reportingUid],
+  );
 
   const handleSubmitReport = useCallback(() => {
     if (!reportModalUser) return;
@@ -172,7 +154,10 @@ export default function HomeTab() {
     const trimmedDetails = reportDetails.trim();
 
     if (!trimmedReason) {
-      showAlert("Missing reason", "Please enter a short reason for the report.");
+      showAlert(
+        "Missing reason",
+        "Please enter a short reason for the report.",
+      );
       return;
     }
 
@@ -427,7 +412,9 @@ export default function HomeTab() {
       );
 
       const entries = await Promise.all(
-        uniqueUids.map(async (uid) => [uid, await getUserProfile(uid)] as const),
+        uniqueUids.map(
+          async (uid) => [uid, await getUserProfile(uid)] as const,
+        ),
       );
 
       if (!cancelled) {
@@ -471,10 +458,7 @@ export default function HomeTab() {
 
         router.push({ pathname: "/(tabs)/uid", params: { uid } });
       } catch (error: any) {
-        showAlert(
-          "Could not open profile",
-          error?.message ?? "Unknown error",
-        );
+        showAlert("Could not open profile", error?.message ?? "Unknown error");
       }
     },
     [currentUid, router],
@@ -490,9 +474,10 @@ export default function HomeTab() {
     [router],
   );
 
-  if (loading) {
-    return <View style={styles.scroll} />;
-  }
+  const closeUserModal = () => {
+    if (reportModalUser) closeReportModal();
+    else setOptionsUser(null);
+  };
 
   return (
     <>
@@ -500,376 +485,257 @@ export default function HomeTab() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.blue}
+            colors={[colors.blue]}
+          />
         }
       >
-        <Text style={styles.title}>Nearby Icebreakers</Text>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryText}>
-            Nearby users: {nearby.crowdCount}
-          </Text>
-          <Text style={styles.subtleText}>
-            Updated: {new Date(nearby.asOf).toLocaleTimeString()}
-          </Text>
-        </View>
-
-        {nearby.users.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No one nearby right now</Text>
-            <Text style={styles.subtleText}>
-              Keep location sharing on and pull to refresh.
-            </Text>
+        <View style={styles.page}>
+          <View style={styles.brand}>
+            <Image
+              source={iceMascot}
+              style={styles.brandMascot}
+              resizeMode="contain"
+              accessible={false}
+            />
+            <Text style={styles.brandName}>Icebreakers</Text>
           </View>
-        ) : (
-          nearby.users.map((user) => {
-          const isConnected = connectedUids.has(user.uid);
-          const visibility = normalizePreConnectionVisibility(
-            user.preConnectionVisibility,
-          );
-          const canSeeField = (field: keyof PreConnectionVisibility) =>
-            isConnected || visibility[field];
-          const displayName =
-            [user.firstName, canSeeField("lastName") ? user.lastName : ""]
-              .filter(Boolean)
-              .join(" ")
-              .trim() || "Unknown";
-          const showMajor = canSeeField("major");
-          const showPronouns = canSeeField("pronouns");
-          const showDateOfBirth = canSeeField("dateOfBirth");
-          const showGradYear = canSeeField("gradYear");
-          const showHobbies = canSeeField("hobbies");
-          const showIceBreakerOne = canSeeField("iceBreakerOne");
-          const showBio = canSeeField("bio");
-          const showPhotoBeforeConnection = canSeeField("photoURL");
-          const fallbackProfile = nearbyProfileFallbacks[user.uid];
-          const effectiveAvatarId = user.avatarId || fallbackProfile?.avatarId;
-          const pronouns = formatPronouns(user.pronouns);
-          const ageFromDateOfBirth = calculateAgeFromDateOfBirth(user.dateOfBirth ?? "");
-          const avatarSource = getAvatarImageSource(effectiveAvatarId);
-          const hobbyPreview = user.hobbies.slice(0, HOBBY_PREVIEW_LIMIT);
-          //const primaryPrompt =
-          //   (showIceBreakerOne && user.iceBreakerOne) ||
-          //   (showIceBreakerTwo && user.iceBreakerTwo) ||
-          //   (showIceBreakerThree && user.iceBreakerThree) ||
-          //   "";
-          // const secondaryPrompt =
-          //   (showIceBreakerTwo &&
-          //   user.iceBreakerTwo &&
-          //   user.iceBreakerTwo !== primaryPrompt
-          //     ? user.iceBreakerTwo
-          //     : "") ||
-          //   (showIceBreakerThree &&
-          //   user.iceBreakerThree &&
-          //   user.iceBreakerThree !== primaryPrompt
-          //     ? user.iceBreakerThree
-          //     : "");
-          const primaryIcebreaker =
-            showIceBreakerOne && user.iceBreakerOne
-              ? {
-                question: user.iceBreakerOneQuestion,
-                answer: user.iceBreakerOne,
-              }
-            : null;
 
-
-          return (
-            <View key={user.uid} style={styles.userCard}>
-              <View style={styles.userHeader}>
-                {isConnected && showPhotoBeforeConnection && user.photoURL ? (
-                  <Image
-                    source={{ uri: user.photoURL }}
-                    style={styles.avatar}
-                  />
-                ) : avatarSource ? (
-                  <Image source={avatarSource} style={styles.avatar} />
-                ) : !isConnected && showPhotoBeforeConnection && user.photoURL ? (
-                  <Image
-                    source={{ uri: user.photoURL }}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>
-                      {isConnected && showPhotoBeforeConnection
-                        ? "No Photo"
-                        : "No Avatar"}
-                    </Text>
-                    {__DEV__ ? (
-                      <Text style={styles.avatarDebugText}>
-                        avatarId: {effectiveAvatarId?.trim() || "missing"}
-                      </Text>
-                    ) : null}
-                  </View>
-                )}
-
-                <View style={styles.userBody}>
-                  <View style={styles.headerTopRow}>
-                    <Text style={styles.userName}>{displayName}</Text>
-                  </View> 
-
-                  <View style={styles.metaRow}>
-                    {showPronouns && pronouns ? (
-                      <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Pronouns</Text>
-                        <Text style={styles.metaValue}>{pronouns}</Text>
-                      </View>
-                    ) : null}
-
-                    {showDateOfBirth && ageFromDateOfBirth != null ? (
-                      <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Age</Text>
-                        <Text style={styles.metaValue}>{ageFromDateOfBirth}</Text>
-                      </View>
-                    ) : null}
-
-                    {showGradYear && user.gradYear ? (
-                      <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Exp Graduation</Text>
-                        <Text style={styles.metaValue}>{user.gradYear}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {showHobbies && hobbyPreview.length > 0 ? (
-                    <View style={styles.hobbiesBlock}>
-                      <Text style={styles.metaLabel}>Hobbies</Text>
-                      <View style={styles.hobbyWrap}>
-                        {hobbyPreview.map((hobby) => (
-                          <Text
-                            key={`${user.uid}-${hobby}`}
-                            style={styles.hobbyChip}
-                          >
-                            {hobby.toUpperCase()}
-                          </Text>
-                        ))}
-                      </View>
-                    </View>
-                  ) : null}
-                  
-                  {primaryIcebreaker ? (
-                    <View style={styles.promptBlock}>
-                      <Text style={styles.promptLabel}>
-                        Conversation Starter
-                      </Text>
-
-                      
-                  {showBio && user.bio ? (
-                    <View style={styles.bioBlock}>
-                      <Text style={styles.bioText}>
-                        <Text style={styles.bioLabel}>Bio: </Text>                       
-                        {user.bio}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                      {!!primaryIcebreaker.question && (
-                        <Text style={styles.promptQuestion}>
-                          {primaryIcebreaker.question}
-                        </Text>
-                      )}
-
-                      <Text style={styles.promptValue}>
-                        {primaryIcebreaker.answer}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View
-                    style={[
-                      styles.footerRow,
-                      isCompactCardLayout && styles.footerRowCompact,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.footerInfo,
-                        isCompactCardLayout && styles.footerInfoCompact,
-                      ]}
-                    >
-                      {showMajor ? (
-                        <>
-                          <Text style={styles.footerLabel}>Major</Text>
-                          <Text style={styles.footerValue}>
-                            {(user.major || "Undeclared").toUpperCase()}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={styles.hiddenText}>
-                          This user hides most profile details until you
-                          connect.
-                        </Text>
-                      )}
-                    </View>
-
-                    <View
-                      style={[
-                        styles.actionRow,
-                        isCompactCardLayout && styles.actionRowCompact,
-                      ]}
-                    >
-                      <TouchableOpacity
-                        style={[
-                          styles.viewPillButton,
-                          isCompactCardLayout && styles.actionPillButtonCompact,
-                        ]}
-                        onPress={() => openUserProfile(user.uid)}
-                      >
-                        <Text style={styles.viewPillButtonText}>
-                          View Profile
-                        </Text>
-                      </TouchableOpacity>
-
-                      {isConnected ? (
-                        <>
-                          <View
-                            style={[
-                              styles.connectedPill,
-                              isCompactCardLayout && styles.actionPillButtonCompact,
-                            ]}
-                          >
-                            <Text style={styles.connectedPillText}>
-                              Connected
-                            </Text>
-                          </View>
-                          <TouchableOpacity
-                            style={[
-                              styles.connectPillButton,
-                              isCompactCardLayout && styles.actionPillButtonCompact,
-                            ]}
-                            onPress={() =>
-                              openChat(connectionIdsByUid[user.uid], user.uid)
-                            }
-                          >
-                            <Text style={styles.connectPillButtonText}>
-                              Text
-                            </Text>
-                          </TouchableOpacity>
-                        </>
-                      ) : (
-                        <TouchableOpacity
-                          style={[
-                            styles.connectPillButton,
-                            isCompactCardLayout && styles.actionPillButtonCompact,
-                          ]}
-                          onPress={() => handleConnect(user.uid)}
-                        >
-                          <Text style={styles.connectPillButtonText}>
-                            Connect
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-
-                      <TouchableOpacity
-                        style={[
-                          styles.reportPillButton,
-                          isCompactCardLayout && styles.actionPillButtonCompact,
-                          reportingUid === user.uid && styles.disabledPillButton,
-                        ]}
-                        onPress={() => openReportModal(user)}
-                        disabled={reportingUid === user.uid}
-                      >
-                        <Text style={styles.reportPillButtonText}>
-                          {reportingUid === user.uid ? "Reporting..." : "Report"}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.blockPillButton,
-                          isCompactCardLayout && styles.actionPillButtonCompact,
-                          blockingUid === user.uid && styles.disabledPillButton,
-                        ]}
-                        onPress={() => handleBlockUser(user)}
-                        disabled={blockingUid === user.uid}
-                      >
-                        <Text style={styles.blockPillButtonText}>
-                          {blockingUid === user.uid ? "Blocking..." : "Block"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+          <View style={styles.heading}>
+            <Text
+              accessibilityRole="header"
+              style={[styles.title, isNarrowScreen && styles.titleNarrow]}
+            >
+              Nearby Icebreakers
+            </Text>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryDetails}>
+                <View style={styles.countRow}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.summaryText}>
+                    {loading
+                      ? "Finding people nearby"
+                      : nearby.crowdCount +
+                        " " +
+                        (nearby.crowdCount === 1 ? "person" : "people") +
+                        " nearby"}
+                  </Text>
                 </View>
+                {!loading ? (
+                  <Text style={styles.updatedText}>
+                    Updated{" "}
+                    {new Date(nearby.asOf).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                ) : null}
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refresh nearby people"
+                accessibilityState={{
+                  busy: refreshing || loading,
+                  disabled: refreshing || loading,
+                }}
+                onPress={onRefresh}
+                disabled={refreshing || loading}
+                style={({ pressed }) => [
+                  styles.refreshButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {refreshing ? (
+                  <ActivityIndicator color={colors.blue} />
+                ) : (
+                  <Feather name="refresh-cw" size={22} color={colors.ink} />
+                )}
+              </Pressable>
             </View>
-          );
-          })
-        )}
+          </View>
+
+          {loading ? (
+            <View style={styles.emptyCard}>
+              <ActivityIndicator
+                size="large"
+                color={colors.blue}
+                accessibilityLabel="Loading nearby people"
+              />
+              <Text style={styles.subtleText}>
+                Looking for your next hello?
+              </Text>
+            </View>
+          ) : nearby.users.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Image
+                source={iceMascot}
+                style={styles.emptyMascot}
+                resizeMode="contain"
+                accessible={false}
+              />
+              <Text style={styles.emptyTitle}>No one nearby right now</Text>
+              <Text style={styles.subtleText}>
+                Keep location sharing on and pull to refresh.
+              </Text>
+            </View>
+          ) : (
+            nearby.users.map((user) => (
+              <NearbyProfileCard
+                key={user.uid}
+                user={user}
+                isConnected={connectedUids.has(user.uid)}
+                fallbackAvatarId={nearbyProfileFallbacks[user.uid]?.avatarId}
+                actionsDisabled={
+                  reportingUid === user.uid || blockingUid === user.uid
+                }
+                onConnect={() => handleConnect(user.uid)}
+                onViewProfile={() => openUserProfile(user.uid)}
+                onMessage={() =>
+                  openChat(connectionIdsByUid[user.uid], user.uid)
+                }
+                onMore={() => setOptionsUser(user)}
+              />
+            ))
+          )}
+        </View>
       </ScrollView>
       <Modal
-        visible={!!reportModalUser}
+        visible={!!optionsUser || !!reportModalUser}
         transparent
         animationType="fade"
-        onRequestClose={closeReportModal}
+        onRequestClose={closeUserModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.reportModalRoot}
         >
-          <Pressable style={styles.reportBackdrop} onPress={closeReportModal} />
+          <Pressable
+            style={styles.reportBackdrop}
+            onPress={closeUserModal}
+            accessibilityLabel="Close profile options"
+          />
           <View style={styles.reportModalCard}>
-            <Text style={styles.reportModalTitle}>Report user</Text>
-            <Text style={styles.reportModalSubtitle}>
-              {reportModalUser
-                ? `Tell us what happened with ${reportModalUser.firstName || "this user"}.`
-                : "Tell us what happened."}
-            </Text>
-
-            <Text style={styles.reportFieldLabel}>Reason</Text>
-            <View style={styles.reportReasonPickerWrap}>
-              <Picker
-                selectedValue={reportReason}
-                onValueChange={(value) => setReportReason(String(value))}
-                enabled={!reportingUid}
-                style={styles.reportReasonPicker}
-                dropdownIconColor="#7F1D1D"
-              >
-                <Picker.Item label="Select a reason..." value="" />
-                {REPORT_REASON_OPTIONS.map((reason) => (
-                  <Picker.Item key={reason} label={reason} value={reason} />
-                ))}
-              </Picker>
-            </View>
-
-            <View style={styles.reportDetailsHeader}>
-              <Text style={styles.reportFieldLabel}>Details</Text>
-              <Text style={styles.reportCharacterCount}>
-                {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
-              </Text>
-            </View>
-            <TextInput
-              value={reportDetails}
-              onChangeText={(value) => setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))}
-              placeholder="Add any context that would help explain the issue."
-              placeholderTextColor="#9CA3AF"
-              style={styles.reportDetailsInput}
-              multiline
-              textAlignVertical="top"
-              maxLength={REPORT_DETAILS_MAX_LENGTH}
-              editable={!reportingUid}
-            />
-
-            <View style={styles.reportActionRow}>
-              <TouchableOpacity
-                style={styles.reportCancelButton}
-                onPress={closeReportModal}
-                disabled={!!reportingUid}
-              >
-                <Text style={styles.reportCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.reportSubmitButton,
-                  reportingUid && styles.disabledPillButton,
-                ]}
-                onPress={handleSubmitReport}
-                disabled={!!reportingUid}
-              >
-                <Text style={styles.reportSubmitButtonText}>
-                  {reportingUid ? "Submitting..." : "Submit report"}
+            {optionsUser ? (
+              <>
+                <View style={styles.optionsHeader}>
+                  <Text style={styles.reportModalTitle}>Profile options</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close profile options"
+                    onPress={closeUserModal}
+                    style={styles.optionsClose}
+                  >
+                    <Feather name="x" size={22} color={colors.ink} />
+                  </Pressable>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Report user"
+                  style={styles.optionButton}
+                  onPress={() => {
+                    openReportModal(optionsUser);
+                    setOptionsUser(null);
+                  }}
+                >
+                  <Feather name="flag" size={20} color={colors.ink} />
+                  <Text style={styles.optionText}>Report user</Text>
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={colors.muted}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Block user"
+                  style={styles.optionButton}
+                  onPress={() => {
+                    handleBlockUser(optionsUser);
+                    setOptionsUser(null);
+                  }}
+                >
+                  <Feather name="slash" size={20} color="#B91C1C" />
+                  <Text style={[styles.optionText, styles.blockOptionText]}>
+                    Block user
+                  </Text>
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={colors.muted}
+                  />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.reportModalTitle}>Report user</Text>
+                <Text style={styles.reportModalSubtitle}>
+                  {reportModalUser
+                    ? `Tell us what happened with ${reportModalUser.firstName || "this user"}.`
+                    : "Tell us what happened."}
                 </Text>
-              </TouchableOpacity>
-            </View>
+
+                <Text style={styles.reportFieldLabel}>Reason</Text>
+                <View style={styles.reportReasonPickerWrap}>
+                  <Picker
+                    selectedValue={reportReason}
+                    onValueChange={(value) => setReportReason(String(value))}
+                    enabled={!reportingUid}
+                    style={styles.reportReasonPicker}
+                    dropdownIconColor="#7F1D1D"
+                  >
+                    <Picker.Item label="Select a reason..." value="" />
+                    {REPORT_REASON_OPTIONS.map((reason) => (
+                      <Picker.Item key={reason} label={reason} value={reason} />
+                    ))}
+                  </Picker>
+                </View>
+
+                <View style={styles.reportDetailsHeader}>
+                  <Text style={styles.reportFieldLabel}>Details</Text>
+                  <Text style={styles.reportCharacterCount}>
+                    {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
+                  </Text>
+                </View>
+                <TextInput
+                  value={reportDetails}
+                  onChangeText={(value) =>
+                    setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))
+                  }
+                  placeholder="Add any context that would help explain the issue."
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.reportDetailsInput}
+                  multiline
+                  textAlignVertical="top"
+                  maxLength={REPORT_DETAILS_MAX_LENGTH}
+                  editable={!reportingUid}
+                />
+
+                <View style={styles.reportActionRow}>
+                  <TouchableOpacity
+                    style={styles.reportCancelButton}
+                    onPress={closeReportModal}
+                    disabled={!!reportingUid}
+                  >
+                    <Text style={styles.reportCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.reportSubmitButton,
+                      reportingUid && styles.disabledPillButton,
+                    ]}
+                    onPress={handleSubmitReport}
+                    disabled={!!reportingUid}
+                  >
+                    <Text style={styles.reportSubmitButtonText}>
+                      {reportingUid ? "Submitting..." : "Submit report"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -878,8 +744,121 @@ export default function HomeTab() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: "#dfe7f6" },
-  content: { padding: 18, paddingBottom: 48, gap: 14 },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  page: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 16 },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    paddingHorizontal: 5,
+    marginBottom: 2,
+  },
+  brandMascot: { width: 45, height: 48 },
+  brandName: { fontFamily: "LexendSemiBold", fontSize: 23, color: colors.ink },
+  heading: { gap: 8, paddingHorizontal: 5 },
+  title: {
+    fontFamily: "LexendSemiBold",
+    textAlign: "center",
+    fontSize: 28,
+    lineHeight: 38,
+    letterSpacing: -0.8,
+    color: colors.ink,
+  },
+  titleNarrow: { fontSize: 24, lineHeight: 33 },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  summaryDetails: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 12,
+    rowGap: 4,
+  },
+  countRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.green,
+  },
+  summaryText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+  updatedText: { fontSize: 12, lineHeight: 19, color: colors.muted },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#F6FAFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyCard: {
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 36,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.surface,
+    backgroundColor: colors.surface,
+  },
+  emptyMascot: { width: 76, height: 82, marginBottom: 4 },
+  emptyTitle: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 19,
+    lineHeight: 27,
+    color: colors.ink,
+    textAlign: "center",
+  },
+  subtleText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.muted,
+    textAlign: "center",
+  },
+  pressed: { opacity: 0.7 },
+  disabledPillButton: { opacity: 0.65 },
+  optionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  optionsClose: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionButton: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.frost,
+  },
+  optionText: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.ink },
+  blockOptionText: { color: "#B91C1C" },
   reportModalRoot: {
     flex: 1,
     justifyContent: "center",
@@ -985,316 +964,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-
-  title: {
-    fontSize: 30,
-    fontWeight: "800",
-    textAlign: "center",
-    color: "#101828",
-  },
-
-  summaryCard: {
-    borderWidth: 1,
-    borderColor: "#d8e2f2",
-    borderRadius: 24,
-    padding: 14,
-    backgroundColor: "#f9fbff",
-    gap: 4,
-    shadowColor: "#9aa7c7",
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-
-  summaryText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  subtleText: {
-    fontSize: 12,
-    color: "#666",
-  },
-
-  emptyCard: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: "#fff",
-  },
-
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-
-  userCard: {
-    borderWidth: 1,
-    borderColor: "#e7edf9",
-    borderRadius: 28,
-    padding: 16,
-    backgroundColor: "#fffdfb",
-    shadowColor: "#b8c2d9",
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-
-  userHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
-    backgroundColor: "#e5e7eb",
-  },
-
-  avatarPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
-    backgroundColor: "#edf1fa",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 6,
-  },
-
-  avatarText: {
-    fontSize: 10,
-    color: "#666",
-    textAlign: "center",
-  },
-  avatarDebugText: {
-    marginTop: 6,
-    fontSize: 9,
-    color: "#666",
-    textAlign: "center",
-  },
-
-  userBody: {
-    flex: 1,
-    gap: 8,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#1f4aaa",
-    letterSpacing: 0.4,
-  },
-
-  headerTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  metaItem: {
-    minWidth: 72,
-  },
-  metaLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    color: "#303b52",
-    letterSpacing: 0.5,
-  },
-  metaValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 2,
-  },
-  hobbiesBlock: {
-    gap: 6,
-  },
-  hobbyWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  hobbyChip: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#263248",
-    backgroundColor: "#f6efe1",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  promptBlock: {
-    backgroundColor: "#f8f9fe",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  promptLabel: {
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    color: "#5b6478",
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-  promptValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#161b26",
-    textAlign: "center",
-  },
-  promptSubValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4b5563",
-    textAlign: "center",
-  },
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 12,
-    marginTop: 4,
-  },
-  footerRowCompact: {
-    flexDirection: "column",
-    alignItems: "stretch",
-  },
-  footerInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  footerInfoCompact: {
-    width: "100%",
-  },
-  footerLabel: {
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    color: "#404a60",
-    letterSpacing: 0.5,
-  },
-  footerValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#161b26",
-  },
-  hiddenText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  actionRowCompact: {
-    width: "100%",
-    flexWrap: "wrap",
-    alignItems: "stretch",
-    justifyContent: "space-between",
-    rowGap: 8,
-  },
-  actionPillButtonCompact: {
-    width: "48%",
-    minWidth: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  viewPillButton: {
-    backgroundColor: "#ffd45f",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  connectPillButton: {
-    backgroundColor: "#7db1ff",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  reportPillButton: {
-    backgroundColor: "#dc2626",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  blockPillButton: {
-    backgroundColor: "#111827",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  connectedPill: {
-    backgroundColor: "#22c55e",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  disabledPillButton: {
-    opacity: 0.65,
-  },
-  viewPillButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  reportPillButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  blockPillButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  connectedPillText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  connectPillButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
-  
-promptQuestion: {
-  fontSize: 12,
-  fontWeight: "700",
-  color: "#0e3365",
-  textAlign: "center",
-},
-bioBlock: {
- marginTop: 4,
-},
-
-bioLabel: {
-  fontWeight: "500",
-  color: "#374151",
-   textAlign: "center",
-},
-
-bioText: {
-  fontSize: 13,
-  lineHeight: 20,
-  color: "#374151",
-   textAlign: "center",
-},
-
 });
