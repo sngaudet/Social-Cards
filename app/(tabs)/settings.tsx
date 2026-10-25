@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   deleteUser,
@@ -8,6 +9,7 @@ import {
 } from "firebase/auth";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -22,13 +24,42 @@ import {
   View,
 } from "react-native";
 
+import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 import { auth } from "../../firebaseConfig";
 import { signOutCurrentUser } from "../../src/auth/session";
 import { prepareLocationServicesForSessionExit } from "../../src/location/service";
 import { useSignup } from "../../src/signup/context";
 
+const SETTINGS_FAQS = [
+  {
+    question: "What does my Social Card look like?",
+    answer:
+      "While Social Cards have specific fields available to fill out, there is no one way that it should look. Each Social Card is unique to the user! But we understand that it may be difficult to make one from scratch, so here is a template you can look at from our old pal Icey the Ice Cube!",
+  },
+  {
+    question: "What do I do with unfriendly accounts?",
+    answer:
+      'There are a couple of things you can do if there is an account that is acting unfriendly towards you. If they are not inherently breaking any of the Terms of Service rules, the best thing you can do is block them. This will make it so that the user you blocked can no longer see your profile and will appear in a special section in the connections page titled "Blocked Users". You can still see chats you had with blocked users but they will be read-only. If a user is being unfriendly and harassing you in a way that does break Terms of Service, please select "Report" from their card options or chat. Fill out the report form and it will be investigated. If we find the allegations to be accurate the offending user will recieve a fitting punishment. Some examples of punishment would be a temporary ban or account deletion.',
+  },
+  {
+    question: "How do I recover my password or account?",
+    answer:
+      'This is a common question we have here at Social Cards. Currently, there is no way to recover an account that you do not know the email of. However, password recovery is a feature implemented in this application. To start this process, go to the Login Page and click "Forgot Password". This will prompt you to check your email and click the link. This link will bring you to a page where you can update your password.',
+  },
+  {
+    question:
+      "What is the difference between an avatar icon and a profile picture, and can I update my profile picture even if I skipped it initially?",
+    answer:
+      'Avatar icons are required to be chosen on signup. There is no way to make an account without choosing one. By default, the avatar icon you choose will be the image displayed on your social card for others to see. Also, in the signup process, you can choose to take a picture through the app. As it currently stands, if you have both a profile picture and an avatar icon, your social card will display the profile picture. However, if a user is not comfortable with displaying their profile picture, they can go to Profile, then Edit, then select Profile Photo under Visible Before Connection, and toggle it so that it is showing grey. This will make it so that people who initially see your social card see your avatar icon, and only those that match with you will see your profile picture. If you have made an account and opted to skip taking a profile picture, worry not! To add your first profile picture or update your current picture, simply go to Profile, then click Edit, then on the top of the page, under Profile Photo, click "Take Photo". Then tap "Save Changes" to upload your photo.',
+  },
+  {
+    question: "How do I report abusive or spam behavior?",
+    answer:
+      'There are two locations where you can report another user. The first option is on the Home page. On the offending user\'s social card, open the options menu and select "Report". This will display a report form which, after being filled out, will be investigated by someone on the Icebreakers team and an appropriate punishment will be given to the offending user. The second location that the report button can be found is in the personal message page between two users. On the top right of the message page, there should be a similar red button titled "Report", that gives the same report form as the one on the Home Page. It is also recomended that if you report a user for malicious behavior that you also Block them so that they have no further way of contacting you or viewing your profile.',
+  },
+];
+
 export default function SettingsPage() {
-  // const router = useRouter();
   const router = useRouter();
   const { resetDraft } = useSignup();
 
@@ -42,9 +73,6 @@ export default function SettingsPage() {
   const [reauthModalVisible, setReauthModalVisible] = useState(false);
   const [reauthPassword, setReauthPassword] = useState("");
   const [reauthenticating, setReauthenticating] = useState(false);
-  // const onLogin = () => {
-  //     router.replace("/(auth)/signup/hobbies");
-  // }
   const handleLogout = async () => {
     if (loggingOut) return;
 
@@ -254,167 +282,122 @@ export default function SettingsPage() {
     }
   };
 
+  const accountBusy = loggingOut || deleting || reauthenticating;
+  const faqStates = [
+    { expanded: isVisible, onPress: toggleQ1 },
+    { expanded: isVisible2, onPress: toggleQ2 },
+    { expanded: isVisible3, onPress: toggleQ3 },
+    { expanded: isVisible4, onPress: toggleQ4 },
+    { expanded: isVisible5, onPress: toggleQ5 },
+  ];
+
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* this is how to reference an image */}
-        {/* <Image
-              source={require('../assets/images/Ice Cube Photopea 1.png')} style={styles.welcomeLogo}
-            /> */}
-
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.title3}>Commonly Asked Questions:</Text>
-
-        {/* Question 1 */}
-        <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ1}>
-          <Text style={styles.thirdButtonText}>
-            What does my Social Card look like?
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <View style={styles.page}>
+          <View style={styles.brand}>
+            <Image
+              source={iceMascot}
+              style={styles.mascot}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandName}>Icebreakers</Text>
+          </View>
+          <Text accessibilityRole="header" style={styles.title}>
+            Settings
           </Text>
-        </TouchableOpacity>
-
-        {isVisible && (
-          <Text style={styles.foruthText}>
-            While Social Cards have specific fields available to fill out, there
-            is no one way that it should look. Each Social Card is unique to the
-            user! But we understand that it may be difficult to make one from
-            scratch, so here is a template you can look at from our old pal Icy
-            the Icecube!
-          </Text>
-        )}
-        {isVisible && (
-          <Image
-            source={require("../../assets/images/Icy_Card.png")}
-            resizeMode="contain"
-          />
-        )}
-
-        {/* Question 2 */}
-        <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ2}>
-          <Text style={styles.thirdButtonText}>
-            What do I do with unfriendly accounts?
-          </Text>
-        </TouchableOpacity>
-
-        {isVisible2 && (
-          <Text style={styles.foruthText}>
-            There are a couple of things you can do if there is an account that
-            is acting unfriendly towards you. If they are not inherently
-            breaking any of the Terms of Service rules, the best thing you can
-            do is block them. This will make it so that the user you blocked can
-            no longer see your profile and will appear in a special section in
-            the connections page titled &quot;Blocked Users&quot;. You can still
-            see chats you had with blocked users but they will be read-only. If
-            a user is being unfriendly and harassing you in a way that does
-            break Terms of Service, please report them using the red
-            &quot;Report&quot; button. Fill out the report form and it will be
-            investigated. If we find the allegations to be accurate the
-            offending user will recieve a fitting punishment. Some examples of
-            punishment would be a temporary ban or account deletion.
-          </Text>
-        )}
-
-        {/* Question 3 */}
-        <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ3}>
-          <Text style={styles.thirdButtonText}>
-            How do I recover my password or account?
-          </Text>
-        </TouchableOpacity>
-
-        {isVisible3 && (
-          <Text style={styles.foruthText}>
-            This is a common question we have here at Social Cards. Currently,
-            there is no way to recover an account that you do not know the email
-            of. However, password recovery is a feature implemented in this
-            application. To start this process, go to the Login Page and click
-            &quot;Forgot Password&quot;. This will prompt you to check your
-            email and click the link. This link will bring you to a page where
-            you can update your password.
-          </Text>
-        )}
-        {/* Question 4 */}
-        <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ4}>
-          <Text style={styles.thirdButtonText}>
-            What is the difference between an avatar icon and a profile picture,
-            and can I update my profile picture even if I skipped it initially?
-          </Text>
-        </TouchableOpacity>
-
-        {isVisible4 && (
-          <Text style={styles.foruthText}>
-            Avatar icons are required to be chosen on signup. There is no way to
-            make an account without choosing one. By default, the avatar icon
-            you choose will be the image displayed on your social card for
-            others to see. Also, in the signup process, you can choose to take a
-            picture through the app. As it currently stands, if you have both a
-            profile picture and an avatar icon, your social card will display
-            the profile picture. However, if a user is not comfortable with
-            displaying their profile picture, they can go to Profile, then Edit,
-            then select Profile Picture under Visible Before Connection, and
-            toggle it so that it is showing grey. This will make it so that
-            people who initially see your social card see you avatar icon, and
-            only those that match with you will see your profile picture. If you
-            have made an account and opted to skip taking a profile picture,
-            worry not! To add your first profile picture or update your current
-            picture, simply go to Profile, then click Edit, then on the top of
-            the page, under Profile Image, click &quot;Take New Photo&quot;.
-            This will then update after the user confirms that this picture is
-            the one that they would like to overwrite their current photo with.
-          </Text>
-        )}
-        {/* Question 5 */}
-        <TouchableOpacity style={styles.primaryButton2} onPress={toggleQ5}>
-          <Text style={styles.thirdButtonText}>
-            How do I report abusive or spam behavior?
-          </Text>
-        </TouchableOpacity>
-
-        {isVisible5 && (
-          <Text style={styles.foruthText}>
-            There are two locations where you can report another user. The first
-            option is on the Home page. On the offending user&apos;s social
-            card, there are several buttons on the bottom right of the card. The
-            red button titled &quot;Report&quot;, when clicked, will display a
-            report form which, after being filled out, will be investigated by
-            someone on the Social Cards team and an appropriate punishment will
-            be given to the offending user. The second location that the report
-            button can be found is in the personal message page between two
-            users. On the top right of the message page, there should be a
-            similar red button titled &quot;Report&quot;, that gives the same
-            report form as the one on the Home Page. It is also recomended that
-            if you report a user for malicious behavior that you also Block them
-            so that they have no further way of contacting you or viewing your
-            profile.
-          </Text>
-        )}
-
-        {/* end of questions */}
-        <TouchableOpacity
-          style={[styles.secondaryButton, loggingOut && styles.disabledButton]}
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {loggingOut ? "Logging out..." : "Log Out"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.dangerButton,
-            (deleting || reauthenticating) && styles.disabledButton,
-          ]}
-          onPress={onDeleteAccount}
-          disabled={deleting || reauthenticating}
-        >
-          <Text style={styles.dangerText}>
-            {deleting ? "Deleting..." : "Delete Account"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* <TouchableOpacity style={styles.primaryButton} 
-                onPress={() => router.replace("/(auth)/signup/onboardingPermission")}>
-                <Text>Next Step</Text>
-            </TouchableOpacity> */}
+          <View style={styles.section}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Commonly Asked Questions
+            </Text>
+            <View style={styles.faqCard}>
+              {SETTINGS_FAQS.map((faq, index) => {
+                const { expanded, onPress } = faqStates[index];
+                return (
+                  <View
+                    key={faq.question}
+                    style={index > 0 && styles.faqDivider}
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={faq.question}
+                      accessibilityState={{ expanded }}
+                      aria-expanded={expanded}
+                      onPress={onPress}
+                      style={({ pressed }) => [
+                        styles.questionRow,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={styles.question}>{faq.question}</Text>
+                      <Feather
+                        name={expanded ? "chevron-up" : "chevron-down"}
+                        size={19}
+                        color={colors.muted}
+                      />
+                    </Pressable>
+                    {expanded && (
+                      <View style={styles.answerBody}>
+                        <Text style={styles.answer}>{faq.answer}</Text>
+                        {index === 0 && (
+                          <Image
+                            accessibilityLabel="Icey's example Social Card"
+                            source={require("../../assets/images/Icy_Card.png")}
+                            style={styles.exampleCard}
+                            resizeMode="contain"
+                          />
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.accountActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={loggingOut ? "Logging out..." : "Log Out"}
+              accessibilityState={{ disabled: accountBusy, busy: loggingOut }}
+              style={[
+                styles.accountButton,
+                accountBusy && styles.disabledButton,
+              ]}
+              onPress={handleLogout}
+              disabled={accountBusy}
+            >
+              {loggingOut ? (
+                <ActivityIndicator size="small" color={colors.blue} />
+              ) : (
+                <Feather name="log-out" size={21} color={colors.blue} />
+              )}
+              <Text style={styles.logoutText}>
+                {loggingOut ? "Logging out..." : "Log Out"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={deleting ? "Deleting..." : "Delete Account"}
+              accessibilityState={{ disabled: accountBusy, busy: deleting }}
+              style={[
+                styles.accountButton,
+                styles.deleteButton,
+                accountBusy && styles.disabledButton,
+              ]}
+              onPress={onDeleteAccount}
+              disabled={accountBusy}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#E74652" />
+              ) : (
+                <Feather name="trash-2" size={21} color="#E74652" />
+              )}
+              <Text style={styles.deleteText}>
+                {deleting ? "Deleting..." : "Delete Account"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
       <Modal
         visible={reauthModalVisible}
@@ -426,53 +409,67 @@ export default function SettingsPage() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.reauthModalRoot}
         >
-          <Pressable style={styles.reauthBackdrop} onPress={closeReauthModal} />
-          <View style={styles.reauthCard}>
-            <Text style={styles.reauthTitle}>Confirm your password</Text>
-            <Text style={styles.reauthSubtitle}>
-              Firebase requires a recent login before deleting your account.
-              Enter your current password to continue.
-            </Text>
-
-            <TextInput
-              value={reauthPassword}
-              onChangeText={setReauthPassword}
-              placeholder="Current password"
-              placeholderTextColor="#6B7280"
-              style={styles.reauthInput}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!reauthenticating}
-              returnKeyType="done"
-              onSubmitEditing={() => {
-                handleReauthenticateAndDelete().catch(() => {});
-              }}
-            />
-
-            <View style={styles.reauthActionRow}>
-              <TouchableOpacity
-                style={styles.reauthCancelButton}
-                onPress={closeReauthModal}
-                disabled={reauthenticating}
-              >
-                <Text style={styles.reauthCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.reauthDeleteButton,
-                  reauthenticating && styles.disabledButton,
-                ]}
-                onPress={() => {
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel account deletion"
+            style={styles.reauthBackdrop}
+            onPress={closeReauthModal}
+            disabled={reauthenticating}
+          />
+          <View style={styles.reauthCard} accessibilityViewIsModal>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.reauthContent}
+            >
+              <Text accessibilityRole="header" style={styles.reauthTitle}>
+                Confirm your password
+              </Text>
+              <Text style={styles.reauthSubtitle}>
+                For your security, enter your current password to delete your
+                account.
+              </Text>
+              <TextInput
+                accessibilityLabel="Current password"
+                value={reauthPassword}
+                onChangeText={setReauthPassword}
+                placeholder="Current password"
+                placeholderTextColor={colors.muted}
+                style={styles.reauthInput}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!reauthenticating}
+                returnKeyType="done"
+                onSubmitEditing={() => {
                   handleReauthenticateAndDelete().catch(() => {});
                 }}
-                disabled={reauthenticating}
-              >
-                <Text style={styles.reauthDeleteText}>
-                  {reauthenticating ? "Verifying..." : "Delete account"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              />
+              <View style={styles.reauthActionRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.reauthCancelButton}
+                  onPress={closeReauthModal}
+                  disabled={reauthenticating}
+                >
+                  <Text style={styles.reauthCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[
+                    styles.reauthDeleteButton,
+                    reauthenticating && styles.disabledButton,
+                  ]}
+                  onPress={() => {
+                    handleReauthenticateAndDelete().catch(() => {});
+                  }}
+                  disabled={reauthenticating}
+                >
+                  <Text style={styles.reauthDeleteText}>
+                    {reauthenticating ? "Verifying..." : "Delete account"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -481,212 +478,167 @@ export default function SettingsPage() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-
-  content: {
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 48,
-    backgroundColor: "#D9E0F0",
-    gap: 20,
-  },
-
-  title: {
-    fontSize: 34,
-    fontWeight: "700",
-    textAlign: "center",
-    marginTop: 8,
-  },
-
-  title2: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-
-  title3: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  input: {
-    fontSize: 16,
-  },
-
-  // FAQ button → card style
-  primaryButton: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24 },
+  page: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 20 },
+  brand: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-  },
-
-  primaryButton2: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-
-  primaryText: {
-    color: "#000",
-    fontWeight: "700",
-    fontSize: 16,
-    textAlign: "center",
-  },
-
-  // Logout button
-  secondaryButton: {
-    backgroundColor: "#888",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 16,
-  },
-
-  secondaryText: {
-    color: "#fff",
-    fontSize: 14,
-  },
-
-  secondaryButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-
-  thirdText: {
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
-  },
-
-  thirdButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#000",
-    textAlign: "center",
-  },
-
-  foruthText: {
-    fontSize: 16,
-    // color: "#666",
-    color: "#000000",
-    backgroundColor: "#89DBFB",
-    borderRadius: 8,
-    padding: 10,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-
-  welcomeLogo: {
-    width: 200,
-    height: 200,
-    alignSelf: "center",
-  },
-
-  cardFormat: {
-    width: "100%",
-    height: 200,
-    borderRadius: 12,
-  },
-
-  // Delete button
-  dangerButton: {
-    backgroundColor: "#ef4444",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 8,
-  },
-
-  dangerText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  disabledButton: {
-    opacity: 0.6,
-  },
-
-  reauthModalRoot: {
-    flex: 1,
     justifyContent: "center",
-    padding: 24,
+    gap: 9,
   },
-
-  reauthBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+  mascot: { width: 45, height: 48 },
+  brandName: { fontFamily: "LexendSemiBold", fontSize: 23, color: colors.ink },
+  title: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 29,
+    lineHeight: 39,
+    textAlign: "center",
+    color: colors.ink,
   },
-
-  reauthCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    gap: 14,
+  section: { gap: 14 },
+  sectionTitle: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 19,
+    lineHeight: 27,
+    color: colors.ink,
+    paddingHorizontal: 2,
   },
-
-  reauthTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#0F172A",
+  faqCard: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
+    shadowColor: "#8EAFD0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
   },
-
-  reauthSubtitle: {
+  faqDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  questionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 56,
+    paddingVertical: 18,
+  },
+  question: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.ink,
+  },
+  pressed: { opacity: 0.65 },
+  answerBody: { gap: 14, paddingBottom: 18 },
+  answer: { fontSize: 13, lineHeight: 21, color: colors.muted },
+  exampleCard: {
+    width: "100%",
+    aspectRatio: 432 / 267,
+    borderRadius: 12,
+    backgroundColor: colors.frost,
+  },
+  accountActions: { gap: 12 },
+  accountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.blue,
+    backgroundColor: colors.surface,
+  },
+  logoutText: {
+    flexShrink: 1,
     fontSize: 15,
     lineHeight: 22,
-    color: "#475569",
+    fontWeight: "600",
+    textAlign: "center",
+    color: colors.blue,
   },
-
+  deleteButton: { borderColor: "#E74652" },
+  deleteText: {
+    flexShrink: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#E74652",
+  },
+  disabledButton: { opacity: 0.6 },
+  reauthModalRoot: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  reauthBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(11,23,73,0.35)",
+  },
+  reauthCard: {
+    width: "100%",
+    maxWidth: 420,
+    maxHeight: "100%",
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  reauthContent: { padding: 20, gap: 14 },
+  reauthTitle: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 21,
+    lineHeight: 29,
+    color: colors.ink,
+  },
+  reauthSubtitle: { fontSize: 14, lineHeight: 21, color: colors.muted },
   reauthInput: {
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
-    color: "#0F172A",
-    backgroundColor: "#F8FAFC",
+    fontSize: 15,
+    color: colors.ink,
+    backgroundColor: colors.frost,
   },
-
   reauthActionRow: {
     flexDirection: "row",
-    gap: 12,
+    flexWrap: "wrap",
     justifyContent: "flex-end",
+    gap: 10,
   },
-
   reauthCancelButton: {
+    minHeight: 44,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: "#E2E8F0",
+    borderRadius: 999,
+    backgroundColor: colors.frost,
+    justifyContent: "center",
   },
-
   reauthCancelText: {
-    color: "#0F172A",
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: "600",
+    color: colors.muted,
   },
-
   reauthDeleteButton: {
+    minHeight: 44,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: "#DC2626",
+    borderRadius: 999,
+    backgroundColor: "#D93443",
+    justifyContent: "center",
   },
-
   reauthDeleteText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.surface,
   },
 });

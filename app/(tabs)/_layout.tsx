@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { PlatformPressable } from "@react-navigation/elements";
 import { Redirect, Tabs, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
@@ -44,17 +45,34 @@ export default function TabDisplay() {
     pathname === "/index" ||
     pathname === "/(tabs)" ||
     pathname === "/(tabs)/index";
-  const backgroundColor = isHome
-    ? colors.background
-    : pathname === "/(tabs)/index" || pathname.startsWith("/(tabs)/profile")
-      ? "#DFE7F6"
-      : "#D9E0F0";
+  const isMessages =
+    pathname === "/message_cur" || pathname === "/(tabs)/message_cur";
+  const isConnections =
+    pathname === "/connections" || pathname === "/(tabs)/connections";
+  const isProfile =
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/") ||
+    pathname.startsWith("/(tabs)/profile");
+  const isSettings =
+    pathname === "/settings" || pathname === "/(tabs)/settings";
+  const isChat =
+    pathname.startsWith("/chat/") || pathname.startsWith("/(tabs)/chat/");
+  const isUserProfile = pathname === "/uid" || pathname === "/(tabs)/uid";
+  const usesIceTheme =
+    isHome ||
+    isMessages ||
+    isConnections ||
+    isProfile ||
+    isSettings ||
+    isChat ||
+    isUserProfile;
+  const backgroundColor = usesIceTheme ? colors.background : "#D9E0F0";
 
   return (
     <View
       style={{
         flex: 1,
-        paddingTop: isHome ? insets.top : Math.max(0, insets.top - 20),
+        paddingTop: usesIceTheme ? insets.top : Math.max(0, insets.top - 20),
         backgroundColor,
       }}
     >
@@ -87,6 +105,10 @@ export default function TabDisplay() {
           name="index"
           options={{
             title: "Home",
+            tabBarInactiveTintColor: isUserProfile ? colors.blue : "#617195",
+            tabBarButton: isUserProfile
+              ? (props) => <PlatformPressable {...props} aria-selected />
+              : undefined,
             tabBarIcon: ({ focused, color }) => (
               <Ionicons
                 name={focused ? "home" : "home-outline"}
@@ -101,6 +123,10 @@ export default function TabDisplay() {
           name="message_cur"
           options={{
             title: "Messages",
+            tabBarInactiveTintColor: isChat ? colors.blue : "#617195",
+            tabBarButton: isChat
+              ? (props) => <PlatformPressable {...props} aria-selected />
+              : undefined,
             tabBarIcon: ({ color }) => (
               <Feather name="message-circle" size={24} color={color} />
             ),
@@ -121,6 +147,7 @@ export default function TabDisplay() {
           name="profile"
           options={{
             title: "Profile",
+            tabBarHideOnKeyboard: true,
             tabBarIcon: ({ color }) => (
               <Feather name="user" size={24} color={color} />
             ),
@@ -137,7 +164,10 @@ export default function TabDisplay() {
           }}
         />
 
-        <Tabs.Screen name="chat/[connectionId]" options={{ href: null }} />
+        <Tabs.Screen
+          name="chat/[connectionId]"
+          options={{ href: null, tabBarHideOnKeyboard: true }}
+        />
         <Tabs.Screen name="uid" options={{ href: null }} />
       </Tabs>
     </View>
