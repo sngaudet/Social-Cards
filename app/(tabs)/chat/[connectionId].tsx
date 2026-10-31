@@ -4,18 +4,24 @@ import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { iceColors as colors, iceMascot } from "../../../src/theme/icebreakers";
 import { auth, db } from "../../../firebaseConfig";
 import {
   blockUser,
@@ -53,6 +59,10 @@ function formatTimestamp(value: any): string {
 }
 
 export default function ConnectionChatPage() {
+  const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const stackHeaderActions = width < 360 || fontScale > 1.2;
+  const showBackLabel = width >= 375 && fontScale <= 1.15;
   const params = useLocalSearchParams<{
     connectionId?: string;
     otherUid?: string;
@@ -68,7 +78,9 @@ export default function ConnectionChatPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [otherUid, setOtherUid] = useState(params.otherUid ?? "");
-  const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(null);
+  const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(
+    null,
+  );
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   const [reporting, setReporting] = useState(false);
@@ -76,7 +88,8 @@ export default function ConnectionChatPage() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
-  const [blockedByCurrentUser, setBlockedByCurrentUser] = useState(blockedParam);
+  const [blockedByCurrentUser, setBlockedByCurrentUser] =
+    useState(blockedParam);
   const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
@@ -167,17 +180,13 @@ export default function ConnectionChatPage() {
   useEffect(() => {
     if (!connectionId) return;
 
-    return subscribeToMessages(
-      connectionId,
-      setMessages,
-      (error) => {
-        if ((error as any)?.code === "permission-denied") {
-          setAccessDenied(true);
-          return;
-        }
-        console.warn("Failed to subscribe to messages", error);
-      },
-    );
+    return subscribeToMessages(connectionId, setMessages, (error) => {
+      if ((error as any)?.code === "permission-denied") {
+        setAccessDenied(true);
+        return;
+      }
+      console.warn("Failed to subscribe to messages", error);
+    });
   }, [connectionId]);
 
   const title = useMemo(() => {
@@ -348,61 +357,125 @@ export default function ConnectionChatPage() {
   return (
     <KeyboardAvoidingView
       style={styles.page}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={insets.top}
     >
       <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => NavigationService.goBack("/(tabs)/message_cur")}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <Feather name="arrow-left" size={20} color="#2452ce" />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          <View style={styles.headerTitleColumn}>
-            <Text style={[styles.title, styles.headerTitle]} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={[styles.statusText, styles.headerStatusText]}>
-              {blockedByCurrentUser
-                ? "This user is blocked. You can read message history, but neither side can send new messages."
-                : isActive
-                ? `Chat available until ${expiresAt?.toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }) ?? "unknown"}`
-                : "This connection has expired. You can still read previous messages."}
-            </Text>
+        <View style={styles.headerContent}>
+          <View style={styles.brand}>
+            <Image
+              source={iceMascot}
+              style={styles.mascot}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandName}>Icebreakers</Text>
           </View>
-          <View style={styles.headerActionRow}>
-            <TouchableOpacity
-              style={[styles.reportButton, reporting && styles.disabledButton]}
-              onPress={openReportModal}
-              disabled={reporting || !otherUid}
+          <View
+            style={[
+              styles.toolbar,
+              stackHeaderActions && styles.toolbarStacked,
+            ]}
+          >
+            <View
+              style={[
+                styles.headerMain,
+                stackHeaderActions && styles.stackedMain,
+              ]}
             >
-              <Text style={styles.reportButtonText}>
-                {reporting ? "Reporting..." : "Report"}
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => NavigationService.goBack("/(tabs)/message_cur")}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Feather name="arrow-left" size={21} color={colors.blue} />
+                {showBackLabel && (
+                  <Text style={styles.backButtonText}>Back</Text>
+                )}
+              </TouchableOpacity>
+              <Text
+                accessibilityRole="header"
+                style={styles.headerTitle}
+                numberOfLines={1}
+              >
+                {title}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.blockButton, (blocking || blockedByCurrentUser) && styles.disabledButton]}
-              onPress={handleBlock}
-              disabled={blocking || blockedByCurrentUser || !otherUid}
+            </View>
+            <View
+              style={[
+                styles.headerActionRow,
+                stackHeaderActions && styles.stackedActions,
+              ]}
             >
-              <Text style={styles.blockButtonText}>
-                {blockedByCurrentUser ? "Blocked" : blocking ? "Blocking..." : "Block"}
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  styles.reportButton,
+                  reporting && styles.disabledButton,
+                ]}
+                onPress={openReportModal}
+                disabled={reporting || !otherUid}
+              >
+                <Text style={styles.reportButtonText}>
+                  {reporting ? "Reporting..." : "Report"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[
+                  styles.blockButton,
+                  (blocking || blockedByCurrentUser) && styles.disabledButton,
+                ]}
+                onPress={handleBlock}
+                disabled={blocking || blockedByCurrentUser || !otherUid}
+              >
+                <Text style={styles.blockButtonText}>
+                  {blockedByCurrentUser
+                    ? "Blocked"
+                    : blocking
+                      ? "Blocking..."
+                      : "Block"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.statusCard}>
+            <Feather
+              name={blockedByCurrentUser ? "slash" : "clock"}
+              size={24}
+              color={colors.muted}
+            />
+            <View style={styles.statusBody}>
+              <Text style={styles.statusTitle}>
+                {blockedByCurrentUser
+                  ? "User blocked"
+                  : isActive
+                    ? "Connected"
+                    : "Connection expired"}
               </Text>
-            </TouchableOpacity>
+              <Text style={styles.statusText}>
+                {blockedByCurrentUser
+                  ? "You can read message history, but neither side can send new messages."
+                  : isActive
+                    ? "Chat available until " +
+                      (expiresAt?.toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }) ?? "unknown")
+                    : "You can still read previous messages."}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
 
       <FlatList
+        style={styles.messageScroll}
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         renderItem={({ item }) => {
           const own = item.senderUid === currentUid;
           return (
@@ -422,30 +495,47 @@ export default function ConnectionChatPage() {
           );
         }}
       />
-
-      <View style={styles.composeRow}>
-        <TextInput
-          style={styles.input}
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={
-            blockedByCurrentUser
-              ? "Chat is read-only after blocking"
-              : isActive
-                ? "Type a message..."
-                : "Chat expired"
-          }
-          multiline
-          maxLength={2000}
-          editable={!isReadOnly && !sending}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (sending || isReadOnly) && styles.disabledButton]}
-          onPress={handleSend}
-          disabled={sending || isReadOnly}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+      <View style={styles.composeDock}>
+        <View style={styles.composeRow}>
+          <TextInput
+            accessibilityLabel="Message"
+            style={[styles.input, isReadOnly && styles.readOnlyInput]}
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={
+              blockedByCurrentUser
+                ? "Chat is read-only after blocking"
+                : isActive
+                  ? "Type a message..."
+                  : "Chat expired"
+            }
+            placeholderTextColor={colors.muted}
+            multiline
+            numberOfLines={1}
+            maxLength={2000}
+            editable={!isReadOnly && !sending}
+          />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={sending ? "Sending..." : "Send"}
+            accessibilityState={{
+              disabled: sending || isReadOnly,
+              busy: sending,
+            }}
+            style={[
+              styles.sendButton,
+              (sending || isReadOnly) && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSend}
+            disabled={sending || isReadOnly}
+          >
+            {sending ? (
+              <ActivityIndicator color={colors.surface} size="small" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
       <Modal
         visible={reportModalVisible}
@@ -457,67 +547,89 @@ export default function ConnectionChatPage() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.reportModalRoot}
         >
-          <Pressable style={styles.reportBackdrop} onPress={closeReportModal} />
-          <View style={styles.reportModalCard}>
-            <Text style={styles.reportModalTitle}>Report user</Text>
-            <Text style={styles.reportModalSubtitle}>
-              Tell us what happened with {otherProfile?.firstName || otherUid || "this user"}.
-            </Text>
-
-            <Text style={styles.reportFieldLabel}>Reason</Text>
-            <View style={styles.reportReasonPickerWrap}>
-              <Picker
-                selectedValue={reportReason}
-                onValueChange={(value) => setReportReason(String(value))}
-                enabled={!reporting}
-                style={styles.reportReasonPicker}
-                dropdownIconColor="#7F1D1D"
-              >
-                <Picker.Item label="Select a reason..." value="" />
-                {REPORT_REASON_OPTIONS.map((reason) => (
-                  <Picker.Item key={reason} label={reason} value={reason} />
-                ))}
-              </Picker>
-            </View>
-
-            <View style={styles.reportDetailsHeader}>
-              <Text style={styles.reportFieldLabel}>Details</Text>
-              <Text style={styles.reportCharacterCount}>
-                {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close report"
+            style={styles.reportBackdrop}
+            onPress={closeReportModal}
+            disabled={reporting}
+          />
+          <View style={styles.reportModalCard} accessibilityViewIsModal>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.reportContent}
+            >
+              <Text accessibilityRole="header" style={styles.reportModalTitle}>
+                Report user
               </Text>
-            </View>
-            <TextInput
-              value={reportDetails}
-              onChangeText={(value) => setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))}
-              placeholder="Add any context that would help explain the issue."
-              placeholderTextColor="#9CA3AF"
-              style={styles.reportDetailsInput}
-              multiline
-              textAlignVertical="top"
-              maxLength={REPORT_DETAILS_MAX_LENGTH}
-              editable={!reporting}
-            />
+              <Text style={styles.reportModalSubtitle}>
+                Tell us what happened with {title}.
+              </Text>
 
-            <View style={styles.reportActionRow}>
-              <TouchableOpacity
-                style={styles.reportCancelButton}
-                onPress={closeReportModal}
-                disabled={reporting}
-              >
-                <Text style={styles.reportCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.reportSubmitButton, reporting && styles.disabledButton]}
-                onPress={() => {
-                  submitReport().catch(() => {});
-                }}
-                disabled={reporting}
-              >
-                <Text style={styles.reportSubmitButtonText}>
-                  {reporting ? "Submitting..." : "Submit report"}
+              <Text style={styles.reportFieldLabel}>Reason</Text>
+              <View style={styles.reportReasonPickerWrap}>
+                <Picker
+                  accessibilityLabel="Report reason"
+                  selectedValue={reportReason}
+                  onValueChange={(value) => setReportReason(String(value))}
+                  enabled={!reporting}
+                  style={styles.reportReasonPicker}
+                  dropdownIconColor="#7F1D1D"
+                >
+                  <Picker.Item label="Select a reason..." value="" />
+                  {REPORT_REASON_OPTIONS.map((reason) => (
+                    <Picker.Item key={reason} label={reason} value={reason} />
+                  ))}
+                </Picker>
+              </View>
+
+              <View style={styles.reportDetailsHeader}>
+                <Text style={styles.reportFieldLabel}>Details</Text>
+                <Text style={styles.reportCharacterCount}>
+                  {reportDetails.length}/{REPORT_DETAILS_MAX_LENGTH}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+              <TextInput
+                accessibilityLabel="Report details"
+                value={reportDetails}
+                onChangeText={(value) =>
+                  setReportDetails(value.slice(0, REPORT_DETAILS_MAX_LENGTH))
+                }
+                placeholder="Add any context that would help explain the issue."
+                placeholderTextColor="#9CA3AF"
+                style={styles.reportDetailsInput}
+                multiline
+                textAlignVertical="top"
+                maxLength={REPORT_DETAILS_MAX_LENGTH}
+                editable={!reporting}
+              />
+
+              <View style={styles.reportActionRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.reportCancelButton}
+                  onPress={closeReportModal}
+                  disabled={reporting}
+                >
+                  <Text style={styles.reportCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[
+                    styles.reportSubmitButton,
+                    reporting && styles.disabledButton,
+                  ]}
+                  onPress={() => {
+                    submitReport().catch(() => {});
+                  }}
+                  disabled={reporting}
+                >
+                  <Text style={styles.reportSubmitButtonText}>
+                    {reporting ? "Submitting..." : "Submit report"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -526,249 +638,304 @@ export default function ConnectionChatPage() {
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: "#D9E0F0",
-  },
+  page: { flex: 1, backgroundColor: colors.background },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#D9E0F0",
-  },
-  header: {
-    paddingTop: 18,
-    paddingHorizontal: 18,
-    paddingBottom: 8,
-  },
-  backButton: {
-    flexShrink: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 44,
-    paddingHorizontal: 8,
-    gap: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2452ce",
-  },
-  headerTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  headerTitleColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerTitle: {
-    textAlign: "center",
-  },
-  headerStatusText: {
-    textAlign: "center",
-  },
-  headerActionRow: {
-    flexDirection: "row",
-    flexShrink: 0,
-    gap: 8,
+    padding: 24,
+    gap: 10,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontFamily: "LexendSemiBold",
+    fontSize: 26,
+    lineHeight: 36,
+    color: colors.ink,
+    textAlign: "center",
   },
+  header: { paddingTop: 8, paddingBottom: 14, paddingHorizontal: 12 },
+  headerContent: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 12 },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  mascot: { width: 36, height: 40 },
+  brandName: { fontFamily: "LexendSemiBold", fontSize: 20, color: colors.ink },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  toolbarStacked: { flexWrap: "wrap" },
+  headerMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  stackedMain: { flexBasis: "100%" },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 36,
+    minHeight: 44,
+    gap: 6,
+  },
+  backButtonText: { fontSize: 14, lineHeight: 21, color: colors.blue },
+  headerTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: "LexendSemiBold",
+    fontSize: 20,
+    lineHeight: 28,
+    color: colors.ink,
+    textAlign: "center",
+  },
+  headerActionRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stackedActions: { width: "100%", justifyContent: "flex-end" },
   reportButton: {
-    backgroundColor: "#dc2626",
-    borderRadius: 999,
-    paddingHorizontal: 18,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 10,
     paddingVertical: 10,
-  },
-  blockButton: {
-    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#E74652",
     borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
   },
   reportButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: "#D93443",
+  },
+  blockButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.ink,
+    borderRadius: 999,
   },
   blockButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: colors.ink,
   },
-  statusText: {
-    fontSize: 13,
-    color: "#546075",
-    marginTop: 6,
-  },
-  messagesList: {
+  statusCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#F8FCFF",
+  },
+  statusBody: { flex: 1, minWidth: 0, gap: 4 },
+  statusTitle: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.ink,
+  },
+  statusText: { fontSize: 13, lineHeight: 20, color: colors.muted },
+  messageScroll: { flex: 1 },
+  messagesList: {
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingTop: 2,
+    paddingBottom: 16,
+    gap: 12,
   },
   bubble: {
     maxWidth: "82%",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    gap: 5,
     borderWidth: 1,
   },
   ownBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#2452ce",
-    borderColor: "#1f46ae",
+    backgroundColor: colors.blue,
+    borderColor: colors.blue,
   },
   otherBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#fff",
-    borderColor: "#ddd",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
-  bubbleText: {
-    color: "#111",
-  },
-  ownBubbleText: {
-    color: "#fff",
-  },
+  bubbleText: { fontSize: 15, lineHeight: 22, color: colors.ink },
+  ownBubbleText: { color: colors.surface },
   timeText: {
     fontSize: 11,
-    color: "#666",
-    marginTop: 4,
+    lineHeight: 16,
+    color: colors.muted,
     alignSelf: "flex-end",
   },
-  ownTimeText: {
-    color: "#dce8ff",
+  ownTimeText: { color: "#E0ECFF" },
+  composeDock: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   composeRow: {
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#c9d2e5",
-    backgroundColor: "#edf2ff",
+    width: "100%",
+    maxWidth: 576,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
   },
   input: {
     flex: 1,
-    minHeight: 44,
+    minWidth: 0,
+    minHeight: 48,
     maxHeight: 120,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#bcc7df",
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: colors.border,
+    backgroundColor: colors.frost,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.ink,
   },
+  readOnlyInput: { backgroundColor: "#EDF1F8", color: colors.muted },
   sendButton: {
-    backgroundColor: "#2452ce",
-    borderRadius: 10,
+    minWidth: 62,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 14,
     paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: colors.blue,
   },
-  disabledButton: {
-    opacity: 0.6,
-  },
+  sendButtonDisabled: { backgroundColor: "#9DB4E2" },
+  disabledButton: { opacity: 0.55 },
   sendButtonText: {
-    color: "#fff",
-    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: "600",
+    color: colors.surface,
   },
   reportModalRoot: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 20,
+    alignItems: "center",
+    padding: 20,
   },
   reportBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.4)",
+    backgroundColor: "rgba(11,23,73,0.35)",
   },
   reportModalCard: {
-    borderRadius: 24,
-    padding: 20,
-    backgroundColor: "#fffdfb",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 10,
+    width: "100%",
+    maxWidth: 440,
+    maxHeight: "100%",
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
   },
+  reportContent: { padding: 20, gap: 12 },
   reportModalTitle: {
+    fontFamily: "LexendSemiBold",
     fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
+    lineHeight: 30,
+    color: colors.ink,
   },
-  reportModalSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#4B5563",
-  },
+  reportModalSubtitle: { fontSize: 14, lineHeight: 21, color: colors.muted },
   reportFieldLabel: {
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: "700",
     textTransform: "uppercase",
-    color: "#374151",
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
+    color: colors.muted,
   },
   reportReasonPickerWrap: {
     borderWidth: 1,
-    borderColor: "#F3D1D1",
-    borderRadius: 14,
-    backgroundColor: "#FFF7F7",
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.frost,
     overflow: "hidden",
   },
   reportReasonPicker: {
-    color: "#111827",
+    minHeight: 48,
+    borderWidth: 0,
+    color: colors.ink,
+    backgroundColor: colors.frost,
   },
   reportDetailsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
   },
-  reportCharacterCount: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
+  reportCharacterCount: { fontSize: 12, lineHeight: 18, color: colors.muted },
   reportDetailsInput: {
-    minHeight: 140,
+    minHeight: 130,
     borderWidth: 1,
-    borderColor: "#F3D1D1",
-    borderRadius: 16,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#111827",
-    backgroundColor: "#FFF7F7",
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.ink,
+    backgroundColor: colors.frost,
   },
   reportActionRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "flex-end",
     gap: 10,
     marginTop: 4,
   },
   reportCancelButton: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 999,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.frost,
   },
   reportCancelButtonText: {
-    color: "#374151",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.muted,
   },
   reportSubmitButton: {
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 999,
-    backgroundColor: "#B91C1C",
+    backgroundColor: "#D93443",
   },
   reportSubmitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.surface,
   },
 });

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
@@ -21,6 +22,7 @@ import {
 } from "../../src/connections/service";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { NavigationService } from "../../src/navigation/NavigationService";
+import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 
 type InboxConnection = ConnectionDoc & {
   otherUid: string;
@@ -38,13 +40,10 @@ function formatDateTime(value: Date | null): string {
 }
 
 //helper function to format remaining time until expiration
-function formatRemainingTime(
-  expiresAt: Date | null,
-  nowMs: number,
-): string {
+function formatRemainingTime(expiresAt: Date | null, nowMs: number): string {
   if (!expiresAt) return "";
 
-  const diffMs = expiresAt.getTime() - Date.now();
+  const diffMs = expiresAt.getTime() - nowMs;
   if (diffMs <= 0) return "Expired";
 
   const totalSeconds = Math.floor(diffMs / 1000);
@@ -57,10 +56,11 @@ function formatRemainingTime(
   return `${minutes}min remaining`;
 }
 
-
 export default function MessagesPage() {
   const router = useRouter();
   const currentUid = auth.currentUser?.uid;
+  const { width, fontScale } = useWindowDimensions();
+  const showBackLabel = width >= 360 && fontScale <= 1.15;
   const [showCurrent, setShowCurrent] = useState(true);
   const [connections, setConnections] = useState<ConnectionDoc[]>([]);
   const [profiles, setProfiles] = useState<Record<string, PublicUserProfile>>(
@@ -144,16 +144,16 @@ export default function MessagesPage() {
   const currentConnections = useMemo(
     () =>
       connectionsWithProfiles.filter((connection) =>
-        isConnectionActive(connection),
+        isConnectionActive(connection, new Date(now)),
       ),
-    [connectionsWithProfiles],
+    [connectionsWithProfiles, now],
   );
   const pastConnections = useMemo(
     () =>
       connectionsWithProfiles.filter(
-        (connection) => !isConnectionActive(connection),
+        (connection) => !isConnectionActive(connection, new Date(now)),
       ),
-    [connectionsWithProfiles],
+    [connectionsWithProfiles, now],
   );
 
   // this keeps the remaining-time label fresh without manual refresh
@@ -192,424 +192,323 @@ export default function MessagesPage() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => NavigationService.goBack("/(tabs)")}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-      >
-        <Feather name="arrow-left" size={20} color="#2452ce" />
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>Messages</Text>
-      <Text style={styles.subtitle}>
-        Current connections can chat for 24 hours. Past connections stay here as
-        read-only history.
-      </Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <View style={styles.page}>
+        <View style={styles.header}>
+          <View style={styles.headerSide}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => NavigationService.goBack("/(tabs)")}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Feather name="arrow-left" size={20} color={colors.blue} />
+              {showBackLabel ? (
+                <Text style={styles.backButtonText}>Back</Text>
+              ) : null}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.brand}>
+            <Image
+              source={iceMascot}
+              style={styles.mascot}
+              resizeMode="contain"
+              accessible={false}
+            />
+            <Text style={styles.brandName}>Icebreakers</Text>
+          </View>
+          <View style={styles.headerSide} />
+        </View>
 
-      <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            showCurrent && styles.toggleButtonActive,
-          ]}
-          onPress={() => setShowCurrent(true)}
-        >
-          <Text
-            style={[
-              styles.toggleButtonText,
-              showCurrent && styles.toggleButtonTextActive,
-            ]}
-          >
-            Current ({currentConnections.length})
+        <View style={styles.intro}>
+          <Text accessibilityRole="header" style={styles.title}>
+            Messages
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            !showCurrent && styles.toggleButtonActive,
-          ]}
-          onPress={() => setShowCurrent(false)}
-        >
-          <Text
-            style={[
-              styles.toggleButtonText,
-              !showCurrent && styles.toggleButtonTextActive,
-            ]}
-          >
-            Past ({pastConnections.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {visibleConnections.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>
-            {showCurrent ? "No current connections" : "No past connections"}
-          </Text>
-          <Text style={styles.subtleText}>
-            {showCurrent
-              ? "When you accept a connection, it will appear here until the chat window expires."
-              : "Expired connections will stay here so you can remember who you met."}
+          <Text style={styles.subtitle}>
+            Current connections can chat for 24 hours. Past connections stay
+            here as read-only history.
           </Text>
         </View>
-      ) : (
-        visibleConnections.map((connection) => {
-          const expiresAt = getConnectionExpiresAt(connection);
-          const active = isConnectionActive(connection);
-          const avatarSource = getAvatarImageSource(
-            connection.otherUser?.avatarId,
-          );
 
-          return (
-            /* 
-            <View key={connection.id} style={styles.card}>
-              <View style={styles.row}>
+        <View style={styles.toggleRow} accessibilityRole="tablist">
+          <TouchableOpacity
+            accessibilityRole="tab"
+            accessibilityLabel={"Current (" + currentConnections.length + ")"}
+            accessibilityState={{ selected: showCurrent }}
+            style={[
+              styles.toggleButton,
+              showCurrent && styles.toggleButtonActive,
+            ]}
+            onPress={() => setShowCurrent(true)}
+          >
+            <Text
+              style={[
+                styles.toggleButtonText,
+                showCurrent && styles.toggleButtonTextActive,
+              ]}
+            >
+              Current ({currentConnections.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="tab"
+            accessibilityLabel={"Past (" + pastConnections.length + ")"}
+            accessibilityState={{ selected: !showCurrent }}
+            style={[
+              styles.toggleButton,
+              !showCurrent && styles.toggleButtonActive,
+            ]}
+            onPress={() => setShowCurrent(false)}
+          >
+            <Text
+              style={[
+                styles.toggleButtonText,
+                !showCurrent && styles.toggleButtonTextActive,
+              ]}
+            >
+              Past ({pastConnections.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {visibleConnections.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Feather name="message-circle" size={32} color={colors.blue} />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {showCurrent ? "No current connections" : "No past connections"}
+            </Text>
+            <Text style={styles.subtleText}>
+              {showCurrent
+                ? "When you accept a connection, it will appear here until the chat window expires."
+                : "Expired connections will stay here so you can remember who you met."}
+            </Text>
+          </View>
+        ) : (
+          visibleConnections.map((connection) => {
+            const expiresAt = getConnectionExpiresAt(connection);
+            const active = isConnectionActive(connection, new Date(now));
+            const name = connection.otherUser?.firstName || connection.otherUid;
+            const avatarSource = getAvatarImageSource(
+              connection.otherUser?.avatarId,
+            );
+
+            return (
+              <TouchableOpacity
+                key={connection.id}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  active
+                    ? "Open chat with " + name
+                    : "View read-only messages with " + name
+                }
+                style={styles.threadRow}
+                onPress={() => openMessages(connection.id, connection.otherUid)}
+              >
                 {connection.otherUser?.photoURL ? (
                   <Image
                     source={{ uri: connection.otherUser.photoURL }}
-                    style={styles.avatar}
+                    style={styles.threadAvatar}
                   />
                 ) : avatarSource ? (
-                  <Image source={avatarSource} style={styles.avatar} />
+                  <Image source={avatarSource} style={styles.threadAvatar} />
                 ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>No Photo</Text>
+                  <View
+                    style={[
+                      styles.threadAvatar,
+                      styles.threadAvatarPlaceholder,
+                    ]}
+                  >
+                    <Feather name="user" size={24} color={colors.muted} />
                   </View>
                 )}
-
-                <View style={styles.cardBody}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.nameText}>
-                      {connection.otherUser?.firstName || connection.otherUid}
-                    </Text>
-                    <View
-                      style={[
-                        styles.statusPill,
-                        active ? styles.activePill : styles.pastPill,
-                      ]}
-                    >
-                      <Text style={styles.statusPillText}>
-                        {active ? "Current" : "Past"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.subtleText}>
-                    {connection.otherUser?.major || "No major listed"}
+                <View style={styles.threadBody}>
+                  <Text style={styles.threadName} numberOfLines={1}>
+                    {name}
                   </Text>
-                  <Text style={styles.uidText}>UID: {connection.otherUid}</Text>
-                  <Text style={styles.timeText}>
+                  <Text style={styles.threadTime}>
+                    {active ? "Chat expires" : "Expired"}{" "}
+                    {formatDateTime(expiresAt)}
+                  </Text>
+                  <Text
+                    style={
+                      active ? styles.threadRemaining : styles.threadHistory
+                    }
+                  >
                     {active
-                      ? `Chat expires ${formatDateTime(expiresAt)}`
-                      : `Connection expired ${formatDateTime(expiresAt)}`}
+                      ? formatRemainingTime(expiresAt, now)
+                      : "Read-only history"}
                   </Text>
                 </View>
-              </View>
-
-              {active ? (
-                <TouchableOpacity
-                  style={styles.messageButton}
-                  onPress={() =>
-                    openMessages(connection.id, connection.otherUid)
-                  }
-                >
-                  <Text style={styles.primaryButtonText}>Open Chat</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.messageButton}
-                  onPress={() =>
-                    openMessages(connection.id, connection.otherUid)
-                  }
-                >
-                  <Text style={styles.buttonText}>View Read-Only Messages</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            */
-
-            <TouchableOpacity
-              key={connection.id}
-              style={styles.threadRow}
-              onPress={() => openMessages(connection.id, connection.otherUid)}
-            >
-           
-              {connection.otherUser?.photoURL ? (
-                <Image
-                  source={{ uri: connection.otherUser.photoURL }}
-                  style={styles.threadAvatar}
-                />
-              ) : avatarSource ? (
-                <Image source={avatarSource} style={styles.threadAvatar} />
-              ) : (
-                <View style={styles.threadAvatarPlaceholder} />
-              )}
-
-              <View style={styles.threadBody}>
-                <Text style={styles.threadName} numberOfLines={1}>
-                  {connection.otherUser?.firstName || connection.otherUid}
-                </Text>
-
-                <Text style={styles.threadPreview} numberOfLines={1}>
-                {/* Placeholder preview text for now */}
-                  Heyy
-                </Text>
-              </View>
-
-              <View style={styles.threadMeta}>
-                <Text style={styles.threadTime}>
-                  {formatDateTime(expiresAt)}
-                </Text>
-
-                {active && (
-                  <Text style={styles.threadRemaining}>
-                    {formatRemainingTime(expiresAt, now)}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      )}
+                <Feather name="chevron-right" size={19} color={colors.muted} />
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  page: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 16 },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#D9E0F0",
+    gap: 12,
     padding: 24,
+    backgroundColor: colors.background,
   },
-  content: {
-    padding: 24,
-    paddingBottom: 48,
-    backgroundColor: "#D9E0F0",
-    gap: 16,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 52,
+    marginBottom: 4,
   },
+  headerSide: { flex: 1, minWidth: 44 },
   backButton: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    minWidth: 44,
     minHeight: 44,
-    paddingHorizontal: 8,
-    gap: 8,
+    gap: 5,
   },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2452ce",
+  backButtonText: { fontSize: 14, fontWeight: "600", color: colors.blue },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+    gap: 7,
   },
+  mascot: { width: 38, height: 42 },
+  brandName: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontFamily: "LexendSemiBold",
+    fontSize: 21,
+    lineHeight: 29,
+    color: colors.ink,
+  },
+  intro: { gap: 10, paddingHorizontal: 6, marginBottom: 2 },
   title: {
-    fontSize: 34,
-    fontWeight: "700",
+    fontFamily: "LexendSemiBold",
+    fontSize: 29,
+    lineHeight: 39,
     textAlign: "center",
-    marginTop: 8,
+    color: colors.ink,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#556070",
+    fontSize: 13,
+    lineHeight: 21,
+    color: colors.muted,
     textAlign: "center",
-    lineHeight: 20,
   },
   toggleRow: {
     flexDirection: "row",
-    gap: 10,
+    padding: 3,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#DCE9F9",
   },
   toggleButton: {
     flex: 1,
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#b7c4d9",
-    alignItems: "center",
-  },
-  toggleButtonActive: {
-    backgroundColor: "#2452ce",
-  },
-  toggleButtonText: {
-    color: "#20304d",
-    fontWeight: "700",
-  },
-  toggleButtonTextActive: {
-    color: "#fff",
-  },
-  emptyCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    gap: 4,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#d6dce8",
-    gap: 12,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#e5e7eb",
-  },
-  avatarPlaceholder: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#f0f0f0",
+    minWidth: 0,
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
-  avatarText: {
-    fontSize: 10,
-    color: "#666",
+  toggleButtonActive: { backgroundColor: colors.blue },
+  toggleButtonText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.ink,
+    fontWeight: "700",
     textAlign: "center",
   },
-  cardBody: {
-    flex: 1,
-    gap: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  toggleButtonTextActive: { color: colors.surface },
+  emptyCard: {
     alignItems: "center",
-    gap: 8,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.surface,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    gap: 12,
+    backgroundColor: colors.surface,
+    shadowColor: "#8EAFD0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  nameText: {
+  emptyIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.frost,
+    marginBottom: 2,
+  },
+  emptyTitle: {
+    fontFamily: "LexendSemiBold",
     fontSize: 18,
-    fontWeight: "700",
-    flex: 1,
+    lineHeight: 26,
+    textAlign: "center",
+    color: colors.ink,
   },
   subtleText: {
-    fontSize: 13,
-    color: "#666",
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: "center",
+    color: colors.muted,
   },
-  uidText: {
-    fontSize: 12,
-    color: "#7a8290",
-  },
-  timeText: {
-    fontSize: 12,
-    color: "#2452ce",
-    marginTop: 4,
-  },
-  statusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  activePill: {
-    backgroundColor: "#dcfce7",
-  },
-  pastPill: {
-    backgroundColor: "#e5e7eb",
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#243042",
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  disabledButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#d5d9e2",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  disabledButtonText: {
-    color: "#596273",
-    fontWeight: "700",
-  },
-  messageButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#2452ce",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
   threadRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-
-    borderBottomWidth: 1,
-    borderBottomColor: "#b7b8bb", // soft gray
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-
   threadAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#e5e7eb",
-    marginRight: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.frost,
   },
-
-  threadAvatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#e5e7eb",
-    marginRight: 12,
-  },
-
-  threadBody: {
-    flex: 1,
-    gap: 4,
-  },
-
+  threadAvatarPlaceholder: { alignItems: "center", justifyContent: "center" },
+  threadBody: { flex: 1, minWidth: 0, gap: 4 },
   threadName: {
+    fontFamily: "LexendSemiBold",
     fontSize: 16,
-    fontWeight: "700",
-    color: "#1f2937",
+    lineHeight: 23,
+    color: colors.ink,
   },
-
-  threadPreview: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-
-  threadMeta: {
-    alignItems: "flex-end",
-    gap: 6,
-    marginLeft: 8,
-  },
-
-  threadTime: {
-    fontSize: 12,
-    color: "#9ca3af",
-  },
-
+  threadTime: { fontSize: 12, lineHeight: 18, color: colors.muted },
   threadRemaining: {
     fontSize: 12,
-    color: "#2452ce",
+    lineHeight: 18,
     fontWeight: "600",
+    color: colors.blue,
   },
+  threadHistory: { fontSize: 12, lineHeight: 18, color: colors.muted },
 });

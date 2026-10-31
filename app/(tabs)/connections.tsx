@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -26,6 +27,7 @@ import {
 } from "../../src/connections/service";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import { showAlert } from "../../src/lib/showAlert";
+import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 
 type RequestWithProfile = ConnectionRequest & {
   fromUser?: PublicUserProfile;
@@ -296,310 +298,393 @@ export default function ConnectionsPage() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Connections</Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <View style={styles.page}>
+        <View style={styles.brand}>
+          <Image
+            source={iceMascot}
+            style={styles.mascot}
+            resizeMode="contain"
+            accessible={false}
+          />
+          <Text style={styles.brandName}>Icebreakers</Text>
+        </View>
+        <Text accessibilityRole="header" style={styles.title}>
+          Connections
+        </Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pending Requests</Text>
+        <View style={styles.section}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            Pending Requests
+          </Text>
 
-        {requestsWithProfiles.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No pending requests</Text>
-            <Text style={styles.subtleText}>
-              When someone sends you a connection request, it will appear here.
-            </Text>
-          </View>
-        ) : (
-          requestsWithProfiles.map((request) => (
-            <View key={request.id} style={styles.card}>
-              <View style={styles.row}>
-                {renderProfileAvatar(request.fromUser)}
-
-                <View style={styles.metaBody}>
-                  <Text style={styles.nameText}>
-                    {request.fromUser?.firstName || request.fromUid}
-                  </Text>
-                  <Text style={styles.subtleText}>
-                    {request.fromUser?.major || "No major listed"}
-                  </Text>
-                  <Text style={styles.uidText}>UID: {request.fromUid}</Text>
-                </View>
-              </View>
-
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.acceptButton,
-                    busyRequestId === request.id && styles.disabledButton,
-                  ]}
-                  disabled={busyRequestId === request.id}
-                  onPress={() => handleAccept(request)}
-                >
-                  <Text style={styles.buttonText}>Accept</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.declineButton,
-                    busyRequestId === request.id && styles.disabledButton,
-                  ]}
-                  disabled={busyRequestId === request.id}
-                  onPress={() => handleDecline(request.id)}
-                >
-                  <Text style={styles.buttonText}>Decline</Text>
-                </TouchableOpacity>
-              </View>
+          {requestsWithProfiles.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No pending requests</Text>
+              <Text style={styles.subtleText}>
+                When someone sends you a connection request, it will appear
+                here.
+              </Text>
             </View>
-          ))
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Connection History</Text>
-
-        {connectionsWithProfiles.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No connections yet</Text>
-            <Text style={styles.subtleText}>
-              Accepted connections will appear here.
-            </Text>
-          </View>
-        ) : (
-          connectionsWithProfiles.map((connection) => (
-            <View key={connection.id} style={styles.card}>
-              <View style={styles.row}>
-                {renderProfileAvatar(connection.otherUser)}
-
-                <View style={styles.metaBody}>
-                  <Text style={styles.nameText}>
-                    {connection.otherUser?.firstName || connection.otherUid}
-                  </Text>
-                  <Text style={styles.subtleText}>
-                    {connection.otherUser?.major || "No major listed"}
-                  </Text>
-                  <Text style={styles.uidText}>UID: {connection.otherUid}</Text>
-                </View>
-              </View>
-
-              <View style={styles.connectionMeta}>
-                <Text style={styles.subtleText}>
-                  {isConnectionActive(connection)
-                    ? `Current until ${
-                        getConnectionExpiresAt(connection)?.toLocaleTimeString(
-                          [],
-                          {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          },
-                        ) ?? "unknown"
-                      }`
-                    : `Expired ${
-                        getConnectionExpiresAt(connection)?.toLocaleString([], {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }) ?? "unknown"
-                      }`}
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.messageButton}
-                  onPress={() =>
-                    openMessages(connection.id, connection.otherUid)
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    {isConnectionActive(connection)
-                      ? "Open in Messages"
-                      : "View Read-Only Messages"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Blocked Users</Text>
-
-        {blockedRelationships.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No blocked users</Text>
-            <Text style={styles.subtleText}>
-              Users you block will appear here with read-only message history.
-            </Text>
-          </View>
-        ) : (
-          blockedRelationships.map((relationship) => {
-            const otherUid =
-              relationship.users.find((uid) => uid !== currentUid) || "";
-            const firstName =
-              relationship.blockedPreview?.firstName?.trim() || "Blocked user";
-
-            return (
-              <View key={relationship.id} style={styles.card}>
+          ) : (
+            requestsWithProfiles.map((request) => (
+              <View key={request.id} style={styles.card}>
                 <View style={styles.row}>
-                  {renderBlockedAvatar(relationship)}
+                  {renderProfileAvatar(request.fromUser)}
 
                   <View style={styles.metaBody}>
-                    <Text style={styles.nameText}>{firstName}</Text>
+                    <Text style={styles.nameText}>
+                      {request.fromUser?.firstName || request.fromUid}
+                    </Text>
                     <Text style={styles.subtleText}>
-                      Blocked users cannot view your profile, messages, or
-                      connection record.
+                      {request.fromUser?.major || "No major listed"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Accept request from ${request.fromUser?.firstName || request.fromUid}`}
+                    accessibilityState={{
+                      disabled: busyRequestId === request.id,
+                      busy: busyRequestId === request.id,
+                    }}
+                    style={[
+                      styles.acceptButton,
+                      busyRequestId === request.id && styles.disabledButton,
+                    ]}
+                    disabled={busyRequestId === request.id}
+                    onPress={() => handleAccept(request)}
+                  >
+                    <Text style={styles.buttonText}>Accept</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Decline request from ${request.fromUser?.firstName || request.fromUid}`}
+                    accessibilityState={{
+                      disabled: busyRequestId === request.id,
+                      busy: busyRequestId === request.id,
+                    }}
+                    style={[
+                      styles.declineButton,
+                      busyRequestId === request.id && styles.disabledButton,
+                    ]}
+                    disabled={busyRequestId === request.id}
+                    onPress={() => handleDecline(request.id)}
+                  >
+                    <Text style={styles.declineButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            Connection History
+          </Text>
+
+          {connectionsWithProfiles.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No connections yet</Text>
+              <Text style={styles.subtleText}>
+                Accepted connections will appear here.
+              </Text>
+            </View>
+          ) : (
+            connectionsWithProfiles.map((connection) => (
+              <View key={connection.id} style={styles.card}>
+                <View style={styles.row}>
+                  {renderProfileAvatar(connection.otherUser)}
+
+                  <View style={styles.metaBody}>
+                    <Text style={styles.nameText}>
+                      {connection.otherUser?.firstName || connection.otherUid}
+                    </Text>
+                    <Text style={styles.subtleText}>
+                      {connection.otherUser?.major || "No major listed"}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.connectionMeta}>
-                  {relationship.hasMessageHistory ? (
-                    <TouchableOpacity
-                      style={styles.messageButton}
-                      onPress={() =>
-                        openMessages(relationship.id, otherUid, {
-                          blocked: true,
-                          otherName: firstName,
-                        })
-                      }
-                    >
-                      <Text style={styles.buttonText}>
-                        View message history
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.subtleText}>
-                      No saved message history for this user.
+                  <View style={styles.expiryRow}>
+                    <Feather name="clock" size={17} color={colors.muted} />
+                    <Text style={styles.expiryText}>
+                      {isConnectionActive(connection)
+                        ? `Current until ${
+                            getConnectionExpiresAt(
+                              connection,
+                            )?.toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            }) ?? "unknown"
+                          }`
+                        : `Expired ${
+                            getConnectionExpiresAt(connection)?.toLocaleString(
+                              [],
+                              {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              },
+                            ) ?? "unknown"
+                          }`}
                     </Text>
-                  )}
+                  </View>
+
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`${isConnectionActive(connection) ? "Open messages with" : "View read-only messages with"} ${connection.otherUser?.firstName || connection.otherUid}`}
+                    style={styles.messageButton}
+                    onPress={() =>
+                      openMessages(connection.id, connection.otherUid)
+                    }
+                  >
+                    <Feather
+                      name="message-circle"
+                      size={18}
+                      color={colors.surface}
+                    />
+                    <Text style={styles.buttonText}>
+                      {isConnectionActive(connection)
+                        ? "Open in Messages"
+                        : "View Read-Only Messages"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            );
-          })
-        )}
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            Blocked Users
+          </Text>
+
+          {blockedRelationships.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No blocked users</Text>
+              <Text style={styles.subtleText}>
+                Users you block will appear here with read-only message history.
+              </Text>
+            </View>
+          ) : (
+            blockedRelationships.map((relationship) => {
+              const otherUid =
+                relationship.users.find((uid) => uid !== currentUid) || "";
+              const firstName =
+                relationship.blockedPreview?.firstName?.trim() ||
+                "Blocked user";
+
+              return (
+                <View key={relationship.id} style={styles.card}>
+                  <View style={styles.row}>
+                    {renderBlockedAvatar(relationship)}
+
+                    <View style={styles.metaBody}>
+                      <Text style={styles.nameText}>{firstName}</Text>
+                      <Text style={styles.subtleText}>
+                        Blocked users cannot view your profile, messages, or
+                        connection record.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.connectionMeta}>
+                    {relationship.hasMessageHistory ? (
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={`View message history with ${firstName}`}
+                        style={styles.messageButton}
+                        onPress={() =>
+                          openMessages(relationship.id, otherUid, {
+                            blocked: true,
+                            otherName: firstName,
+                          })
+                        }
+                      >
+                        <Feather
+                          name="message-circle"
+                          size={18}
+                          color={colors.surface}
+                        />
+                        <Text style={styles.buttonText}>
+                          View message history
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.subtleText}>
+                        No saved message history for this user.
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  page: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 20 },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+  },
+  mascot: { width: 45, height: 48 },
+  brandName: { fontFamily: "LexendSemiBold", fontSize: 23, color: colors.ink },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#D9E0F0",
+    gap: 12,
     padding: 24,
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 48,
-    backgroundColor: "#D9E0F0",
-    gap: 20,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 34,
-    fontWeight: "700",
+    fontFamily: "LexendSemiBold",
+    fontSize: 29,
+    lineHeight: 39,
     textAlign: "center",
-    marginTop: 8,
+    color: colors.ink,
   },
-  section: {
-    gap: 12,
-  },
+  section: { gap: 10 },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontFamily: "LexendSemiBold",
+    fontSize: 19,
+    lineHeight: 27,
+    color: colors.ink,
+    paddingHorizontal: 2,
   },
   emptyCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.surface,
+    backgroundColor: colors.surface,
+    shadowColor: "#8EAFD0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontFamily: "LexendSemiBold",
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.ink,
+    marginBottom: 5,
   },
-  subtleText: {
-    fontSize: 13,
-    color: "#666",
-  },
+  subtleText: { fontSize: 13, lineHeight: 20, color: colors.muted },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
+    padding: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: colors.surface,
+    backgroundColor: colors.surface,
     gap: 12,
+    shadowColor: "#8EAFD0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  metaBody: {
-    flex: 1,
-  },
+  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  metaBody: { flex: 1, minWidth: 0, gap: 4 },
   avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#e5e7eb",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.frost,
   },
   avatarPlaceholder: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#f0f0f0",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.frost,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 10,
-    color: "#666",
-    textAlign: "center",
-  },
+  avatarText: { fontSize: 10, color: colors.muted, textAlign: "center" },
   nameText: {
+    fontFamily: "LexendSemiBold",
     fontSize: 18,
-    fontWeight: "700",
+    lineHeight: 25,
+    color: colors.ink,
   },
-  uidText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#888",
-  },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  buttonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   acceptButton: {
-    backgroundColor: "#2452ce",
-    paddingVertical: 10,
+    flex: 1,
+    flexBasis: 110,
+    minHeight: 44,
+    paddingVertical: 11,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.blue,
+    borderRadius: 12,
+    backgroundColor: colors.blue,
+    alignItems: "center",
+    justifyContent: "center",
   },
   declineButton: {
-    backgroundColor: "#888",
-    paddingVertical: 10,
+    flex: 1,
+    flexBasis: 110,
+    minHeight: 44,
+    paddingVertical: 11,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.blue,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  declineButtonText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.blue,
+    textAlign: "center",
   },
   messageButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#2452ce",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  connectionMeta: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.blue,
   },
-  disabledButton: {
-    opacity: 0.6,
-  },
+  connectionMeta: { gap: 12 },
+  expiryRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  expiryText: { flex: 1, fontSize: 13, lineHeight: 20, color: colors.muted },
+  disabledButton: { opacity: 0.6 },
   buttonText: {
-    color: "#fff",
-    fontWeight: "700",
+    flexShrink: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.surface,
+    textAlign: "center",
   },
 });

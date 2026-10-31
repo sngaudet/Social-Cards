@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
@@ -9,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -19,18 +21,14 @@ import {
   getRelationshipStatusForPair,
   subscribeToConnections,
 } from "../../src/connections/service";
-import { formatHobbies } from "../../src/lib/hobbies";
+import { normalizeHobbies } from "../../src/lib/hobbies";
+import { DEFAULT_ICEBREAKER_QUESTIONS } from "../../src/lib/icebreakers";
+import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 import { calculateAgeFromDateOfBirth } from "../../src/lib/profileFields";
 import {
   normalizePreConnectionVisibility,
   PreConnectionVisibility,
 } from "../../src/profile/visibility";
-
-const DEFAULT_ICEBREAKER_QUESTIONS = [
-  "What's your ideal weekend?",
-  "What food can you never say no to?",
-  "Share one fun fact about yourself",
-];
 
 type UserDoc = {
   firstName?: string;
@@ -61,6 +59,7 @@ const pretty = (value: unknown) => {
 };
 
 export default function UserProfileView() {
+  const { fontScale } = useWindowDimensions();
   const { user, initializing } = useAuth();
   const params = useLocalSearchParams<{ uid?: string | string[] }>();
   const uid = Array.isArray(params.uid) ? params.uid[0] : params.uid;
@@ -85,7 +84,10 @@ export default function UserProfileView() {
         uid,
       );
 
-      if (relationshipStatus === "declined" || relationshipStatus === "blocked") {
+      if (
+        relationshipStatus === "declined" ||
+        relationshipStatus === "blocked"
+      ) {
         setData(null);
         setProfileUnavailable(true);
         return;
@@ -205,7 +207,7 @@ export default function UserProfileView() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <ActivityIndicator color={colors.blue} />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -214,10 +216,14 @@ export default function UserProfileView() {
   const visibility = normalizePreConnectionVisibility(
     data?.preConnectionVisibility,
   );
-  const canSeeAllFields = Boolean(currentUid && uid && currentUid === uid) || isConnected;
+  const canSeeAllFields =
+    Boolean(currentUid && uid && currentUid === uid) || isConnected;
   const canSeeField = (field: keyof PreConnectionVisibility) =>
     canSeeAllFields || visibility[field];
-  const visibleName = [data?.firstName, canSeeField("lastName") ? data?.lastName : ""]
+  const visibleName = [
+    data?.firstName,
+    canSeeField("lastName") ? data?.lastName : "",
+  ]
     .filter((part) => typeof part === "string" && part.trim())
     .join(" ")
     .trim();
@@ -234,20 +240,25 @@ export default function UserProfileView() {
     canSeeField("iceBreakerThree");
   const avatarSource = getAvatarImageSource(data?.avatarId);
   const showPhoto = canSeeField("photoURL");
-  const ageFromDateOfBirth = calculateAgeFromDateOfBirth(data?.dateOfBirth ?? "");
-  const hasVisibleDetails = hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
+  const ageFromDateOfBirth = calculateAgeFromDateOfBirth(
+    data?.dateOfBirth ?? "",
+  );
+  const hasVisibleDetails =
+    hasVisibleBasics || hasVisibleIceBreakers || canSeeField("hobbies");
   const iceBreakers = data
     ? [
         {
           field: "iceBreakerOne" as const,
           question:
-            data.iceBreakerOneQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
+            data.iceBreakerOneQuestion?.trim() ||
+            DEFAULT_ICEBREAKER_QUESTIONS[0],
           answer: data.iceBreakerOne,
         },
         {
           field: "iceBreakerTwo" as const,
           question:
-            data.iceBreakerTwoQuestion?.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
+            data.iceBreakerTwoQuestion?.trim() ||
+            DEFAULT_ICEBREAKER_QUESTIONS[1],
           answer: data.iceBreakerTwo,
         },
         {
@@ -260,235 +271,340 @@ export default function UserProfileView() {
       ]
     : [];
 
+  const photo = data?.photoURL && showPhoto ? { uri: data.photoURL } : null;
+  const profileImage =
+    isConnected || currentUid === uid
+      ? photo || avatarSource
+      : avatarSource || photo;
+  const fallbackImageLabel =
+    isConnected || currentUid === uid
+      ? showPhoto
+        ? "No Profile Photo"
+        : "Hidden Before Connection"
+      : "No Avatar";
+  const basicFields = [
+    {
+      field: "pronouns" as const,
+      label: "Pronouns",
+      value: pretty(data?.pronouns ?? data?.Gender),
+    },
+    {
+      field: "dateOfBirth" as const,
+      label: "Age",
+      value: String(ageFromDateOfBirth ?? "-"),
+    },
+    {
+      field: "gradYear" as const,
+      label: "Graduation Year",
+      value: pretty(data?.gradYear),
+    },
+    { field: "minor" as const, label: "Minor", value: pretty(data?.minor) },
+  ].filter((item) => canSeeField(item.field));
+  const hobbies = canSeeField("hobbies") ? normalizeHobbies(data?.hobbies) : [];
+  const singleColumn = fontScale > 1.2;
+
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.blue}
+          colors={[colors.blue]}
+        />
       }
     >
-      <Text style={styles.title}>User Profile</Text>
-
-      {isConnected || currentUid === uid ? (
-        data?.photoURL && showPhoto ? (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
+      <View style={styles.page}>
+        <View style={styles.brand}>
+          <Image
+            source={iceMascot}
+            style={styles.mascot}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandName}>Icebreakers</Text>
+        </View>
+        <Text accessibilityRole="header" style={styles.title}>
+          User Profile
+        </Text>
+        {profileUnavailable ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Profile unavailable.</Text>
+            <Text style={styles.value}>
+              You can no longer view this profile.
+            </Text>
           </View>
-        ) : avatarSource ? (
-          <View style={styles.imageContainer}>
-            <Image source={avatarSource} style={styles.profileImage} />
+        ) : !data ? (
+          <View style={styles.card}>
+            <Text style={styles.value}>Profile not found.</Text>
           </View>
         ) : (
-          <View style={styles.imageContainer}>
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>
-                {showPhoto ? "No Profile Photo" : "Hidden Before Connection"}
-              </Text>
-            </View>
-          </View>
-        )
-      ) : avatarSource ? (
-        <View style={styles.imageContainer}>
-          <Image source={avatarSource} style={styles.profileImage} />
-        </View>
-      ) : data?.photoURL && showPhoto ? (
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: data.photoURL }} style={styles.profileImage} />
-        </View>
-      ) : (
-        <View style={styles.imageContainer}>
-          <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderText}>
-              No Avatar
-            </Text>
-            {__DEV__ ? (
-              <Text style={styles.debugText}>
-                avatarId: {data?.avatarId?.trim() || "missing"}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-      )}
-
-      {profileUnavailable ? (
-        <View style={styles.card}>
-          <Text style={styles.value}>Profile unavailable.</Text>
-          <Text style={[styles.value, { marginTop: 8 }]}>
-            You can no longer view this profile.
-          </Text>
-        </View>
-      ) : !data ? (
-        <View style={styles.card}>
-          <Text style={styles.value}>Profile not found.</Text>
-        </View>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Basics</Text>
-
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{visibleName || pretty(data.firstName)}</Text>
-
-          {hasVisibleBasics ? (
-            <>
-              {canSeeField("pronouns") ? (
-                <>
-                  <Text style={styles.label}>Pronouns</Text>
-                  <Text style={styles.value}>{pretty(data.pronouns ?? data.Gender)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("dateOfBirth") ? (
-                <>
-                  <Text style={styles.label}>Age</Text>
-                  <Text style={styles.value}>{ageFromDateOfBirth ?? "-"}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("gradYear") ? (
-                <>
-                  <Text style={styles.label}>Graduation Year</Text>
-                  <Text style={styles.value}>{pretty(data.gradYear)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("major") ? (
-                <>
-                  <Text style={styles.label}>Major</Text>
-                  <Text style={styles.value}>{pretty(data.major)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("minor") ? (
-                <>
-                  <Text style={styles.label}>Minor</Text>
-                  <Text style={styles.value}>{pretty(data.minor)}</Text>
-                </>
-              ) : null}
-
-              {canSeeField("bio") ? (
-                <>
-                  <Text style={styles.label}>Bio</Text>
-                  <Text style={styles.value}>{pretty(data.bio)}</Text>
-                </>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.value}>This user hides their basic details before connection.</Text>
-          )}
-
-          {hasVisibleIceBreakers || canSeeField("hobbies") ? (
-            <View style={styles.divider} />
-          ) : null}
-
-          {hasVisibleIceBreakers ? (
-            <>
-              <Text style={styles.sectionTitle}>Ice Breakers</Text>
-
-              {iceBreakers.map((iceBreaker) =>
-                canSeeField(iceBreaker.field) ? (
-                  <React.Fragment key={iceBreaker.field}>
-                    <Text style={styles.label}>{iceBreaker.question}</Text>
-                    <Text style={styles.value}>{pretty(iceBreaker.answer)}</Text>
-                  </React.Fragment>
-                ) : null,
+          <>
+            <View style={[styles.card, styles.identityCard]}>
+              {profileImage ? (
+                <Image
+                  accessibilityLabel={
+                    (visibleName || "User") + "'s profile image"
+                  }
+                  source={profileImage}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View style={styles.placeholderImage}>
+                  <Feather name="user" size={34} color={colors.muted} />
+                  <Text style={styles.placeholderText}>
+                    {fallbackImageLabel}
+                  </Text>
+                </View>
               )}
-            </>
-          ) : null}
+              <Text style={styles.name}>
+                {visibleName || pretty(data.firstName)}
+              </Text>
+              {canSeeField("major") && (
+                <Text style={styles.major}>{pretty(data.major)}</Text>
+              )}
+            </View>
 
-          {hasVisibleIceBreakers && canSeeField("hobbies") ? (
-            <View style={styles.divider} />
-          ) : null}
+            {basicFields.length > 0 && (
+              <View style={styles.card}>
+                <Text accessibilityRole="header" style={styles.sectionTitle}>
+                  Basics
+                </Text>
+                <View style={styles.basicsGrid}>
+                  {basicFields.map((item, index) => (
+                    <View
+                      key={item.field}
+                      style={[
+                        styles.basicField,
+                        singleColumn && styles.basicFieldFull,
+                        !singleColumn &&
+                          index % 2 === 1 &&
+                          styles.basicFieldRight,
+                        index >= (singleColumn ? 1 : 2) &&
+                          styles.basicFieldDivider,
+                      ]}
+                    >
+                      <Text style={styles.label}>{item.label}</Text>
+                      <Text style={styles.value}>{item.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
-          {canSeeField("hobbies") ? (
-            <>
-              <Text style={styles.sectionTitle}>Hobbies</Text>
-              <Text style={styles.value}>{formatHobbies(data.hobbies)}</Text>
-            </>
-          ) : null}
+            {(canSeeField("bio") || canSeeField("hobbies")) && (
+              <View style={styles.card}>
+                {canSeeField("bio") && (
+                  <View style={styles.section}>
+                    <Text
+                      accessibilityRole="header"
+                      style={styles.sectionTitle}
+                    >
+                      Bio
+                    </Text>
+                    <Text style={styles.value}>{pretty(data.bio)}</Text>
+                  </View>
+                )}
+                {canSeeField("bio") && canSeeField("hobbies") && (
+                  <View style={styles.divider} />
+                )}
+                {canSeeField("hobbies") && (
+                  <View style={styles.section}>
+                    <Text
+                      accessibilityRole="header"
+                      style={styles.sectionTitle}
+                    >
+                      Hobbies
+                    </Text>
+                    <View style={styles.hobbies}>
+                      {hobbies.length ? (
+                        hobbies.map((hobby, index) => (
+                          <View key={index} style={styles.hobby}>
+                            <Text style={styles.hobbyText}>{hobby}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.value}>-</Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
 
-          {!canSeeAllFields && !hasVisibleDetails ? (
-            <Text style={styles.value}>
-              This user hides the rest of their profile until you connect.
-            </Text>
-          ) : null}
-        </View>
-      )}
+            {hasVisibleIceBreakers && (
+              <View style={styles.card}>
+                <Text accessibilityRole="header" style={styles.sectionTitle}>
+                  Ice Breakers
+                </Text>
+                {iceBreakers.map((item) =>
+                  canSeeField(item.field) ? (
+                    <View key={item.field} style={styles.icebreaker}>
+                      {(item.field !== "iceBreakerOne" ||
+                        canSeeField("iceBreakerOneQuestion")) && (
+                        <Text style={styles.question}>{item.question}</Text>
+                      )}
+                      <Text style={styles.value}>{pretty(item.answer)}</Text>
+                    </View>
+                  ) : null,
+                )}
+              </View>
+            )}
+
+            {!canSeeAllFields && !hasVisibleDetails && (
+              <View style={styles.card}>
+                <Text style={styles.hiddenText}>
+                  This user hides the rest of their profile until you connect.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { padding: 24, paddingBottom: 48 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { marginTop: 10 },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-
-  card: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-  },
-
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 6,
-    marginBottom: 6,
-  },
-
-  label: { fontSize: 12, color: "#666" },
-  value: { fontSize: 16, marginBottom: 8 },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginVertical: 10,
-  },
-
-  imageContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-
-  profileImage: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 2,
-    borderColor: "#ddd",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-
-  placeholderImage: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "#f0f0f0",
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24 },
+  page: { width: "100%", maxWidth: 600, alignSelf: "center", gap: 14 },
+  center: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.background,
+    padding: 24,
+    gap: 10,
   },
-
-  placeholderText: {
-    color: "#999",
+  loadingText: { fontSize: 14, lineHeight: 21, color: colors.muted },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
   },
-  debugText: {
-    marginTop: 8,
-    fontSize: 11,
-    color: "#666",
+  mascot: { width: 45, height: 48 },
+  brandName: { fontFamily: "LexendSemiBold", fontSize: 23, color: colors.ink },
+  title: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 29,
+    lineHeight: 39,
     textAlign: "center",
-    paddingHorizontal: 12,
+    color: colors.ink,
   },
+  card: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: colors.surface,
+    shadowColor: "#8EAFD0",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  identityCard: { alignItems: "center", gap: 8, paddingVertical: 20 },
+  profileImage: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.frost,
+  },
+  placeholderImage: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: colors.frost,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: 10,
+  },
+  placeholderText: {
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+    color: colors.muted,
+  },
+  name: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 22,
+    lineHeight: 30,
+    textAlign: "center",
+    color: colors.ink,
+    alignSelf: "stretch",
+  },
+  major: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    color: colors.muted,
+    alignSelf: "stretch",
+  },
+  sectionTitle: {
+    fontFamily: "LexendSemiBold",
+    fontSize: 19,
+    lineHeight: 27,
+    color: colors.ink,
+  },
+  basicsGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
+  basicField: {
+    flexBasis: "50%",
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingVertical: 12,
+    paddingRight: 12,
+    gap: 5,
+  },
+  basicFieldFull: { flexBasis: "100%" },
+  basicFieldRight: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+    paddingLeft: 14,
+    paddingRight: 0,
+  },
+  basicFieldDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  label: {
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: colors.muted,
+  },
+  value: { fontSize: 15, lineHeight: 22, color: colors.ink },
+  section: { gap: 10 },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
+  hobbies: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  hobby: {
+    maxWidth: "100%",
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#E3F0FF",
+  },
+  hobbyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+    color: colors.ink,
+  },
+  icebreaker: {
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 14,
+    gap: 7,
+    backgroundColor: colors.frost,
+  },
+  question: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: colors.muted,
+  },
+  hiddenText: { fontSize: 14, lineHeight: 21, color: colors.muted },
 });
