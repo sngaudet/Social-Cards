@@ -9,8 +9,8 @@ const IMPACTED_LIMIT = 30;
 const THROTTLE_MS = 20 * 1000;
 const THROTTLE_DISTANCE_M = 3;
 const MAX_ACCURACY_BUFFER_M = 30;
-const MAX_RECORDED_AT_AGE_MS = 15 * 60 * 1000;
-const MAX_RECORDED_AT_FUTURE_MS = 2 * 60 * 1000;
+const MAX_RECORDED_AT_AGE_MS = 60 * 1000;
+const MAX_RECORDED_AT_FUTURE_MS = 5000;
 
 // permission values the app can send
 const ALLOWED_PERMISSION_STATUS = new Set([

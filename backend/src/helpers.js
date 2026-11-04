@@ -1,4 +1,3 @@
-const { HttpsError } = require("firebase-functions/v2/https");
 const {
   geohashForLocation,
   geohashQueryBounds,
@@ -16,16 +15,7 @@ const {
   MAX_RECORDED_AT_FUTURE_MS,
 } = require("./constants");
 
-// this checks login and gives the handler the user id
-function withAuth(handler) {
-  return async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "User must be authenticated.");
-    }
-    return handler(uid, request);
-  };
-}
+const { withAuth, pairId } = require("./security");
 
 // this keeps date creation the same everywhere
 function nowDate() {
@@ -42,62 +32,6 @@ function getTimestampValue(value) {
 // this makes sure number input is usable
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-// this keeps array-like profile fields in a clean string list
-function normalizeStringArray(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => (typeof item === "string" ? item.trim() : ""))
-      .filter(Boolean);
-  }
-
-  if (typeof value === "string") {
-    return value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-function normalizePreConnectionVisibility(value) {
-  const record = value && typeof value === "object" ? value : {};
-
-  return {
-    photoURL: typeof record.photoURL === "boolean" ? record.photoURL : false,
-    lastName: typeof record.lastName === "boolean" ? record.lastName : false,
-    pronouns:
-      typeof record.pronouns === "boolean"
-        ? record.pronouns
-        : typeof record.Gender === "boolean"
-          ? record.Gender
-          : true,
-    dateOfBirth:
-      typeof record.dateOfBirth === "boolean"
-        ? record.dateOfBirth
-        : typeof record.age === "boolean"
-          ? record.age
-          : true,
-    gradYear: typeof record.gradYear === "boolean" ? record.gradYear : true,
-    major: typeof record.major === "boolean" ? record.major : true,
-    minor: typeof record.minor === "boolean" ? record.minor : true,
-    bio: typeof record.bio === "boolean" ? record.bio : true,
-    iceBreakerOne:
-      typeof record.iceBreakerOne === "boolean" ? record.iceBreakerOne : true,
-    iceBreakerOneQuestion:
-      typeof record.iceBreakerOneQuestion === "boolean"
-        ? record.iceBreakerOneQuestion
-        : true,
-    iceBreakerTwo:
-      typeof record.iceBreakerTwo === "boolean" ? record.iceBreakerTwo : true,
-    iceBreakerThree:
-      typeof record.iceBreakerThree === "boolean"
-        ? record.iceBreakerThree
-        : true,
-    hobbies: typeof record.hobbies === "boolean" ? record.hobbies : true,
-  };
 }
 
 // this turns feet into meters for distance math
@@ -134,11 +68,11 @@ function validatePingInput(data) {
   const payload = data || {};
   const { lat, lng, accuracyM, source, recordedAtMs } = payload;
 
-  if (!isFiniteNumber(lat) || !isFiniteNumber(lng)) {
+  if (!isFiniteNumber(lat) || !isFiniteNumber(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
-  if (!isFiniteNumber(accuracyM) || accuracyM < 0 || accuracyM > 500) {
+  if (!isFiniteNumber(accuracyM) || accuracyM < 0 || accuracyM > 100) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
@@ -173,10 +107,12 @@ function extractPresence(docSnap) {
   const data = docSnap.data();
   if (!data) return null;
 
-  if (!isFiniteNumber(data.lat) || !isFiniteNumber(data.lng)) return null;
+  if (!isFiniteNumber(data.lat) || !isFiniteNumber(data.lng) || data.lat < -90 || data.lat > 90 || data.lng < -180 || data.lng > 180) return null;
 
   return {
-    uid: data.uid || docSnap.id,
+    uid: docSnap.id,
+    generation: data.generation,
+    recordedAtMs: data.recordedAtMs,
     lat: data.lat,
     lng: data.lng,
     geohash: data.geohash || "",
@@ -190,7 +126,8 @@ function extractPresence(docSnap) {
 // this checks if location is still recent enough
 function isFreshPresence(presence, now = nowDate()) {
   if (!presence?.updatedAt) return false;
-  return now.getTime() - presence.updatedAt.getTime() <= FRESHNESS_MS;
+  const age = now.getTime() - presence.updatedAt.getTime();
+  return age >= -5000 && age <= FRESHNESS_MS && (!presence.expiresAt || presence.expiresAt > now);
 }
 
 // this gets distance in meters between two locations
@@ -242,7 +179,7 @@ async function queryNearbyPresence(center, radiusM, options = {}) {
       .orderBy("geohash")
       .startAt(start)
       .endAt(end)
-      .limit(200)
+      .limit(50)
       .get(),
   );
 
@@ -292,15 +229,6 @@ function getNeighborsForSubject(subject, people, radiusM) {
   return neighbors;
 }
 
-function sortedPair(uid1, uid2) {
-  return [uid1, uid2].sort();
-}
-
-function relationshipDocId(uid1, uid2) {
-  const [a, b] = sortedPair(uid1, uid2);
-  return `${a}_${b}`;
-}
-
 async function getExcludedRelationshipUids(uid, candidateUids) {
   if (!candidateUids.length) return new Set();
 
@@ -311,7 +239,7 @@ async function getExcludedRelationshipUids(uid, candidateUids) {
   if (!uniqueCandidateUids.length) return new Set();
 
   const refs = uniqueCandidateUids.map((candidateUid) =>
-    db.collection("relationships").doc(relationshipDocId(uid, candidateUid)),
+    db.collection("relationships").doc(pairId(uid, candidateUid)),
   );
   const snaps = await db.getAll(...refs);
   const excludedUids = new Set();
@@ -348,28 +276,8 @@ async function getUsersByUids(uids) {
 
 // this returns only the profile fields we want in nearby results
 function buildNearbyUserPayload(uid, userDoc, presence) {
-  return {
-    uid,
-    firstName: userDoc?.firstName || "",
-    lastName: userDoc?.lastName || "",
-    preConnectionVisibility: normalizePreConnectionVisibility(
-      userDoc?.preConnectionVisibility,
-    ),
-    pronouns: userDoc?.pronouns || userDoc?.Gender || "",
-    dateOfBirth: userDoc?.dateOfBirth || "",
-    gradYear: userDoc?.gradYear ?? "",
-    major: userDoc?.major || "",
-    minor: userDoc?.minor || "",
-    bio: userDoc?.bio || "",
-    hobbies: normalizeStringArray(userDoc?.hobbies),
-    avatarId: userDoc?.avatarId || "",
-    photoURL: userDoc?.photoURL || "",
-    iceBreakerOne: userDoc?.iceBreakerOne || "",
-    iceBreakerOneQuestion: userDoc?.iceBreakerOneQuestion || "",
-    iceBreakerTwo: userDoc?.iceBreakerTwo || "",
-    iceBreakerThree: userDoc?.iceBreakerThree || "",
-    distanceFt: roundDistanceFeet(presence.distanceM),
-  };
+  return { ...require("./profileSchema").projectProfile(uid, userDoc),
+    distanceFt: Math.max(100, Math.ceil(roundDistanceFeet(presence.distanceM) / 100) * 100) };
 }
 
 // this tells us if user should wait before sending next ping

@@ -1,5 +1,10 @@
 import {
-  addDoc,
+  sessionCallable as httpsCallable,
+  captureUserSession,
+  assertUserSession,
+  guardSessionCallback,
+} from "../auth/sessionCallable";
+import {
   collection,
   doc,
   DocumentData,
@@ -8,10 +13,9 @@ import {
   orderBy,
   query,
   QuerySnapshot,
-  serverTimestamp,
 } from "firebase/firestore";
-import { auth, db } from "../../firebaseConfig";
-import { isConnectionActive } from "../connections/service";
+import { app, auth, db } from "../../firebaseConfig";
+import { getFunctions } from "firebase/functions";
 
 export type ChatMessage = {
   id: string;
@@ -23,13 +27,17 @@ export type ChatMessage = {
 export async function getConnectionMembers(
   connectionId: string,
 ): Promise<string[]> {
+  const session = captureUserSession();
   const snap = await getDoc(doc(db, "connections", connectionId));
+  assertUserSession(session);
   if (!snap.exists()) {
     throw new Error("Connection not found.");
   }
 
   const data = snap.data();
-  return Array.isArray(data.users) ? data.users : [];
+  if (!Array.isArray(data.users) || !data.users.includes(session.uid))
+    throw new Error("Connection unavailable for this account.");
+  return data.users;
 }
 
 export function subscribeToMessages(
@@ -42,53 +50,60 @@ export function subscribeToMessages(
     orderBy("createdAt", "asc"),
   );
 
-  return onSnapshot(
-    q,
-    (snapshot: QuerySnapshot<DocumentData>) => {
-      const messages = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          senderUid: data.senderUid ?? "",
-          text: data.text ?? "",
-          createdAt: data.createdAt,
-        };
-      });
-
-      callback(messages);
-    },
-    onError,
-  );
+  const session = captureUserSession();
+  const notify = guardSessionCallback(session.uid, callback);
+  const fail = onError ? guardSessionCallback(session.uid, onError) : undefined;
+  let cancelled = false;
+  let unsubscribe = () => {};
+  void getConnectionMembers(connectionId)
+    .then(() => {
+      if (cancelled) return;
+      assertUserSession(session);
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const messages = snapshot.docs.map((docSnap) => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              senderUid: data.senderUid ?? "",
+              text: data.text ?? "",
+              createdAt: data.createdAt,
+            };
+          });
+          notify(messages);
+        },
+        fail,
+      );
+    })
+    .catch((error) => {
+      if (!cancelled) fail?.(error);
+    });
+  return () => {
+    cancelled = true;
+    unsubscribe();
+  };
 }
+
+export function createMessageOperationId(): string {
+  return doc(collection(db, "messageOperations")).id;
+}
+
+const sendChatMessage = httpsCallable(
+  getFunctions(app, "us-central1"),
+  "sendChatMessage",
+);
 
 export async function sendMessage(
   connectionId: string,
   text: string,
+  operationId: string,
+  expectedUid = auth.currentUser?.uid,
 ): Promise<void> {
-  const currentUid = auth.currentUser?.uid;
-  if (!currentUid) throw new Error("You must be logged in.");
-
+  const session = captureUserSession(expectedUid);
   const trimmed = text.trim();
-  if (!trimmed) throw new Error("Message cannot be empty.");
-
-  const connectionSnap = await getDoc(doc(db, "connections", connectionId));
-  if (!connectionSnap.exists()) {
-    throw new Error("Connection not found.");
-  }
-
-  const connection = connectionSnap.data();
-  const members = Array.isArray(connection.users) ? connection.users : [];
-  if (!members.includes(currentUid)) {
-    throw new Error("You are not part of this connection.");
-  }
-
-  if (!isConnectionActive(connection)) {
-    throw new Error("This connection has expired.");
-  }
-
-  await addDoc(collection(db, "connections", connectionId, "messages"), {
-    senderUid: currentUid,
-    text: trimmed,
-    createdAt: serverTimestamp(),
-  });
+  if (!trimmed || trimmed.length > 2000)
+    throw new Error("Message must contain 1–2000 characters.");
+  await sendChatMessage({ connectionId, text: trimmed, operationId });
+  assertUserSession(session);
 }

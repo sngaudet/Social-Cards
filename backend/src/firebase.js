@@ -1,7 +1,12 @@
 const logger = require("firebase-functions/logger");
-const { getApp, getApps, initializeApp } = require("firebase-admin/app");
+/* global __dirname */
+const { getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const {
+  getFirestore,
+  FieldValue,
+  Timestamp,
+} = require("firebase-admin/firestore");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -21,11 +26,11 @@ function readProjectIdFromFirebaserc() {
 
 function getProjectId() {
   return (
-    process.env.GCLOUD_PROJECT
-    || process.env.GOOGLE_CLOUD_PROJECT
-    || process.env.FIREBASE_PROJECT_ID
-    || readProjectIdFromFirebaserc()
-    || undefined
+    process.env.GCLOUD_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    process.env.FIREBASE_PROJECT_ID ||
+    readProjectIdFromFirebaserc() ||
+    undefined
   );
 }
 
@@ -35,9 +40,13 @@ function getAdminApp() {
   const defaultApp = getApps().find((app) => app.name === "[DEFAULT]");
   const projectId = getProjectId();
   cachedApp =
-    defaultApp
-    || initializeApp({
+    defaultApp ||
+    initializeApp({
       ...(projectId ? { projectId } : {}),
+      storageBucket:
+        process.env.PROFILE_STORAGE_BUCKET ||
+        JSON.parse(process.env.FIREBASE_CONFIG || "{}").storageBucket ||
+        `${projectId}.firebasestorage.app`,
     });
   return cachedApp;
 }

@@ -1,7 +1,14 @@
+import { useAuth } from "../../../src/auth/AuthContext";
 import { Feather } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
   ActivityIndicator,
@@ -22,7 +29,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { iceColors as colors, iceMascot } from "../../../src/theme/icebreakers";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
 import {
   blockUser,
   getBlockedRelationshipForPair,
@@ -35,6 +42,7 @@ import {
   ChatMessage,
   getConnectionMembers,
   sendMessage,
+  createMessageOperationId,
   subscribeToMessages,
 } from "../../../src/chat/service";
 import { showAlert } from "../../../src/lib/showAlert";
@@ -70,13 +78,17 @@ export default function ConnectionChatPage() {
     otherName?: string;
   }>();
   const connectionId = params.connectionId ?? "";
-  const currentUid = auth.currentUser?.uid ?? "";
+  const { user } = useAuth();
+  const currentUid = user?.uid ?? "";
   const blockedParam = params.blocked === "1";
   const otherNameParam = params.otherName ?? "";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const pendingSend = useRef<{ text: string; operationId: string } | null>(
+    null,
+  );
   const [otherUid, setOtherUid] = useState(params.otherUid ?? "");
   const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(
     null,
@@ -91,6 +103,15 @@ export default function ConnectionChatPage() {
   const [blockedByCurrentUser, setBlockedByCurrentUser] =
     useState(blockedParam);
   const [accessDenied, setAccessDenied] = useState(false);
+
+  useEffect(() => {
+    setDraft("");
+    pendingSend.current = null;
+    setMessages([]);
+    setOtherProfile(null);
+    setAccessDenied(false);
+    setExpiresAt(null);
+  }, [currentUid, connectionId]);
 
   useEffect(() => {
     if (!connectionId || !currentUid) return;
@@ -178,7 +199,7 @@ export default function ConnectionChatPage() {
   }, [blockedParam, currentUid, otherUid]);
 
   useEffect(() => {
-    if (!connectionId) return;
+    if (!connectionId || !currentUid) return;
 
     return subscribeToMessages(connectionId, setMessages, (error) => {
       if ((error as any)?.code === "permission-denied") {
@@ -187,7 +208,7 @@ export default function ConnectionChatPage() {
       }
       console.warn("Failed to subscribe to messages", error);
     });
-  }, [connectionId]);
+  }, [connectionId, currentUid]);
 
   const title = useMemo(() => {
     return otherProfile?.firstName || otherNameParam || otherUid || "Chat";
@@ -201,7 +222,19 @@ export default function ConnectionChatPage() {
   const handleSend = async () => {
     try {
       setSending(true);
-      await sendMessage(connectionId, draft);
+      if (sending) return;
+      if (pendingSend.current?.text !== draft)
+        pendingSend.current = {
+          text: draft,
+          operationId: createMessageOperationId(),
+        };
+      await sendMessage(
+        connectionId,
+        draft,
+        pendingSend.current.operationId,
+        currentUid,
+      );
+      pendingSend.current = null;
       setDraft("");
     } catch (e: any) {
       showAlert("Could not send", e?.message ?? "Unknown error");

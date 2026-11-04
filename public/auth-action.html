@@ -256,7 +256,12 @@
 
         function showContinueLink(label) {
           if (!continueUrl) return;
-          continueLink.href = continueUrl;
+          var destination;
+          try { destination = new URL(continueUrl); } catch (_) { return; }
+          var permittedOrigins = ["https://social-cards-b8e6f.web.app", "https://social-cards-b8e6f.firebaseapp.com"];
+          if (destination.protocol !== "https:" || destination.username || destination.password ||
+              permittedOrigins.indexOf(destination.origin) === -1) return;
+          continueLink.href = destination.href;
           continueLink.textContent = label || "Continue";
           continueLink.hidden = false;
         }

@@ -5,7 +5,12 @@ import DateTimePicker, {
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import {
+  resolveProfilePhoto,
+  uploadProfilePhotoAsync,
+} from "../../../src/lib/picture_upload";
+import { saveProfile } from "../../../src/profile/service";
 import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
 import React, {
   useCallback,
@@ -59,11 +64,7 @@ import {
   MAX_ICEBREAKERS,
   type SelectedIceBreaker,
 } from "../../../src/lib/icebreakers";
-import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
-import {
-  calculateAgeFromDateOfBirth,
-  normalizeDateOfBirth,
-} from "../../../src/lib/profileFields";
+import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { showAlert } from "../../../src/lib/showAlert";
 import {
   getLocationControlStatus,
@@ -187,6 +188,7 @@ export default function EditProfile() {
     );
 
   const [photoURL, setPhotoURL] = useState<string>("");
+  const [photoPreview, setPhotoPreview] = useState("");
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [locationControl, setLocationControl] =
     useState<LocationControlStatus | null>(null);
@@ -321,6 +323,9 @@ export default function EditProfile() {
       const d = snap.data() as UserDoc;
 
       setPhotoURL(d.photoURL ?? "");
+      setPhotoPreview(
+        await resolveProfilePhoto(userId, d.photoURL).catch(() => ""),
+      );
       setNewPhotoUri(null); // reset local selection when reloading
 
       setEmail(d.email ?? user?.email ?? "");
@@ -556,7 +561,8 @@ export default function EditProfile() {
 
   const openWebDatePicker = () => {
     const input = webDateInputRef.current as
-      (HTMLInputElement & { showPicker?: () => void }) | null;
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
 
     if (!input) return;
 
@@ -600,7 +606,6 @@ export default function EditProfile() {
 
       const normalizedHobbies = hobbyKeysToLabels(selectedHobbies);
       const normalizedDateOfBirth = normalizeDateOfBirth(dateOfBirth);
-      const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
       const completedIceBreakers = selectedIceBreakers.filter((item) =>
         item.answer.trim(),
       );
@@ -620,14 +625,11 @@ export default function EditProfile() {
           SelectedIceBreaker,
         ];
       const privateProfileData = {
-        email: user?.email ?? email,
-
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dateOfBirth: normalizedDateOfBirth,
         bio: bio.trim(),
         pronouns: pronouns.trim(),
-        age: derivedAge,
         gradYear: gradYear,
         major: major.trim(),
         minor: minor.trim(),
@@ -646,40 +648,9 @@ export default function EditProfile() {
 
         // profile photo
         photoURL: updatedPhotoURL,
-
-        updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, "users", uid), privateProfileData, { merge: true });
-
-      await setDoc(
-        doc(db, "publicProfiles", uid),
-        {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          dateOfBirth: normalizedDateOfBirth,
-          bio: bio.trim(),
-          pronouns: pronouns.trim(),
-          age: derivedAge,
-          gradYear: gradYear,
-          major: major.trim(),
-          minor: minor.trim(),
-          iceBreakerOne: firstIceBreaker.answer.trim(),
-          iceBreakerOneQuestion:
-            firstIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
-          iceBreakerTwo: secondIceBreaker.answer.trim(),
-          iceBreakerTwoQuestion:
-            secondIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
-          iceBreakerThree: thirdIceBreaker.answer.trim(),
-          iceBreakerThreeQuestion:
-            thirdIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[2],
-          hobbies: normalizedHobbies,
-          photoURL: updatedPhotoURL,
-          preConnectionVisibility,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      await saveProfile(privateProfileData, undefined, uid);
 
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);
@@ -751,10 +722,10 @@ export default function EditProfile() {
             <View style={styles.userCard}>
               <Text style={styles.sectionTitle}>Profile Photo</Text>
               <View style={styles.photoRow}>
-                {newPhotoUri || photoURL ? (
+                {newPhotoUri || photoPreview ? (
                   <Image
                     accessibilityLabel="Your profile photo"
-                    source={{ uri: newPhotoUri ?? photoURL }}
+                    source={{ uri: newPhotoUri ?? photoPreview }}
                     style={styles.profileImage}
                   />
                 ) : (

@@ -99,6 +99,11 @@ async function getProfileStatus(db, uid) {
 }
 
 async function main() {
+  // This bypass is only for emulators or explicitly isolated test projects.
+  const project = getAdminApp().options.projectId;
+  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST && !/(?:^demo-|-(?:dev|test)$)/.test(project || "")) {
+    throw new Error("Administrator email verification is disabled outside isolated test projects.");
+  }
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     printHelp();

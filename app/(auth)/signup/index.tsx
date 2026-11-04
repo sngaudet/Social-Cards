@@ -16,7 +16,6 @@ import ProgressHeader from "../../../src/components/ProgressHeader";
 import SignupScreenHeader from "../../../src/components/SignupScreenHeader";
 import { isEduEmail } from "../../../src/auth/emailValidation";
 import { useSignup } from "../../../src/signup/context";
-import { checkEmailExists } from "../../../src/signup/service";
 
 
 
@@ -42,7 +41,7 @@ export default function SignupAccountStep() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [checkingExistingAccount, setCheckingExistingAccount] = useState(false);
+  const checkingExistingAccount = false;
 
   useEffect(() => {
     const errorTitle = Array.isArray(params.errorTitle)
@@ -99,26 +98,6 @@ export default function SignupAccountStep() {
     if (password !== confirmPassword) {
       showAlert("Passwords do not match");
       return;
-    }
-
-    try {
-      setCheckingExistingAccount(true);
-      const emailExists = await checkEmailExists(cleanEmail);
-
-      if (emailExists) {
-        showAlert(
-          "Account already in use",
-          "That email is already registered. Please use a different email or log in.",
-        );
-        router.replace("/(auth)/signup" as Href);
-        return;
-      }
-    } catch (error) {
-      console.warn("Could not check whether signup email already exists", error);
-      showAlert("Error", "We couldn't verify that email right now. Please try again.");
-      return;
-    } finally {
-      setCheckingExistingAccount(false);
     }
 
     updateDraft({ email: cleanEmail, password });

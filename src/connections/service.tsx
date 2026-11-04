@@ -1,27 +1,34 @@
+import {
+  sessionCallable as httpsCallable,
+  guardSessionCallback,
+} from "../auth/sessionCallable";
 import { FirebaseError } from "firebase/app";
 import {
   collection,
   doc,
   DocumentData,
   getDoc,
-  getDocs,
   onSnapshot,
   query,
   QuerySnapshot,
-  serverTimestamp,
   where,
-  writeBatch,
 } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { getFunctions } from "firebase/functions";
+import { fetchProfile } from "../profile/service";
 import { app, auth, db } from "../../firebaseConfig";
 
 export const CONNECTION_DURATION_MS = 24 * 60 * 60 * 1000;
 
-export type ConnectionRequestStatus = "pending" | "accepted" | "declined";
+export type ConnectionRequestStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled";
 export type RelationshipStatus =
   | "none"
   | "pending"
   | "accepted"
+  | "history"
   | "declined"
   | "blocked";
 
@@ -139,6 +146,7 @@ function isStoredRelationshipStatus(
   return (
     value === "pending" ||
     value === "accepted" ||
+    value === "history" ||
     value === "declined" ||
     value === "blocked"
   );
@@ -197,64 +205,24 @@ export async function pruneDeletedAccounts(): Promise<number> {
   return result.data?.prunedUidCount ?? 0;
 }
 
+const pendingRequestOperations = new Map<string, string>();
+
 export async function sendConnectionRequest(toUid: string): Promise<void> {
   const fromUid = auth.currentUser?.uid;
 
   if (!fromUid) throw new Error("You must be logged in.");
   if (fromUid === toUid) throw new Error("You cannot connect with yourself.");
 
-  const relationshipStatus = await getRelationshipStatusForPair(fromUid, toUid);
-  if (relationshipStatus === "blocked") {
-    throw new Error("You cannot connect with this user.");
-  }
-
-  const outgoingPendingQuery = query(
-    collection(db, "connectionRequests"),
-    where("fromUid", "==", fromUid),
-    where("toUid", "==", toUid),
-    where("status", "==", "pending"),
-  );
-  const incomingPendingQuery = query(
-    collection(db, "connectionRequests"),
-    where("fromUid", "==", toUid),
-    where("toUid", "==", fromUid),
-    where("status", "==", "pending"),
-  );
-
-  const [outgoingPendingSnap, incomingPendingSnap] = await Promise.all([
-    getDocs(outgoingPendingQuery),
-    getDocs(incomingPendingQuery),
-  ]);
-
-  if (!outgoingPendingSnap.empty) {
-    throw new Error("You already sent this user a connection request.");
-  }
-
-  if (!incomingPendingSnap.empty) {
-    throw new Error("This user has already sent you a connection request.");
-  }
-
-  const requestRef = doc(collection(db, "connectionRequests"));
-  const batch = writeBatch(db);
-
-  batch.set(requestRef, {
-    fromUid,
-    toUid,
-    status: "pending",
-    createdAt: serverTimestamp(),
-    respondedAt: null,
-  });
-  batch.set(
-    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
-    {
-      users: sortedPair(fromUid, toUid),
-      status: "pending",
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await batch.commit();
+  const key = `${fromUid}:${toUid}`;
+  const operationId =
+    pendingRequestOperations.get(key) ??
+    doc(collection(db, "connectionRequests")).id;
+  pendingRequestOperations.set(key, operationId);
+  await httpsCallable(
+    functions,
+    "createConnectionRequest",
+  )({ toUid, operationId });
+  pendingRequestOperations.delete(key);
 }
 
 export async function acceptConnectionRequest(
@@ -286,6 +254,8 @@ export function subscribeToIncomingRequests(
   callback: (requests: ConnectionRequest[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "connectionRequests"),
     where("toUid", "==", uid),
@@ -320,10 +290,12 @@ export function subscribeToConnections(
   callback: (connections: ConnectionDoc[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "relationships"),
     where("users", "array-contains", uid),
-    where("status", "==", "accepted"),
+    where("status", "in", ["accepted", "history"]),
   );
 
   return onSnapshot(
@@ -378,6 +350,8 @@ export function subscribeToBlockedRelationships(
   callback: (relationships: BlockedRelationship[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "relationships"),
     where("users", "array-contains", uid),
@@ -482,28 +456,10 @@ export function isConnectionActive(
   now = new Date(),
 ): boolean {
   const expiresAt = getConnectionExpiresAt(connection);
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   return expiresAt.getTime() > now.getTime();
 }
 
 export async function getUserProfile(uid: string): Promise<PublicUserProfile> {
-  const userRef = doc(db, "publicProfiles", uid);
-  const snap = await getDoc(userRef);
-
-  if (!snap.exists()) {
-    return { uid };
-  }
-
-  const data = snap.data();
-
-  return {
-    uid,
-    firstName: data.firstName ?? "",
-    pronouns: data.pronouns ?? data.Gender ?? "",
-    major: data.major ?? "",
-    minor: data.minor ?? "",
-    bio: data.bio ?? "",
-    avatarId: data.avatarId ?? "",
-    photoURL: data.photoURL ?? "",
-  };
+  return (await fetchProfile(uid)) as PublicUserProfile;
 }
