@@ -13,7 +13,6 @@ import {
 
 import { auth } from "../../firebaseConfig";
 import PrimaryButton from "../../src/components/PrimaryButton";
-import { checkEmailExists } from "../../src/signup/service";
 import { showAlert } from "../../src/lib/showAlert";
 
 function normalizeEmail(value: string) {
@@ -35,19 +34,12 @@ export default function ForgotPasswordScreen() {
     try {
       setSubmitting(true);
 
-      const exists = await checkEmailExists(normalizedEmail);
-      if (!exists) {
-        showAlert(
-          "Account not found",
-          "No account exists for that email address. Enter the email tied to your SocialCards account.",
-        );
-        return;
-      }
-
-      await sendPasswordResetEmail(auth, normalizedEmail);
+      await sendPasswordResetEmail(auth, normalizedEmail).catch((error) => {
+        if (error?.code !== "auth/user-not-found") throw error;
+      });
       showAlert(
         "Reset email sent",
-        `We sent a password reset email to ${normalizedEmail}. Check your inbox and spam folder.`,
+        "If an account can receive a reset email, you will receive instructions. Check your inbox and spam folder.",
       );
       router.replace({
         pathname: "/(auth)/login",
@@ -59,7 +51,7 @@ export default function ForgotPasswordScreen() {
     } catch (error: any) {
       showAlert(
         "Could not send reset email",
-        error?.message ?? "Unknown error",
+        "Please try again later.",
       );
     } finally {
       setSubmitting(false);

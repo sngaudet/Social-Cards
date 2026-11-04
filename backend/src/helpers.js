@@ -1,4 +1,3 @@
-const { HttpsError } = require("firebase-functions/v2/https");
 const {
   geohashForLocation,
   geohashQueryBounds,
@@ -16,16 +15,7 @@ const {
   MAX_RECORDED_AT_FUTURE_MS,
 } = require("./constants");
 
-// this checks login and gives the handler the user id
-function withAuth(handler) {
-  return async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "User must be authenticated.");
-    }
-    return handler(uid, request);
-  };
-}
+const { withAuth } = require("./security");
 
 // this keeps date creation the same everywhere
 function nowDate() {

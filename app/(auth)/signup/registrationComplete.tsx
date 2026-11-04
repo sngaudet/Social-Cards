@@ -270,8 +270,8 @@ export default function RegistrationCompletePage() {
 
       if (code === "auth/email-already-in-use") {
         redirectToSignupWithError(
-          "Account already in use",
-          "That email is already registered. Please start again from Create your account.",
+          "Unable to complete signup",
+          "Try signing in or use password reset if you already have an account.",
           { resetDraftFirst: true },
         );
       } else if (code === "auth/invalid-email") {

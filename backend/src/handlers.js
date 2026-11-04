@@ -164,28 +164,13 @@ function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-// this checks whether an auth account already exists for an email
-const auth_checkEmailExists = onCall(
-  { region: REGION },
-  async (request) => {
-    const email = getTrimmedString(request.data?.email).toLowerCase();
+// Kept as an inert compatibility endpoint until old clients have upgraded.
+const auth_checkEmailExists = onCall({ region: REGION, maxInstances: 2 }, () => {
+  throw new HttpsError("failed-precondition", "Update the app to continue.");
+});
 
-    if (!email) {
-      throw new HttpsError("invalid-argument", "email is required.");
-    }
-
-    try {
-      await getAdminAuth().getUserByEmail(email);
-      return { exists: true };
-    } catch (error) {
-      if (error?.code === "auth/user-not-found") {
-        return { exists: false };
-      }
-
-      throw new HttpsError("internal", "Could not check email availability.");
-    }
-  },
-);
+const auth_syncSession = onCall({ region: REGION, maxInstances: 20 },
+  withAuth(async () => ({ ok: true }), { verified: false }));
 
 async function getBlockPreviewForUid(targetUid) {
   const [publicSnap, userSnap] = await Promise.all([
@@ -851,6 +836,7 @@ const auth_cleanupDeletedUser = functionsV1
 
 module.exports = {
   auth_checkEmailExists,
+  auth_syncSession,
   auth_cleanupDeletedUser,
   location_registerPushToken,
   location_setSharing,

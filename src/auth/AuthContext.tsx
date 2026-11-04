@@ -6,8 +6,10 @@ import React, {
     useMemo,
     useState,
 } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { auth } from "../../firebaseConfig";
+import { refreshServerAuthorization } from "./authorization";
+import { signOut } from "firebase/auth";
 import {
   subscribeToIncomingRequests,
 } from "../connections/service";
@@ -82,13 +84,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try { await refreshServerAuthorization(); }
+        catch { await signOut(auth); return; }
+      }
+      if (auth.currentUser?.uid === firebaseUser?.uid) setUser(firebaseUser);
       setInitializing(false);
     });
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => refreshServerAuthorization().catch((error) => {
+      const code = (error as { code?: string })?.code;
+      if (code === "functions/unauthenticated" || code === "functions/permission-denied") void signOut(auth);
+    });
+    const interval = setInterval(refresh, 60000);
+    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refresh(); });
+    return () => { clearInterval(interval); subscription.remove(); };
+  }, [user]);
 
   useEffect(() => {
     if (initializing || user) return;

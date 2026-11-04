@@ -89,7 +89,8 @@ function normalizeDraft(value: unknown): SignupDraft {
 
   return {
     ...emptySignupDraft,
-    ...raw,
+    ...Object.fromEntries(Object.keys(emptySignupDraft).filter((key) => key !== "password").map((key) => [key, raw[key as keyof SignupDraft] ?? emptySignupDraft[key as keyof SignupDraft]])),
+    password: "",
     gradYear:
       typeof raw.gradYear === "number"
         ? raw.gradYear
@@ -176,9 +177,14 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
         if (!saved || cancelled) return;
 
         const parsed = JSON.parse(saved) as PersistedSignupState;
+        // Remove credentials from older drafts before restoring any UI.
+        const cleanDraft = normalizeDraft(parsed?.draft);
+        const { password: discardedPassword, ...persistedDraft } = cleanDraft;
+        void discardedPassword;
+        await AsyncStorage.setItem(SIGNUP_DRAFT_STORAGE_KEY, JSON.stringify({ draft: persistedDraft, resumeRoute: parsed?.resumeRoute }));
         if (!cancelled) {
           setDraft(normalizeDraft(parsed?.draft));
-          setResumeRoute(normalizeResumeRoute(parsed?.resumeRoute));
+          setResumeRoute(cleanDraft.password ? normalizeResumeRoute(parsed?.resumeRoute) : DEFAULT_SIGNUP_ROUTE);
         }
       } catch (error) {
         console.warn("Could not restore signup draft", error);
@@ -209,7 +215,7 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
 
     AsyncStorage.setItem(
       SIGNUP_DRAFT_STORAGE_KEY,
-      JSON.stringify({ draft, resumeRoute }),
+      JSON.stringify({ draft: Object.fromEntries(Object.entries(draft).filter(([key]) => key !== "password")), resumeRoute }),
     ).catch((error) => {
       console.warn("Could not persist signup draft", error);
     });
