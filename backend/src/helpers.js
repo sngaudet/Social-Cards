@@ -68,11 +68,11 @@ function validatePingInput(data) {
   const payload = data || {};
   const { lat, lng, accuracyM, source, recordedAtMs } = payload;
 
-  if (!isFiniteNumber(lat) || !isFiniteNumber(lng)) {
+  if (!isFiniteNumber(lat) || !isFiniteNumber(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
-  if (!isFiniteNumber(accuracyM) || accuracyM < 0 || accuracyM > 500) {
+  if (!isFiniteNumber(accuracyM) || accuracyM < 0 || accuracyM > 100) {
     return { ok: false, response: rejectPing("invalid") };
   }
 
@@ -124,7 +124,8 @@ function extractPresence(docSnap) {
 // this checks if location is still recent enough
 function isFreshPresence(presence, now = nowDate()) {
   if (!presence?.updatedAt) return false;
-  return now.getTime() - presence.updatedAt.getTime() <= FRESHNESS_MS;
+  const age = now.getTime() - presence.updatedAt.getTime();
+  return age >= -5000 && age <= FRESHNESS_MS && (!presence.expiresAt || presence.expiresAt > now);
 }
 
 // this gets distance in meters between two locations
@@ -176,7 +177,7 @@ async function queryNearbyPresence(center, radiusM, options = {}) {
       .orderBy("geohash")
       .startAt(start)
       .endAt(end)
-      .limit(200)
+      .limit(50)
       .get(),
   );
 
@@ -283,7 +284,7 @@ async function getUsersByUids(uids) {
 // this returns only the profile fields we want in nearby results
 function buildNearbyUserPayload(uid, userDoc, presence) {
   return { ...require("./profileSchema").projectProfile(uid, userDoc),
-    distanceFt: Math.max(50, Math.ceil(roundDistanceFeet(presence.distanceM) / 50) * 50) };
+    distanceFt: Math.max(100, Math.ceil(roundDistanceFeet(presence.distanceM) / 100) * 100) };
 }
 
 // this tells us if user should wait before sending next ping

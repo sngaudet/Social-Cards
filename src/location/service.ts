@@ -46,6 +46,7 @@ export type NearbyResponse = {
 
 export type LocationControlStatus = {
   sharingEnabled: boolean;
+  generation: number;
   permissionStatus: LocationPermissionStatus;
   lastLocationAt: string | null;
   lastAccuracyM: number | null;
@@ -56,6 +57,9 @@ type NotificationsModule = typeof import("expo-notifications");
 
 const LOCATION_TASK_NAME = "ICEBREAKERS_LOCATION_TASK_V1";
 const functions = getFunctions(app, "us-central1");
+let locationEpoch = 0;
+let locationControl: (LocationControlStatus & { uid: string }) | null = null;
+let sessionExiting = false;
 let notificationsModulePromise: Promise<NotificationsModule> | null = null;
 
 // these are temporary function errors worth retrying once
@@ -73,8 +77,8 @@ const registerPushTokenCallable = httpsCallable<
 
 // this updates backend sharing state for location
 const setSharingCallable = httpsCallable<
-  { sharingEnabled: boolean; permissionStatus: LocationPermissionStatus },
-  { sharingEnabled: boolean; lastLocationAt: string | null }
+  { sharingEnabled: boolean; permissionStatus: LocationPermissionStatus; generation: number },
+  LocationControlStatus
 >(functions, "location_setSharing");
 
 // this sends one location ping to backend
@@ -85,6 +89,7 @@ const upsertPingCallable = httpsCallable<
     accuracyM: number;
     source: PingSource;
     recordedAtMs: number;
+    generation: number;
   },
   { accepted: boolean; reason?: "paused" | "throttled" | "invalid"; nextPingAfterSec?: number }
 >(functions, "location_upsertPing");
@@ -387,51 +392,36 @@ export async function registerPushTokenIfPossible(
   return true;
 }
 
-// this sends one ping from raw coordinate values
-async function sendPingFromCoordinates(
-  latitude: number,
-  longitude: number,
-  accuracy: number | null | undefined,
-  source: PingSource,
-  timestampMs: number | null | undefined,
-): Promise<void> {
-  if (!auth.currentUser) return;
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return;
-  }
-
-  const safeAccuracy =
-    typeof accuracy === "number" && Number.isFinite(accuracy) ? accuracy : 50;
-  const safeTimestamp =
-    typeof timestampMs === "number" && Number.isFinite(timestampMs)
-      ? timestampMs
-      : Date.now();
-
-  await callWithRetry(() =>
-    upsertPingCallable({
-      lat: latitude,
-      lng: longitude,
-      accuracyM: Math.max(0, safeAccuracy),
-      source,
-      recordedAtMs: safeTimestamp,
-    }),
-  );
+type LocationSession = { uid: string; epoch: number; generation: number };
+function sessionIsCurrent(session: LocationSession): boolean {
+  return !sessionExiting && auth.currentUser?.uid === session.uid && locationEpoch === session.epoch &&
+    locationControl?.uid === session.uid && locationControl.sharingEnabled && locationControl.generation === session.generation;
 }
-
-// this converts a location object into one upsert ping call
+async function captureLocationSession(): Promise<LocationSession | null> {
+  const uid = auth.currentUser?.uid;
+  const epoch = locationEpoch;
+  if (!uid || sessionExiting) return null;
+  if (locationControl?.uid !== uid) await getLocationControlStatus();
+  if (epoch !== locationEpoch || auth.currentUser?.uid !== uid || !locationControl?.sharingEnabled) return null;
+  return { uid, epoch, generation: locationControl.generation };
+}
+async function sendPingFromCoordinates(
+  latitude: number, longitude: number, accuracy: number | null | undefined,
+  source: PingSource, timestampMs: number | null | undefined, session: LocationSession,
+): Promise<void> {
+  if (!sessionIsCurrent(session) || !Number.isFinite(timestampMs) || !Number.isFinite(accuracy)) return;
+  await callWithRetry(async () => {
+    if (!sessionIsCurrent(session)) return;
+    await upsertPingCallable({ lat: latitude, lng: longitude, accuracyM: accuracy as number,
+      source, recordedAtMs: timestampMs as number, generation: session.generation });
+  });
+}
 async function sendPingFromLocationObject(
   location: Pick<Location.LocationObject, "coords" | "timestamp">,
-  source: PingSource,
+  source: PingSource, session: LocationSession,
 ): Promise<void> {
   const { latitude, longitude, accuracy } = location.coords;
-  await sendPingFromCoordinates(
-    latitude,
-    longitude,
-    accuracy,
-    source,
-    location.timestamp || Date.now(),
-  );
+  await sendPingFromCoordinates(latitude, longitude, accuracy, source, location.timestamp, session);
 }
 
 if (Platform.OS !== "web" && !TaskManager.isTaskDefined(LOCATION_TASK_NAME)) {
@@ -451,7 +441,8 @@ if (Platform.OS !== "web" && !TaskManager.isTaskDefined(LOCATION_TASK_NAME)) {
     const newest = locations[locations.length - 1];
 
     try {
-      await sendPingFromLocationObject(newest, "background");
+      const session = await captureLocationSession();
+      if (session) await sendPingFromLocationObject(newest, "background", session);
     } catch (e) {
       console.warn("Background ping failed", e);
     }
@@ -494,6 +485,9 @@ export async function stopLocationUpdatesForCurrentUser(): Promise<void> {
 
 // this removes live presence and stops local tracking before session exit
 export async function prepareLocationServicesForSessionExit(): Promise<void> {
+  sessionExiting = true;
+  locationEpoch += 1;
+  locationControl = null;
   const cleanupTasks: Promise<unknown>[] = [stopLocationUpdatesForCurrentUser()];
 
   if (auth.currentUser) {
@@ -513,7 +507,8 @@ export async function prepareLocationServicesForSessionExit(): Promise<void> {
 
 // this sends one immediate foreground ping
 export async function sendForegroundPing(): Promise<void> {
-  if (!auth.currentUser) return;
+  const session = await captureLocationSession();
+  if (!session) return;
 
   // this skips ping when permission cannot provide location
   const permissionStatus = await getCurrentLocationPermissionStatus();
@@ -545,6 +540,7 @@ export async function sendForegroundPing(): Promise<void> {
       position.coords.accuracy,
       "foreground",
       position.timestamp,
+      session,
     );
     return;
   }
@@ -553,12 +549,14 @@ export async function sendForegroundPing(): Promise<void> {
     accuracy: Location.Accuracy.Balanced,
   });
 
-  await sendPingFromLocationObject(location, "foreground");
+  await sendPingFromLocationObject(location, "foreground", session);
 }
 
 // this returns backend location sharing status for current user
 export async function getLocationControlStatus(): Promise<LocationControlStatus> {
   const result = await callWithRetry(() => getControlStatusCallable({}));
+  const uid = auth.currentUser?.uid;
+  if (uid) locationControl = { ...result.data, uid };
   return result.data;
 }
 
@@ -566,6 +564,11 @@ export async function getLocationControlStatus(): Promise<LocationControlStatus>
 export async function setLocationSharingEnabled(
   sharingEnabled: boolean,
 ): Promise<LocationControlStatus> {
+  locationEpoch += 1;
+  const epoch = locationEpoch;
+  const uid = auth.currentUser?.uid;
+  if (locationControl) locationControl.sharingEnabled = false;
+  const control = await getLocationControlStatus();
   // this gets current permission before deciding final state
   let permissionStatus = await getCurrentLocationPermissionStatus();
 
@@ -581,12 +584,10 @@ export async function setLocationSharingEnabled(
       permissionStatus === "while_in_use" ||
       (Platform.OS === "web" && permissionStatus === "unknown"));
 
-  await callWithRetry(() =>
-    setSharingCallable({
-      sharingEnabled: canShare,
-      permissionStatus,
-    }),
-  );
+  if (epoch !== locationEpoch || auth.currentUser?.uid !== uid || sessionExiting) return control;
+  const changed = await setSharingCallable({ sharingEnabled: canShare, permissionStatus, generation: control.generation });
+  if (auth.currentUser?.uid !== uid || epoch !== locationEpoch) return changed.data;
+  locationControl = { ...changed.data, uid: uid! };
 
   // this keeps local background updates aligned with backend state
   if (canShare) {
@@ -616,6 +617,10 @@ export async function fetchNearbyUsers(radiusFt = 50): Promise<NearbyResponse> {
 
 // this bootstraps location services when a session starts
 export async function bootstrapLocationServicesForSession(): Promise<void> {
+  sessionExiting = false;
+  locationEpoch += 1;
+  const epoch = locationEpoch;
+  const uid = auth.currentUser?.uid;
   // this stops tracking if there is no signed in user
   if (!auth.currentUser) {
     await stopLocationUpdatesForCurrentUser();
@@ -655,17 +660,11 @@ export async function bootstrapLocationServicesForSession(): Promise<void> {
       currentPermissionStatus === "while_in_use" ||
       (Platform.OS === "web" && currentPermissionStatus === "unknown"));
 
-  try {
-    // this syncs backend sharing with actual device permission
-    await callWithRetry(() =>
-      setSharingCallable({
-        sharingEnabled: canShare,
-        permissionStatus: currentPermissionStatus,
-      }),
-    );
-  } catch (e) {
-    console.warn("Could not sync sharing status", formatError(e));
-    return;
+  if (epoch !== locationEpoch || auth.currentUser?.uid !== uid || sessionExiting) return;
+  // Bootstrap never re-enables sharing; only an explicit user action can enable it.
+  if (control.sharingEnabled && !canShare) {
+    await setSharingCallable({ sharingEnabled: false, permissionStatus: currentPermissionStatus, generation: control.generation });
+    locationControl = null;
   }
 
   // this starts or stops updates based on final share state
