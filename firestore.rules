@@ -56,22 +56,7 @@ service cloud.firestore {
     }
 
     match /relationships/{relationshipId} {
-      allow create: if signedIn()
-        && request.resource.data.users is list
-        && request.resource.data.users.size() == 2
-        && request.resource.data.users[0] is string
-        && request.resource.data.users[1] is string
-        && request.resource.data.users[0] != request.resource.data.users[1]
-        && relationshipId == pairId(
-          request.resource.data.users[0],
-          request.resource.data.users[1],
-        )
-        && request.resource.data.users.hasAny([request.auth.uid])
-        && (
-          request.resource.data.status == "pending"
-          || request.resource.data.status == "accepted"
-          || request.resource.data.status == "declined"
-        );
+      allow write: if false;
 
       allow read: if signedIn()
         && resource.data.users.hasAny([request.auth.uid])
@@ -80,34 +65,10 @@ service cloud.firestore {
           || resource.data.blockedByUid == request.auth.uid
         );
 
-      allow update: if signedIn()
-        && resource.data.users is list
-        && resource.data.users.hasAny([request.auth.uid])
-        && request.resource.data.users == resource.data.users
-        && request.resource.data.users.size() == 2
-        && relationshipId == pairId(
-          request.resource.data.users[0],
-          request.resource.data.users[1],
-        )
-        && (
-          request.resource.data.status == "pending"
-          || request.resource.data.status == "accepted"
-          || request.resource.data.status == "declined"
-        );
-
-      allow delete: if false;
     }
 
     match /connectionRequests/{requestId} {
-      allow create: if signedIn()
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.toUid is string
-        && request.resource.data.toUid != request.auth.uid
-        && relationshipStatus(
-          request.resource.data.fromUid,
-          request.resource.data.toUid
-        ) != "blocked"
-        && request.resource.data.status == "pending";
+      allow write: if false;
 
       allow read: if signedIn()
         && (
@@ -115,37 +76,10 @@ service cloud.firestore {
           || resource.data.toUid == request.auth.uid
         );
 
-      allow update: if signedIn()
-        && (
-          resource.data.fromUid == request.auth.uid
-          || resource.data.toUid == request.auth.uid
-        )
-        && request.resource.data.fromUid == resource.data.fromUid
-        && request.resource.data.toUid == resource.data.toUid
-        && (
-          request.resource.data.status == "accepted"
-          || request.resource.data.status == "declined"
-        );
-
-      allow delete: if false;
     }
 
     match /connections/{connectionId} {
-      allow create: if signedIn()
-        && request.resource.data.users is list
-        && request.resource.data.users.size() == 2
-        && request.resource.data.users[0] is string
-        && request.resource.data.users[1] is string
-        && request.resource.data.users[0] != request.resource.data.users[1]
-        && request.resource.data.users.hasAny([request.auth.uid])
-        && connectionId == pairId(
-          request.resource.data.users[0],
-          request.resource.data.users[1],
-        )
-        && relationshipStatus(
-          request.resource.data.users[0],
-          request.resource.data.users[1],
-        ) != "blocked";
+      allow write: if false;
 
       allow read: if signedIn()
         && resource.data.users.hasAny([request.auth.uid])

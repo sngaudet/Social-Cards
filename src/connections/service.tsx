@@ -4,20 +4,17 @@ import {
   doc,
   DocumentData,
   getDoc,
-  getDocs,
   onSnapshot,
   query,
   QuerySnapshot,
-  serverTimestamp,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { app, auth, db } from "../../firebaseConfig";
 
 export const CONNECTION_DURATION_MS = 24 * 60 * 60 * 1000;
 
-export type ConnectionRequestStatus = "pending" | "accepted" | "declined";
+export type ConnectionRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type RelationshipStatus =
   | "none"
   | "pending"
@@ -197,64 +194,19 @@ export async function pruneDeletedAccounts(): Promise<number> {
   return result.data?.prunedUidCount ?? 0;
 }
 
+const pendingRequestOperations = new Map<string, string>();
+
 export async function sendConnectionRequest(toUid: string): Promise<void> {
   const fromUid = auth.currentUser?.uid;
 
   if (!fromUid) throw new Error("You must be logged in.");
   if (fromUid === toUid) throw new Error("You cannot connect with yourself.");
 
-  const relationshipStatus = await getRelationshipStatusForPair(fromUid, toUid);
-  if (relationshipStatus === "blocked") {
-    throw new Error("You cannot connect with this user.");
-  }
-
-  const outgoingPendingQuery = query(
-    collection(db, "connectionRequests"),
-    where("fromUid", "==", fromUid),
-    where("toUid", "==", toUid),
-    where("status", "==", "pending"),
-  );
-  const incomingPendingQuery = query(
-    collection(db, "connectionRequests"),
-    where("fromUid", "==", toUid),
-    where("toUid", "==", fromUid),
-    where("status", "==", "pending"),
-  );
-
-  const [outgoingPendingSnap, incomingPendingSnap] = await Promise.all([
-    getDocs(outgoingPendingQuery),
-    getDocs(incomingPendingQuery),
-  ]);
-
-  if (!outgoingPendingSnap.empty) {
-    throw new Error("You already sent this user a connection request.");
-  }
-
-  if (!incomingPendingSnap.empty) {
-    throw new Error("This user has already sent you a connection request.");
-  }
-
-  const requestRef = doc(collection(db, "connectionRequests"));
-  const batch = writeBatch(db);
-
-  batch.set(requestRef, {
-    fromUid,
-    toUid,
-    status: "pending",
-    createdAt: serverTimestamp(),
-    respondedAt: null,
-  });
-  batch.set(
-    doc(db, "relationships", relationshipDocId(fromUid, toUid)),
-    {
-      users: sortedPair(fromUid, toUid),
-      status: "pending",
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await batch.commit();
+  const key = `${fromUid}:${toUid}`;
+  const operationId = pendingRequestOperations.get(key) ?? doc(collection(db, "connectionRequests")).id;
+  pendingRequestOperations.set(key, operationId);
+  await httpsCallable(functions, "createConnectionRequest")({ toUid, operationId });
+  pendingRequestOperations.delete(key);
 }
 
 export async function acceptConnectionRequest(
@@ -482,7 +434,7 @@ export function isConnectionActive(
   now = new Date(),
 ): boolean {
   const expiresAt = getConnectionExpiresAt(connection);
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   return expiresAt.getTime() > now.getTime();
 }
 
