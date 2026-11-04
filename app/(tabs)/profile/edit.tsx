@@ -5,7 +5,8 @@ import DateTimePicker, {
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { saveProfile } from "../../../src/profile/service";
 import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
 import React, {
   useCallback,
@@ -600,7 +601,6 @@ export default function EditProfile() {
 
       const normalizedHobbies = hobbyKeysToLabels(selectedHobbies);
       const normalizedDateOfBirth = normalizeDateOfBirth(dateOfBirth);
-      const derivedAge = calculateAgeFromDateOfBirth(normalizedDateOfBirth);
       const completedIceBreakers = selectedIceBreakers.filter((item) =>
         item.answer.trim(),
       );
@@ -620,14 +620,12 @@ export default function EditProfile() {
           SelectedIceBreaker,
         ];
       const privateProfileData = {
-        email: user?.email ?? email,
 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dateOfBirth: normalizedDateOfBirth,
         bio: bio.trim(),
         pronouns: pronouns.trim(),
-        age: derivedAge,
         gradYear: gradYear,
         major: major.trim(),
         minor: minor.trim(),
@@ -647,39 +645,9 @@ export default function EditProfile() {
         // profile photo
         photoURL: updatedPhotoURL,
 
-        updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, "users", uid), privateProfileData, { merge: true });
-
-      await setDoc(
-        doc(db, "publicProfiles", uid),
-        {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          dateOfBirth: normalizedDateOfBirth,
-          bio: bio.trim(),
-          pronouns: pronouns.trim(),
-          age: derivedAge,
-          gradYear: gradYear,
-          major: major.trim(),
-          minor: minor.trim(),
-          iceBreakerOne: firstIceBreaker.answer.trim(),
-          iceBreakerOneQuestion:
-            firstIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[0],
-          iceBreakerTwo: secondIceBreaker.answer.trim(),
-          iceBreakerTwoQuestion:
-            secondIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[1],
-          iceBreakerThree: thirdIceBreaker.answer.trim(),
-          iceBreakerThreeQuestion:
-            thirdIceBreaker.question.trim() || DEFAULT_ICEBREAKER_QUESTIONS[2],
-          hobbies: normalizedHobbies,
-          photoURL: updatedPhotoURL,
-          preConnectionVisibility,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      await saveProfile(privateProfileData);
 
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);

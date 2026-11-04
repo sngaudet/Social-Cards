@@ -34,62 +34,6 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-// this keeps array-like profile fields in a clean string list
-function normalizeStringArray(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => (typeof item === "string" ? item.trim() : ""))
-      .filter(Boolean);
-  }
-
-  if (typeof value === "string") {
-    return value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-function normalizePreConnectionVisibility(value) {
-  const record = value && typeof value === "object" ? value : {};
-
-  return {
-    photoURL: typeof record.photoURL === "boolean" ? record.photoURL : false,
-    lastName: typeof record.lastName === "boolean" ? record.lastName : false,
-    pronouns:
-      typeof record.pronouns === "boolean"
-        ? record.pronouns
-        : typeof record.Gender === "boolean"
-          ? record.Gender
-          : true,
-    dateOfBirth:
-      typeof record.dateOfBirth === "boolean"
-        ? record.dateOfBirth
-        : typeof record.age === "boolean"
-          ? record.age
-          : true,
-    gradYear: typeof record.gradYear === "boolean" ? record.gradYear : true,
-    major: typeof record.major === "boolean" ? record.major : true,
-    minor: typeof record.minor === "boolean" ? record.minor : true,
-    bio: typeof record.bio === "boolean" ? record.bio : true,
-    iceBreakerOne:
-      typeof record.iceBreakerOne === "boolean" ? record.iceBreakerOne : true,
-    iceBreakerOneQuestion:
-      typeof record.iceBreakerOneQuestion === "boolean"
-        ? record.iceBreakerOneQuestion
-        : true,
-    iceBreakerTwo:
-      typeof record.iceBreakerTwo === "boolean" ? record.iceBreakerTwo : true,
-    iceBreakerThree:
-      typeof record.iceBreakerThree === "boolean"
-        ? record.iceBreakerThree
-        : true,
-    hobbies: typeof record.hobbies === "boolean" ? record.hobbies : true,
-  };
-}
-
 // this turns feet into meters for distance math
 function toMeters(feet) {
   return feet * 0.3048;
@@ -338,28 +282,8 @@ async function getUsersByUids(uids) {
 
 // this returns only the profile fields we want in nearby results
 function buildNearbyUserPayload(uid, userDoc, presence) {
-  return {
-    uid,
-    firstName: userDoc?.firstName || "",
-    lastName: userDoc?.lastName || "",
-    preConnectionVisibility: normalizePreConnectionVisibility(
-      userDoc?.preConnectionVisibility,
-    ),
-    pronouns: userDoc?.pronouns || userDoc?.Gender || "",
-    dateOfBirth: userDoc?.dateOfBirth || "",
-    gradYear: userDoc?.gradYear ?? "",
-    major: userDoc?.major || "",
-    minor: userDoc?.minor || "",
-    bio: userDoc?.bio || "",
-    hobbies: normalizeStringArray(userDoc?.hobbies),
-    avatarId: userDoc?.avatarId || "",
-    photoURL: userDoc?.photoURL || "",
-    iceBreakerOne: userDoc?.iceBreakerOne || "",
-    iceBreakerOneQuestion: userDoc?.iceBreakerOneQuestion || "",
-    iceBreakerTwo: userDoc?.iceBreakerTwo || "",
-    iceBreakerThree: userDoc?.iceBreakerThree || "",
-    distanceFt: roundDistanceFeet(presence.distanceM),
-  };
+  return { ...require("./profileSchema").projectProfile(uid, userDoc),
+    distanceFt: Math.max(50, Math.ceil(roundDistanceFeet(presence.distanceM) / 50) * 50) };
 }
 
 // this tells us if user should wait before sending next ping

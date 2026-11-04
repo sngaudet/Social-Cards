@@ -580,6 +580,7 @@ module.exports = {
   reportUser,
   ...require("./connections"),
   ...require("./messages"),
+  ...require("./profiles"),
   connection_requestCreated,
   connection_messageCreated,
 };

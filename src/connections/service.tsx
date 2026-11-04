@@ -10,6 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { fetchProfile } from "../profile/service";
 import { app, auth, db } from "../../firebaseConfig";
 
 export const CONNECTION_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -439,23 +440,5 @@ export function isConnectionActive(
 }
 
 export async function getUserProfile(uid: string): Promise<PublicUserProfile> {
-  const userRef = doc(db, "publicProfiles", uid);
-  const snap = await getDoc(userRef);
-
-  if (!snap.exists()) {
-    return { uid };
-  }
-
-  const data = snap.data();
-
-  return {
-    uid,
-    firstName: data.firstName ?? "",
-    pronouns: data.pronouns ?? data.Gender ?? "",
-    major: data.major ?? "",
-    minor: data.minor ?? "",
-    bio: data.bio ?? "",
-    avatarId: data.avatarId ?? "",
-    photoURL: data.photoURL ?? "",
-  };
+  return await fetchProfile(uid) as PublicUserProfile;
 }

@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
-import { doc, getDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +13,7 @@ import {
   View,
 } from "react-native";
 
-import { db } from "../../firebaseConfig";
+import { fetchProfile } from "../../src/profile/service";
 import { useAuth } from "../../src/auth/AuthContext";
 import { getAvatarImageSource } from "../../src/lib/avatarImages";
 import {
@@ -94,29 +93,7 @@ export default function UserProfileView() {
       }
     }
 
-    const publicProfileRef = doc(db, "publicProfiles", uid);
-    const publicProfileSnap = await getDoc(publicProfileRef);
-    const shouldLoadPrivateProfile = currentUid === uid;
-    const userSnap = shouldLoadPrivateProfile
-      ? await getDoc(doc(db, "users", uid))
-      : null;
-
-    if (!publicProfileSnap.exists() && !userSnap?.exists()) {
-      setData(null);
-      setProfileUnavailable(false);
-      return;
-    }
-
-    const publicProfileData = publicProfileSnap.exists()
-      ? (publicProfileSnap.data() as UserDoc)
-      : {};
-    const userData = userSnap?.exists() ? (userSnap.data() as UserDoc) : {};
-
-    setData({
-      ...userData,
-      ...publicProfileData,
-      avatarId: publicProfileData.avatarId ?? userData.avatarId,
-    });
+    setData(await fetchProfile(uid) as UserDoc);
     setProfileUnavailable(false);
   }, [currentUid, uid]);
 

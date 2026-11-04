@@ -5,12 +5,7 @@ import {
   sendEmailVerification,
   User,
 } from "firebase/auth";
-import {
-  deleteDoc,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
+import { saveProfile } from "../../../src/profile/service";
 import React, { useMemo, useState } from "react";
 import {
   Image,
@@ -20,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import { auth } from "../../../firebaseConfig";
 import { signOutCurrentUser } from "../../../src/auth/session";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
@@ -150,19 +145,13 @@ export default function RegistrationCompletePage() {
       }
 
       const photoURL = uploadedPhotoUrls[0] ?? "";
-      const userRef = doc(db, "users", cred.user.uid);
-      const publicProfileRef = doc(db, "publicProfiles", cred.user.uid);
-      const batch = writeBatch(db);
-
-      batch.set(userRef, {
-        email: cred.user.email,
+      await saveProfile({
         firstName: draft.firstName ?? "",
         lastName: draft.lastName ?? "",
         dateOfBirth: draft.dateOfBirth ?? "",
         bio: draft.bio ?? "",
         pronouns: draft.pronouns ?? "",
-        age: derivedAge ?? "",
-        gradYear: draft.gradYear ?? "",
+        gradYear: draft.gradYear,
         major: draft.major ?? "",
         minor: draft.minor ?? "",
         iceBreakerOne: draft.iceBreakerOne ?? "",
@@ -182,49 +171,7 @@ export default function RegistrationCompletePage() {
         photoURL,
         photoUrls: uploadedPhotoUrls,
         preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
-        locationControl: {
-          sharingEnabled: draft.locationSharingEnabled,
-          permissionStatus: draft.locationPermissionStatus,
-          updatedAt: serverTimestamp(),
-        },
-        locationStatus: {
-          lastLocationAt: null,
-          lastAccuracyM: null,
-          lastSource: null,
-        },
-        createdAt: serverTimestamp(),
-      });
-
-      batch.set(publicProfileRef, {
-        firstName: draft.firstName ?? "",
-        lastName: draft.lastName ?? "",
-        dateOfBirth: draft.dateOfBirth ?? "",
-        bio: draft.bio ?? "",
-        pronouns: draft.pronouns ?? "",
-        age: derivedAge ?? "",
-        gradYear: draft.gradYear ?? "",
-        major: draft.major ?? "",
-        minor: draft.minor ?? "",
-        iceBreakerOne: draft.iceBreakerOne ?? "",
-        iceBreakerOneQuestion:
-          draft.iceBreakerOneQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[0],
-        iceBreakerTwo: draft.iceBreakerTwo ?? "",
-        iceBreakerTwoQuestion:
-          draft.iceBreakerTwoQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[1],
-        iceBreakerThree: draft.iceBreakerThree ?? "",
-        iceBreakerThreeQuestion:
-          draft.iceBreakerThreeQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[2],
-        hobbies,
-        avatarId: draft.avatarId ?? "",
-        photoURL,
-        preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
-        updatedAt: serverTimestamp(),
-      });
-
-      await batch.commit();
+      }, { sharingEnabled: draft.locationSharingEnabled, permissionStatus: draft.locationPermissionStatus });
       createdUser = null;
 
       await signOutCurrentUser();
@@ -239,8 +186,6 @@ export default function RegistrationCompletePage() {
     } catch (e: any) {
       if (createdUser) {
         const cleanupTasks: Promise<unknown>[] = [
-          deleteDoc(doc(db, "users", createdUser.uid)),
-          deleteDoc(doc(db, "publicProfiles", createdUser.uid)),
           ...uploadedPhotoUrls.map((url) =>
             deleteUploadedProfilePhotoAsync(url),
           ),
