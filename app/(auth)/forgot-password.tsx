@@ -48,7 +48,7 @@ export default function ForgotPasswordScreen() {
           email: normalizedEmail,
         },
       });
-    } catch (error: any) {
+    } catch {
       showAlert(
         "Could not send reset email",
         "Please try again later.",

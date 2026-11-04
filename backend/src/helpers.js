@@ -15,7 +15,7 @@ const {
   MAX_RECORDED_AT_FUTURE_MS,
 } = require("./constants");
 
-const { withAuth } = require("./security");
+const { withAuth, pairId } = require("./security");
 
 // this keeps date creation the same everywhere
 function nowDate() {
@@ -107,10 +107,12 @@ function extractPresence(docSnap) {
   const data = docSnap.data();
   if (!data) return null;
 
-  if (!isFiniteNumber(data.lat) || !isFiniteNumber(data.lng)) return null;
+  if (!isFiniteNumber(data.lat) || !isFiniteNumber(data.lng) || data.lat < -90 || data.lat > 90 || data.lng < -180 || data.lng > 180) return null;
 
   return {
-    uid: data.uid || docSnap.id,
+    uid: docSnap.id,
+    generation: data.generation,
+    recordedAtMs: data.recordedAtMs,
     lat: data.lat,
     lng: data.lng,
     geohash: data.geohash || "",
@@ -227,15 +229,6 @@ function getNeighborsForSubject(subject, people, radiusM) {
   return neighbors;
 }
 
-function sortedPair(uid1, uid2) {
-  return [uid1, uid2].sort();
-}
-
-function relationshipDocId(uid1, uid2) {
-  const [a, b] = sortedPair(uid1, uid2);
-  return `${a}_${b}`;
-}
-
 async function getExcludedRelationshipUids(uid, candidateUids) {
   if (!candidateUids.length) return new Set();
 
@@ -246,7 +239,7 @@ async function getExcludedRelationshipUids(uid, candidateUids) {
   if (!uniqueCandidateUids.length) return new Set();
 
   const refs = uniqueCandidateUids.map((candidateUid) =>
-    db.collection("relationships").doc(relationshipDocId(uid, candidateUid)),
+    db.collection("relationships").doc(pairId(uid, candidateUid)),
   );
   const snaps = await db.getAll(...refs);
   const excludedUids = new Set();

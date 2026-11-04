@@ -187,6 +187,7 @@ export function SignupProvider({ children }: { children: React.ReactNode }) {
           setResumeRoute(cleanDraft.password ? normalizeResumeRoute(parsed?.resumeRoute) : DEFAULT_SIGNUP_ROUTE);
         }
       } catch (error) {
+        await AsyncStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY).catch(() => {});
         console.warn("Could not restore signup draft", error);
       } finally {
         if (!cancelled) {

@@ -1,13 +1,16 @@
+import {
+  deleteCurrentAccount,
+  signOutCurrentUser,
+} from "../../src/auth/session";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
-  deleteUser,
   EmailAuthProvider,
   reauthenticateWithCredential,
   signOut,
   User,
 } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +29,6 @@ import {
 
 import { iceColors as colors, iceMascot } from "../../src/theme/icebreakers";
 import { auth } from "../../firebaseConfig";
-import { signOutCurrentUser } from "../../src/auth/session";
 import { prepareLocationServicesForSessionExit } from "../../src/location/service";
 import { useSignup } from "../../src/signup/context";
 
@@ -70,6 +72,7 @@ export default function SettingsPage() {
   const [isVisible5, setIsVisible5] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const deletionSession = useRef<User | null>(null);
   const [reauthModalVisible, setReauthModalVisible] = useState(false);
   const [reauthPassword, setReauthPassword] = useState("");
   const [reauthenticating, setReauthenticating] = useState(false);
@@ -138,42 +141,51 @@ export default function SettingsPage() {
 
   const closeReauthModal = () => {
     if (reauthenticating) return;
+    deletionSession.current = null;
     setReauthPassword("");
     setReauthModalVisible(false);
   };
 
-  const redirectToDeletedAccountLogin = () => {
+  const redirectToDeletedAccountLogin = (pending = false) => {
     resetDraft();
     router.replace({
       pathname: "/(auth)/login",
-      params: { showMessage: "DeletedAccount" },
+      params: { showMessage: pending ? "DeletionQueued" : "DeletedAccount" },
     });
   };
 
   const finalizeDeleteAccount = async (userToDelete: User) => {
     await prepareLocationServicesForSessionExit();
-    await deleteUser(userToDelete);
+    const deletion = await deleteCurrentAccount(userToDelete.uid);
+    const deletionMessage = deletion.pending
+      ? "Your account deletion is queued. Cleanup will continue automatically."
+      : "Your account has been deleted.";
     await signOut(auth).catch(() => {});
+    deletionSession.current = null;
     setReauthPassword("");
     setReauthModalVisible(false);
 
     if (Platform.OS === "web") {
-      (globalThis as any).alert?.("Your account has been deleted.");
-      redirectToDeletedAccountLogin();
+      (globalThis as any).alert?.(deletionMessage);
+      redirectToDeletedAccountLogin(deletion.pending);
       return;
     }
 
-    Alert.alert("Account deleted", "Your account has been deleted.", [
-      {
-        text: "OK",
-        onPress: redirectToDeletedAccountLogin,
-      },
-    ]);
+    Alert.alert(
+      deletion.pending ? "Deletion requested" : "Account deleted",
+      deletionMessage,
+      [
+        {
+          text: "OK",
+          onPress: () => redirectToDeletedAccountLogin(deletion.pending),
+        },
+      ],
+    );
   };
 
   const handleReauthenticateAndDelete = async () => {
-    const user = auth.currentUser;
-    if (!user) {
+    const user = deletionSession.current;
+    if (!user || auth.currentUser !== user) {
       closeReauthModal();
       router.replace("/(auth)/login");
       return;
@@ -207,7 +219,9 @@ export default function SettingsPage() {
 
       await reauthenticateWithCredential(user, credential);
       setDeleting(true);
-      await finalizeDeleteAccount(auth.currentUser ?? user);
+      if (auth.currentUser !== user)
+        throw new Error("Your session changed. Please try again.");
+      await finalizeDeleteAccount(user);
     } catch (e: any) {
       const code = e?.code as string | undefined;
 
@@ -239,10 +253,10 @@ export default function SettingsPage() {
   const onDeleteAccount = async () => {
     // if (!uid) return;
 
-    const confirmed = await confirmDeleteAccount();
-    if (!confirmed) return;
-
     const user: User | null = auth.currentUser;
+    const confirmed = await confirmDeleteAccount();
+    if (!confirmed || auth.currentUser !== user) return;
+
     if (!user) {
       Alert.alert(
         "Please log in again",
@@ -270,6 +284,7 @@ export default function SettingsPage() {
         }
 
         setReauthPassword("");
+        deletionSession.current = user;
         setReauthModalVisible(true);
       } else {
         Alert.alert(

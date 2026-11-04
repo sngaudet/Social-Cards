@@ -1,7 +1,6 @@
 import { Href, useRouter } from "expo-router";
 import {
   createUserWithEmailAndPassword,
-  deleteUser,
   sendEmailVerification,
   User,
 } from "firebase/auth";
@@ -16,7 +15,10 @@ import {
   View,
 } from "react-native";
 import { auth } from "../../../firebaseConfig";
-import { signOutCurrentUser } from "../../../src/auth/session";
+import {
+  deleteCurrentAccount,
+  signOutCurrentUser,
+} from "../../../src/auth/session";
 import PrimaryButton from "../../../src/components/PrimaryButton";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
@@ -51,17 +53,14 @@ export default function RegistrationCompletePage() {
     [draft.dateOfBirth],
   );
 
-  
   const primaryIcebreaker = useMemo(() => {
     if (!draft.iceBreakerOne?.trim()) return null;
-      return {
-        question:
-          draft.iceBreakerOneQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[0],
-          answer: draft.iceBreakerOne,
-      };
+    return {
+      question:
+        draft.iceBreakerOneQuestion?.trim() || FALLBACK_ICEBREAKER_QUESTIONS[0],
+      answer: draft.iceBreakerOne,
+    };
   }, [draft.iceBreakerOne, draft.iceBreakerOneQuestion]);
-
 
   const missing = useMemo(() => {
     const fields: string[] = [];
@@ -145,33 +144,40 @@ export default function RegistrationCompletePage() {
       }
 
       const photoURL = uploadedPhotoUrls[0] ?? "";
-      await saveProfile({
-        firstName: draft.firstName ?? "",
-        lastName: draft.lastName ?? "",
-        dateOfBirth: draft.dateOfBirth ?? "",
-        bio: draft.bio ?? "",
-        pronouns: draft.pronouns ?? "",
-        gradYear: draft.gradYear,
-        major: draft.major ?? "",
-        minor: draft.minor ?? "",
-        iceBreakerOne: draft.iceBreakerOne ?? "",
-        iceBreakerOneQuestion:
-          draft.iceBreakerOneQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[0],
-        iceBreakerTwo: draft.iceBreakerTwo ?? "",
-        iceBreakerTwoQuestion:
-          draft.iceBreakerTwoQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[1],
-        iceBreakerThree: draft.iceBreakerThree ?? "",
-        iceBreakerThreeQuestion:
-          draft.iceBreakerThreeQuestion?.trim() ||
-          FALLBACK_ICEBREAKER_QUESTIONS[2],
-        hobbies,
-        avatarId: draft.avatarId ?? "",
-        photoURL,
-        photoUrls: uploadedPhotoUrls,
-        preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
-      }, { sharingEnabled: draft.locationSharingEnabled, permissionStatus: draft.locationPermissionStatus });
+      await saveProfile(
+        {
+          firstName: draft.firstName ?? "",
+          lastName: draft.lastName ?? "",
+          dateOfBirth: draft.dateOfBirth ?? "",
+          bio: draft.bio ?? "",
+          pronouns: draft.pronouns ?? "",
+          gradYear: draft.gradYear,
+          major: draft.major ?? "",
+          minor: draft.minor ?? "",
+          iceBreakerOne: draft.iceBreakerOne ?? "",
+          iceBreakerOneQuestion:
+            draft.iceBreakerOneQuestion?.trim() ||
+            FALLBACK_ICEBREAKER_QUESTIONS[0],
+          iceBreakerTwo: draft.iceBreakerTwo ?? "",
+          iceBreakerTwoQuestion:
+            draft.iceBreakerTwoQuestion?.trim() ||
+            FALLBACK_ICEBREAKER_QUESTIONS[1],
+          iceBreakerThree: draft.iceBreakerThree ?? "",
+          iceBreakerThreeQuestion:
+            draft.iceBreakerThreeQuestion?.trim() ||
+            FALLBACK_ICEBREAKER_QUESTIONS[2],
+          hobbies,
+          avatarId: draft.avatarId ?? "",
+          photoURL,
+          photoUrls: uploadedPhotoUrls,
+          preConnectionVisibility: DEFAULT_PRE_CONNECTION_VISIBILITY,
+        },
+        {
+          sharingEnabled: draft.locationSharingEnabled,
+          permissionStatus: draft.locationPermissionStatus,
+        },
+        cred.user.uid,
+      );
       createdUser = null;
 
       await signOutCurrentUser();
@@ -194,7 +200,7 @@ export default function RegistrationCompletePage() {
         await Promise.allSettled(cleanupTasks);
 
         try {
-          await deleteUser(createdUser);
+          await deleteCurrentAccount(createdUser.uid);
         } catch (cleanupError) {
           console.warn(
             "Could not roll back partially created auth user",
@@ -247,8 +253,6 @@ export default function RegistrationCompletePage() {
       </Text>
 
       {/* CARD INFO */}
-      
-
 
       <View style={styles.userCard}>
         <View style={styles.userHeader}>
@@ -259,7 +263,7 @@ export default function RegistrationCompletePage() {
               <Text style={styles.avatarTextKeep}>No Avatar</Text>
             </View>
           )}
-          
+
           <View style={styles.userBody}>
             <View style={styles.headerTopRow}>
               <Text style={styles.userName}>
@@ -272,7 +276,9 @@ export default function RegistrationCompletePage() {
               {!!draft.pronouns && (
                 <View style={styles.metaItem}>
                   <Text style={styles.metaLabel}>Pronouns</Text>
-                  <Text style={styles.metaValue}>{draft.pronouns.toUpperCase()}</Text>
+                  <Text style={styles.metaValue}>
+                    {draft.pronouns.toUpperCase()}
+                  </Text>
                 </View>
               )}
 
@@ -308,16 +314,14 @@ export default function RegistrationCompletePage() {
               <View style={styles.promptBlock}>
                 <Text style={styles.promptLabel}>Conversation Starter</Text>
 
-                
-{!!draft.bio?.trim() && (
-  <View style={styles.bioBlock}>
-    <Text style={styles.bioText}>
-      <Text style={styles.bioLabel}>Bio: </Text>
-      {draft.bio}
-    </Text>
-  </View>
-)}
-
+                {!!draft.bio?.trim() && (
+                  <View style={styles.bioBlock}>
+                    <Text style={styles.bioText}>
+                      <Text style={styles.bioLabel}>Bio: </Text>
+                      {draft.bio}
+                    </Text>
+                  </View>
+                )}
 
                 <Text style={styles.promptQuestion}>
                   {primaryIcebreaker.question}
@@ -333,8 +337,10 @@ export default function RegistrationCompletePage() {
               <View style={styles.footerInfo}>
                 {!!draft.major && (
                   <>
-                  <Text style={styles.footerLabel}>Major</Text>
-                  <Text style={styles.footerValue}>{draft.major.toUpperCase()}</Text>
+                    <Text style={styles.footerLabel}>Major</Text>
+                    <Text style={styles.footerValue}>
+                      {draft.major.toUpperCase()}
+                    </Text>
                   </>
                 )}
               </View>
@@ -632,17 +638,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     flexDirection: "row",
   },
-footerInfo: {
-  flex: 1,
-  gap: 2,
-},
-footerLabel: {
-  fontSize: 10,
-  fontWeight: "900",
-  textTransform: "uppercase",
-  color: "#404a60",
-  letterSpacing: 0.5,
-},
+  footerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  footerLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    color: "#404a60",
+    letterSpacing: 0.5,
+  },
 
   footerValue: {
     fontSize: 14,
@@ -656,20 +662,19 @@ footerLabel: {
     color: "#0e3365",
     textAlign: "center",
   },
-  
-bioBlock: {
-  marginTop: 4,
-},
 
-bioLabel: {
-  fontWeight: "500",
-  color: "#374151",
-},
+  bioBlock: {
+    marginTop: 4,
+  },
 
-bioText: {
-  fontSize: 13,
-  lineHeight: 20,
-  color: "#374151",
-},
+  bioLabel: {
+    fontWeight: "500",
+    color: "#374151",
+  },
 
+  bioText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#374151",
+  },
 });

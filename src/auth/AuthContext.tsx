@@ -1,21 +1,20 @@
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import { AppState, Platform } from "react-native";
 import { auth } from "../../firebaseConfig";
 import { refreshServerAuthorization } from "./authorization";
-import { signOut } from "firebase/auth";
-import {
-  subscribeToIncomingRequests,
-} from "../connections/service";
+import { subscribeToIncomingRequests } from "../connections/service";
 import { showAlert } from "../lib/showAlert";
 import {
   registerPushTokenIfPossible,
+  resetServicesForAuthenticatedUser,
+  invalidateLocalSession,
   requestNotificationPermissions,
   stopLocationUpdatesForCurrentUser,
 } from "../location/service";
@@ -32,10 +31,10 @@ function getTimestampMs(value: unknown): number | null {
   if (!value) return null;
   if (value instanceof Date) return value.getTime();
   if (
-    typeof value === "object"
-    && value !== null
-    && "toDate" in value
-    && typeof (value as { toDate?: unknown }).toDate === "function"
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
   ) {
     const date = (value as { toDate: () => Date }).toDate();
     return date.getTime();
@@ -85,11 +84,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser !== auth.currentUser) return;
+      setUser(null);
+      setInitializing(Boolean(firebaseUser));
+      if (!firebaseUser) invalidateLocalSession();
       if (firebaseUser) {
-        try { await refreshServerAuthorization(); }
-        catch { await signOut(auth); return; }
+        resetServicesForAuthenticatedUser();
+        try {
+          await refreshServerAuthorization();
+        } catch (error) {
+          if (auth.currentUser !== firebaseUser) return;
+          const code = (error as { code?: string })?.code;
+          if (
+            code === "functions/unauthenticated" ||
+            code === "functions/permission-denied"
+          ) {
+            await signOut(auth);
+            return;
+          }
+          console.warn(
+            "Server authorization refresh is temporarily unavailable",
+            error,
+          );
+        }
       }
-      if (auth.currentUser?.uid === firebaseUser?.uid) setUser(firebaseUser);
+      if (auth.currentUser !== firebaseUser) return;
+      setUser(firebaseUser);
       setInitializing(false);
     });
 
@@ -98,13 +118,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    const refresh = () => refreshServerAuthorization().catch((error) => {
-      const code = (error as { code?: string })?.code;
-      if (code === "functions/unauthenticated" || code === "functions/permission-denied") void signOut(auth);
-    });
+    const refresh = () => {
+      if (auth.currentUser !== user) return Promise.resolve();
+      return refreshServerAuthorization().catch((error) => {
+        if (auth.currentUser !== user) return;
+        const code = (error as { code?: string })?.code;
+        if (
+          code === "functions/unauthenticated" ||
+          code === "functions/permission-denied"
+        )
+          void signOut(auth);
+      });
+    };
     const interval = setInterval(refresh, 60000);
-    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refresh(); });
-    return () => { clearInterval(interval); subscription.remove(); };
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh();
+    });
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -187,8 +220,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const freshRequests = requests.filter((request) => {
           const createdAtMs = getTimestampMs(request.createdAt);
           return (
-            createdAtMs !== null
-            && createdAtMs >= listenerStartedAt - WEB_NOTIFICATION_GRACE_MS
+            createdAtMs !== null &&
+            createdAtMs >= listenerStartedAt - WEB_NOTIFICATION_GRACE_MS
           );
         });
 

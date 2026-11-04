@@ -45,7 +45,7 @@ const emptyNearby: NearbyResponse = {
   asOf: new Date().toISOString(),
 };
 
-const AUTO_REFRESH_MS = 5000;
+const AUTO_REFRESH_MS = 15000;
 const AUTO_PING_MS = 30000;
 const MAX_PING_WAIT_MS = 1500;
 const REPORT_DETAILS_MAX_LENGTH = 1000;

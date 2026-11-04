@@ -1,273 +1,267 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { getDb, timestampFromDate, logger } = require("./firebase");
-const { REGION, COOLDOWN_MS, CROWD_ALERT_MIN_USERS } = require("./constants");
-const { nowDate, getTimestampValue } = require("./helpers");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { Timestamp } = require("firebase-admin/firestore");
+const { getDb, getAdminAuth, serverTimestamp } = require("./firebase");
+const { REGION } = require("./constants");
+const {
+  authorizedConnection,
+  authorizedRelationship,
+} = require("./connectionState");
+const { digest, isBlocked } = require("./security");
 
-// this reads enabled expo push tokens for one user
-async function getPushTokens(uid) {
+async function liveAccount(uid) {
+  const [record, stateSnap] = await Promise.all([
+    getAdminAuth()
+      .getUser(uid)
+      .catch(() => null),
+    getDb().doc(`accountState/${uid}`).get(),
+  ]);
+  const state = stateSnap.data();
+  return record &&
+    !record.disabled &&
+    record.emailVerified &&
+    state &&
+    !state.disabled &&
+    !state.deleting
+    ? {
+        validAfter: Math.max(
+          state.validAfter,
+          Math.floor(Date.parse(record.tokensValidAfterTime) / 1000),
+        ),
+      }
+    : null;
+}
+async function authorizedEvent(kind, id, sender, recipient) {
   const db = getDb();
-  const snap = await db
-    .collection("users")
-    .doc(uid)
-    .collection("devices")
+  if (!(await liveAccount(sender)) || !(await liveAccount(recipient)))
+    return false;
+  if (kind === "crowd") {
+    const user = (await db.doc(`users/${recipient}`).get()).data();
+    const presence = (await db.doc(`presence/${recipient}`).get()).data();
+    return (
+      user?.locationControl?.sharingEnabled === true &&
+      presence?.expiresAt?.toMillis() > Date.now()
+    );
+  }
+  const pair = [sender, recipient].sort().join("_");
+  const relation = (await db.doc(`relationships/${pair}`).get()).data();
+  if (isBlocked(relation)) return false;
+  if (kind === "request") {
+    const current = (await db.doc(`connectionRequests/${id}`).get()).data();
+    return (
+      current?.status === "pending" &&
+      current.fromUid === sender &&
+      current.toUid === recipient &&
+      relation?.status === "pending" &&
+      (!relation.latestRequestId || relation.latestRequestId === id)
+    );
+  }
+  const connection = (await db.doc(`connections/${id}`).get()).data();
+  const authorization = (
+    await db.doc(`connectionAuthorizations/${id}`).get()
+  ).data();
+  return (
+    authorizedRelationship(relation, authorization) &&
+    authorizedConnection(connection, authorization) &&
+    connection?.users?.length === 2 &&
+    connection.users.includes(sender) &&
+    connection.users.includes(recipient)
+  );
+}
+async function sendNotification(kind, id, eventId, sender, recipient) {
+  const db = getDb();
+  if (!(await authorizedEvent(kind, id, sender, recipient))) return;
+  const tokens = await db
+    .collection("pushTokens")
+    .where("uid", "==", recipient)
     .where("enabled", "==", true)
+    .limit(20)
     .get();
-
-  const tokens = [];
-
-  for (const doc of snap.docs) {
-    const token = doc.data().expoPushToken;
-    if (typeof token === "string" && token.startsWith("ExponentPushToken")) {
-      tokens.push(token);
-    }
-  }
-
-  return tokens;
-}
-
-// this sends push messages in small batches expo accepts
-async function sendExpoPush(tokens, title, body, data = {}) {
-  if (!tokens.length) return;
-
-  const messages = tokens.map((to) => ({
-    to,
-    channelId: "default",
-    sound: "default",
-    priority: "high",
-    title,
-    body,
-    data,
-  }));
-
-  const chunkSize = 100;
-
-  for (let i = 0; i < messages.length; i += chunkSize) {
-    const chunk = messages.slice(i, i + chunkSize);
-
-    const res = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(chunk),
+  for (const snap of tokens.docs) {
+    // Claim before external delivery: at most one send attempt per event/device.
+    // This favors omission over duplicate delivery after an ambiguous network failure.
+    const receipt = db.doc(
+      `notificationEvents/${digest(`${eventId}:${snap.id}`)}`,
+    );
+    const claimed = await db.runTransaction(async (tx) => {
+      const existing = await tx.get(receipt);
+      const token = (await tx.get(snap.ref)).data();
+      const state = (await tx.get(db.doc(`accountState/${recipient}`))).data();
+      if (
+        existing.exists ||
+        !token?.enabled ||
+        token.uid !== recipient ||
+        !state ||
+        state.deleting ||
+        state.disabled ||
+        token.authTime < state.validAfter
+      )
+        return false;
+      tx.create(receipt, {
+        uid: recipient,
+        createdAt: serverTimestamp(),
+        expiresAt: Timestamp.fromMillis(Date.now() + 7 * 86400000),
+      });
+      return true;
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      logger.error("Expo push failed", { status: res.status, body: text });
+    if (!claimed) continue;
+    const current = (await snap.ref.get()).data();
+    const account = await liveAccount(recipient);
+    if (
+      !current?.enabled ||
+      current.uid !== recipient ||
+      !account ||
+      current.authTime < account.validAfter ||
+      !(await authorizedEvent(kind, id, sender, recipient))
+    )
+      continue;
+    // No names, message text, location, IDs, or navigation data survive on a shared device.
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify([
+        {
+          to: current.expoPushToken,
+          title: "Icebreakers",
+          body: "Open the app to check for updates.",
+          data: { type: "activity" },
+        },
+      ]),
+    });
+    if (!response.ok) continue;
+    const payload = await response.json();
+    const ticket = payload.data?.[0];
+    if (ticket?.details?.error === "DeviceNotRegistered")
+      await invalidateToken(snap.ref, current);
+    if (ticket?.id) {
+      await db.runTransaction(async (tx) => {
+        const state = (
+          await tx.get(db.doc(`accountState/${recipient}`))
+        ).data();
+        const token = (await tx.get(snap.ref)).data();
+        if (
+          !state ||
+          state.deleting ||
+          state.disabled ||
+          token?.uid !== recipient ||
+          token.generation !== current.generation
+        )
+          return;
+        tx.set(db.doc(`pushReceipts/${digest(ticket.id)}`), {
+          ticketId: ticket.id,
+          tokenId: snap.id,
+          generation: current.generation,
+          uid: recipient,
+          createdAt: serverTimestamp(),
+          expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
+        });
+      });
     }
   }
 }
-
-// this trims profile names into notification-safe display text
-function normalizeFirstName(value) {
-  if (typeof value !== "string") return null;
-  const clean = value.trim();
-  return clean || null;
+async function invalidateToken(ref, registration) {
+  await getDb().runTransaction(async (tx) => {
+    const current = (await tx.get(ref)).data();
+    if (
+      current?.uid === registration.uid &&
+      current.generation === registration.generation
+    )
+      tx.update(ref, { enabled: false });
+  });
 }
-
-// this prefers public profile data but falls back to private user data
-async function getUserFirstName(uid) {
-  const db = getDb();
-
-  const publicSnap = await db.collection("publicProfiles").doc(uid).get();
-  const publicName = normalizeFirstName(publicSnap.data()?.firstName);
-  if (publicName) return publicName;
-
-  const userSnap = await db.collection("users").doc(uid).get();
-  return normalizeFirstName(userSnap.data()?.firstName);
-}
-
-// this formats a clear connection request push body
-function buildConnectionRequestBody(firstName) {
-  if (firstName) return `${firstName} sent you a connection request.`;
-  return "You received a new connection request.";
-}
-
-// this formats a clear chat message push body
-function buildChatMessageBody(firstName, text) {
-  const cleanText = typeof text === "string" ? text.trim() : "";
-  const preview =
-    cleanText.length > 80 ? `${cleanText.slice(0, 77).trimEnd()}...` : cleanText;
-
-  if (firstName && preview) return `${firstName}: ${preview}`;
-  if (firstName) return `${firstName} sent you a message.`;
-  if (preview) return preview;
-  return "You received a new message.";
-}
-
-// this builds a simple key so we do not repeat the same alert
-function makeAlertFingerprint(subjectUid, nearbyUsers) {
-  const sample = nearbyUsers
-    .map((user) => user.uid)
-    .sort()
-    .slice(0, 10)
-    .join("|");
-  return `crowd:${subjectUid}:${sample}`;
-}
-
-// this checks cooldown and repeat key before sending alert
-async function canSendCrowdAlert(uid, fingerprint, now) {
-  const db = getDb();
-  const ref = db.collection("notificationState").doc(uid);
-  const snap = await ref.get();
-  const state = snap.exists ? snap.data() : {};
-
-  const lastCrowdAt = getTimestampValue(state.lastCrowdAt);
-  const lastAnyAt = getTimestampValue(state.lastAnyAt);
-  const lastFingerprint = state.lastFingerprint || null;
-
-  const inCooldown =
-    lastCrowdAt && now.getTime() - lastCrowdAt.getTime() < COOLDOWN_MS;
-
-  const sameFingerprint =
-    lastFingerprint === fingerprint &&
-    lastAnyAt &&
-    now.getTime() - lastAnyAt.getTime() < COOLDOWN_MS;
-
-  if (inCooldown || sameFingerprint) return false;
-
-  await ref.set(
-    {
-      lastCrowdAt: timestampFromDate(now),
-      lastAnyAt: timestampFromDate(now),
-      lastFingerprint: fingerprint,
-    },
-    { merge: true },
-  );
-
-  return true;
-}
-
-// this is the only crowd notification entry point
-async function maybeSendCrowdAlert(subjectUid, nearbyUsers) {
-  const crowdCount = nearbyUsers.length;
-  if (crowdCount < CROWD_ALERT_MIN_USERS) return;
-
-  const tokens = await getPushTokens(subjectUid);
-  if (!tokens.length) return;
-
-  const now = nowDate();
-  const fingerprint = makeAlertFingerprint(subjectUid, nearbyUsers);
-  const allowed = await canSendCrowdAlert(subjectUid, fingerprint, now);
-  if (!allowed) return;
-
-  await sendExpoPush(
-    tokens,
-    "Crowd nearby",
-    `There are ${crowdCount} people within 50 ft of you.`,
-    { type: "crowd", crowdCount },
-  );
-}
-
-// this sends one push when a new pending request is created
 const connection_requestCreated = onDocumentCreated(
   {
     region: REGION,
     document: "connectionRequests/{requestId}",
+    maxInstances: 10,
   },
   async (event) => {
     const data = event.data?.data();
-    if (!data) return;
-
-    const requestId = event.params.requestId;
-    const fromUid = typeof data.fromUid === "string" ? data.fromUid.trim() : "";
-    const toUid = typeof data.toUid === "string" ? data.toUid.trim() : "";
-    const status = typeof data.status === "string" ? data.status : "";
-
-    if (!requestId || !fromUid || !toUid || status !== "pending") {
-      logger.warn("Skipping malformed connection request notification", {
-        requestId,
-        fromUid,
-        toUid,
-        status,
-      });
+    if (!data || data.status !== "pending" || data.fromUid === data.toUid)
       return;
-    }
-
-    if (fromUid === toUid) return;
-
-    const tokens = await getPushTokens(toUid);
-    if (!tokens.length) return;
-
-    const senderName = await getUserFirstName(fromUid);
-
-    await sendExpoPush(
-      tokens,
-      "New connection request",
-      buildConnectionRequestBody(senderName),
-      {
-        type: "connection_request",
-        requestId,
-        fromUid,
-      },
+    await sendNotification(
+      "request",
+      event.params.requestId,
+      event.id,
+      data.fromUid,
+      data.toUid,
     );
   },
 );
-
-// this sends one push when a new chat message is created
 const connection_messageCreated = onDocumentCreated(
   {
     region: REGION,
     document: "connections/{connectionId}/messages/{messageId}",
+    maxInstances: 10,
   },
   async (event) => {
-    const data = event.data?.data();
-    if (!data) return;
-
-    const db = getDb();
-    const connectionId =
-      typeof event.params.connectionId === "string"
-        ? event.params.connectionId.trim()
-        : "";
-    const messageId =
-      typeof event.params.messageId === "string"
-        ? event.params.messageId.trim()
-        : "";
-    const senderUid = typeof data.senderUid === "string" ? data.senderUid.trim() : "";
-    const text = typeof data.text === "string" ? data.text : "";
-
-    if (!connectionId || !messageId || !senderUid) {
-      logger.warn("Skipping malformed chat message notification", {
-        connectionId,
-        messageId,
-        senderUid,
-      });
+    const message = event.data?.data();
+    const connection = (
+      await getDb().doc(`connections/${event.params.connectionId}`).get()
+    ).data();
+    if (
+      !message ||
+      !connection?.users?.includes(message.senderUid) ||
+      connection.users.length !== 2
+    )
       return;
-    }
-
-    const connectionSnap = await db.collection("connections").doc(connectionId).get();
-    if (!connectionSnap.exists) return;
-
-    const members = Array.isArray(connectionSnap.data()?.users)
-      ? connectionSnap
-          .data()
-          .users.filter((uid) => typeof uid === "string" && uid.trim())
-      : [];
-    const recipientUids = members.filter((uid) => uid !== senderUid);
-
-    if (!recipientUids.length) return;
-
-    const senderName = await getUserFirstName(senderUid);
-    const title = senderName ? `New message from ${senderName}` : "New message";
-    const body = buildChatMessageBody(senderName, text);
-
-    for (const recipientUid of recipientUids) {
-      const tokens = await getPushTokens(recipientUid);
-      if (!tokens.length) continue;
-
-      await sendExpoPush(tokens, title, body, {
-        type: "chat_message",
-        connectionId,
-        messageId,
-        senderUid,
-      });
+    const recipient = connection.users.find((uid) => uid !== message.senderUid);
+    await sendNotification(
+      "message",
+      event.params.connectionId,
+      event.id,
+      message.senderUid,
+      recipient,
+    );
+  },
+);
+const notifications_checkReceipts = onSchedule(
+  { region: REGION, schedule: "every 15 minutes", maxInstances: 1 },
+  async () => {
+    const db = getDb();
+    const receipts = await db
+      .collection("pushReceipts")
+      .where("createdAt", "<", Timestamp.fromMillis(Date.now() - 15 * 60000))
+      .limit(200)
+      .get();
+    if (receipts.empty) return;
+    const response = await fetch(
+      "https://exp.host/--/api/v2/push/getReceipts",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({
+          ids: receipts.docs.map((doc) => doc.data().ticketId),
+        }),
+      },
+    );
+    if (!response.ok) throw new Error("Push receipt lookup failed");
+    const result = (await response.json()).data ?? {};
+    for (const receipt of receipts.docs) {
+      const data = receipt.data();
+      if (result[data.ticketId]?.details?.error === "DeviceNotRegistered")
+        await invalidateToken(db.doc(`pushTokens/${data.tokenId}`), data);
+      // Expo may not have produced a receipt yet; keep it until the next run or TTL.
+      if (result[data.ticketId]) await receipt.ref.delete();
     }
   },
 );
-
+async function maybeSendCrowdAlert(uid, nearbyUsers) {
+  if (nearbyUsers.length < 8) return;
+  // A stable half-hour event key deduplicates repeated pings without exposing locations.
+  await sendNotification(
+    "crowd",
+    uid,
+    `crowd:${uid}:${Math.floor(Date.now() / 1800000)}`,
+    uid,
+    uid,
+  );
+}
 module.exports = {
-  maybeSendCrowdAlert,
   connection_requestCreated,
   connection_messageCreated,
+  notifications_checkReceipts,
+  maybeSendCrowdAlert,
 };

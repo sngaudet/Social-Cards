@@ -6,7 +6,10 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
-import { resolveProfilePhoto } from "../../../src/lib/picture_upload";
+import {
+  resolveProfilePhoto,
+  uploadProfilePhotoAsync,
+} from "../../../src/lib/picture_upload";
 import { saveProfile } from "../../../src/profile/service";
 import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
 import React, {
@@ -61,11 +64,7 @@ import {
   MAX_ICEBREAKERS,
   type SelectedIceBreaker,
 } from "../../../src/lib/icebreakers";
-import { uploadProfilePhotoAsync } from "../../../src/lib/picture_upload";
-import {
-  calculateAgeFromDateOfBirth,
-  normalizeDateOfBirth,
-} from "../../../src/lib/profileFields";
+import { normalizeDateOfBirth } from "../../../src/lib/profileFields";
 import { showAlert } from "../../../src/lib/showAlert";
 import {
   getLocationControlStatus,
@@ -324,7 +323,9 @@ export default function EditProfile() {
       const d = snap.data() as UserDoc;
 
       setPhotoURL(d.photoURL ?? "");
-      setPhotoPreview(await resolveProfilePhoto(userId, d.photoURL).catch(() => ""));
+      setPhotoPreview(
+        await resolveProfilePhoto(userId, d.photoURL).catch(() => ""),
+      );
       setNewPhotoUri(null); // reset local selection when reloading
 
       setEmail(d.email ?? user?.email ?? "");
@@ -560,7 +561,8 @@ export default function EditProfile() {
 
   const openWebDatePicker = () => {
     const input = webDateInputRef.current as
-      (HTMLInputElement & { showPicker?: () => void }) | null;
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
 
     if (!input) return;
 
@@ -623,7 +625,6 @@ export default function EditProfile() {
           SelectedIceBreaker,
         ];
       const privateProfileData = {
-
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dateOfBirth: normalizedDateOfBirth,
@@ -647,10 +648,9 @@ export default function EditProfile() {
 
         // profile photo
         photoURL: updatedPhotoURL,
-
       };
 
-      await saveProfile(privateProfileData);
+      await saveProfile(privateProfileData, undefined, uid);
 
       // Update local UI state after successful save
       setPhotoURL(updatedPhotoURL);

@@ -1,3 +1,7 @@
+import {
+  sessionCallable as httpsCallable,
+  guardSessionCallback,
+} from "../auth/sessionCallable";
 import { FirebaseError } from "firebase/app";
 import {
   collection,
@@ -9,17 +13,22 @@ import {
   QuerySnapshot,
   where,
 } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { getFunctions } from "firebase/functions";
 import { fetchProfile } from "../profile/service";
 import { app, auth, db } from "../../firebaseConfig";
 
 export const CONNECTION_DURATION_MS = 24 * 60 * 60 * 1000;
 
-export type ConnectionRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
+export type ConnectionRequestStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled";
 export type RelationshipStatus =
   | "none"
   | "pending"
   | "accepted"
+  | "history"
   | "declined"
   | "blocked";
 
@@ -137,6 +146,7 @@ function isStoredRelationshipStatus(
   return (
     value === "pending" ||
     value === "accepted" ||
+    value === "history" ||
     value === "declined" ||
     value === "blocked"
   );
@@ -204,9 +214,14 @@ export async function sendConnectionRequest(toUid: string): Promise<void> {
   if (fromUid === toUid) throw new Error("You cannot connect with yourself.");
 
   const key = `${fromUid}:${toUid}`;
-  const operationId = pendingRequestOperations.get(key) ?? doc(collection(db, "connectionRequests")).id;
+  const operationId =
+    pendingRequestOperations.get(key) ??
+    doc(collection(db, "connectionRequests")).id;
   pendingRequestOperations.set(key, operationId);
-  await httpsCallable(functions, "createConnectionRequest")({ toUid, operationId });
+  await httpsCallable(
+    functions,
+    "createConnectionRequest",
+  )({ toUid, operationId });
   pendingRequestOperations.delete(key);
 }
 
@@ -239,6 +254,8 @@ export function subscribeToIncomingRequests(
   callback: (requests: ConnectionRequest[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "connectionRequests"),
     where("toUid", "==", uid),
@@ -273,10 +290,12 @@ export function subscribeToConnections(
   callback: (connections: ConnectionDoc[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "relationships"),
     where("users", "array-contains", uid),
-    where("status", "==", "accepted"),
+    where("status", "in", ["accepted", "history"]),
   );
 
   return onSnapshot(
@@ -331,6 +350,8 @@ export function subscribeToBlockedRelationships(
   callback: (relationships: BlockedRelationship[]) => void,
   onError?: (error: unknown) => void,
 ) {
+  callback = guardSessionCallback(uid, callback);
+  if (onError) onError = guardSessionCallback(uid, onError);
   const q = query(
     collection(db, "relationships"),
     where("users", "array-contains", uid),
@@ -440,5 +461,5 @@ export function isConnectionActive(
 }
 
 export async function getUserProfile(uid: string): Promise<PublicUserProfile> {
-  return await fetchProfile(uid) as PublicUserProfile;
+  return (await fetchProfile(uid)) as PublicUserProfile;
 }

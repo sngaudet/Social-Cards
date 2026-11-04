@@ -6,17 +6,14 @@ service cloud.firestore {
       return request.auth != null && !state.disabled && !state.deleting
         && state.leaseUntil > request.time && request.auth.token.auth_time >= state.validAfter;
     }
-    function verified() { return session() && request.auth.token.email_verified == true; }
+    function verified() { return session() && request.auth.token.email_verified == true
+      && get(/databases/$(database)/documents/accountState/$(request.auth.uid)).data.emailVerified == true; }
     function pairId(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
     function relationship(id) { return get(/databases/$(database)/documents/relationships/$(id)).data; }
     function participant(data) { return data.users is list && data.users.size() == 2 && request.auth.uid in data.users; }
     function historyAllowed(id) {
       let relation = relationship(id);
       return relation.status != "blocked" || relation.get("historyReaderUid", relation.get("blockedByUid", "")) == request.auth.uid;
-    }
-    function accountAvailable(uid) {
-      let state = get(/databases/$(database)/documents/accountState/$(uid)).data;
-      return !state.disabled && !state.deleting;
     }
     match /users/{uid} {
       allow read: if session() && request.auth.uid == uid;

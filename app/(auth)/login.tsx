@@ -64,6 +64,9 @@ export default function Login() {
     if (showMessage === "DeletedAccount") {
   setRemoveMessage("Your account has been successfully deleted");
   setShowResendVerification(false);
+} else if (showMessage === "DeletionQueued") {
+  setRemoveMessage("Your account deletion is queued. Cleanup will continue automatically.");
+  setShowResendVerification(false);
 } else if (showMessage === "VerifyEmail") {
   const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
   setRemoveMessage(

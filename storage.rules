@@ -6,14 +6,19 @@ service firebase.storage {
       return request.auth != null && request.auth.uid == uid && !state.disabled && !state.deleting
         && state.leaseUntil > request.time && request.auth.token.auth_time >= state.validAfter;
     }
+    function uploadTicket(uid, file) {
+      let ticket = firestore.get(/databases/(default)/documents/photoUploads/$(uid + "_" + file)).data;
+      return ticket.uid == uid && ticket.expiresAt > request.time
+        && ticket.size == request.resource.size && ticket.contentType == request.resource.contentType;
+    }
     match /users/{uid}/profilePictures/{file} {
       // Photos are immutable and private. Other viewers use the authorized photo callable.
       // Unverified owners may upload during onboarding, but may not discover other users.
-      allow create: if owner(uid) && file.matches('[A-Za-z0-9_-]{1,100}\\.(jpg|png|webp)')
+      allow create: if resource == null && owner(uid) && uploadTicket(uid, file) && file.matches('[A-Za-z0-9_-]{1,100}\\.(jpg|png|webp)')
         && request.resource.size > 0 && request.resource.size <= 2 * 1024 * 1024
         && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp']
         && request.resource.metadata.keys().hasOnly([]);
-      allow read: if owner(uid);
+      allow read: if false;
       allow update, delete: if false;
     }
     match /{allPaths=**} { allow read, write: if false; }
