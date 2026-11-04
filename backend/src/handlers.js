@@ -579,6 +579,7 @@ module.exports = {
   pruneDeletedAccounts,
   reportUser,
   ...require("./connections"),
+  ...require("./messages"),
   connection_requestCreated,
   connection_messageCreated,
 };

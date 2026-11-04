@@ -35,6 +35,7 @@ import {
   ChatMessage,
   getConnectionMembers,
   sendMessage,
+  createMessageOperationId,
   subscribeToMessages,
 } from "../../../src/chat/service";
 import { showAlert } from "../../../src/lib/showAlert";
@@ -77,6 +78,7 @@ export default function ConnectionChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const pendingSend = useRef<{ text: string; operationId: string } | null>(null);
   const [otherUid, setOtherUid] = useState(params.otherUid ?? "");
   const [otherProfile, setOtherProfile] = useState<PublicUserProfile | null>(
     null,
@@ -201,7 +203,10 @@ export default function ConnectionChatPage() {
   const handleSend = async () => {
     try {
       setSending(true);
-      await sendMessage(connectionId, draft);
+      if (sending) return;
+      if (pendingSend.current?.text !== draft) pendingSend.current = { text: draft, operationId: createMessageOperationId() };
+      await sendMessage(connectionId, draft, pendingSend.current.operationId);
+      pendingSend.current = null;
       setDraft("");
     } catch (e: any) {
       showAlert("Could not send", e?.message ?? "Unknown error");

@@ -1,130 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function session() {
+      let state = get(/databases/$(database)/documents/accountState/$(request.auth.uid)).data;
+      return request.auth != null && !state.disabled && !state.deleting
+        && state.leaseUntil > request.time && request.auth.token.auth_time >= state.validAfter;
     }
-
-    function pairId(uid1, uid2) {
-      return uid1 < uid2 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
+    function verified() { return session() && request.auth.token.email_verified == true; }
+    function pairId(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
+    function relationship(id) { return get(/databases/$(database)/documents/relationships/$(id)).data; }
+    function participant(data) { return data.users is list && data.users.size() == 2 && request.auth.uid in data.users; }
+    function historyAllowed(id) {
+      let relation = relationship(id);
+      return relation.status != "blocked" || relation.get("historyReaderUid", relation.get("blockedByUid", "")) == request.auth.uid;
     }
-
-    function relationshipPath(uid1, uid2) {
-      return /databases/$(database)/documents/relationships/$(pairId(uid1, uid2));
+    function accountAvailable(uid) {
+      let state = get(/databases/$(database)/documents/accountState/$(uid)).data;
+      return !state.disabled && !state.deleting;
     }
-
-    function relationshipStatus(uid1, uid2) {
-      let path = relationshipPath(uid1, uid2);
-      return exists(path) ? get(path).data.status : "none";
-    }
-
-    function relationshipBlockedByUid(uid1, uid2) {
-      let path = relationshipPath(uid1, uid2);
-      return exists(path) ? get(path).data.blockedByUid : null;
-    }
-
-    function isBlockedByCurrentUser(uid1, uid2) {
-      return relationshipStatus(uid1, uid2) == "blocked"
-        && relationshipBlockedByUid(uid1, uid2) == request.auth.uid;
-    }
-
-    function canAccessConnection(uid1, uid2) {
-      let status = relationshipStatus(uid1, uid2);
-      return status != "blocked" || isBlockedByCurrentUser(uid1, uid2);
-    }
-
-    function canReadPublicProfile(userId) {
-      let status = relationshipStatus(request.auth.uid, userId);
-      return request.auth.uid == userId
-        || (
-          status != "declined"
-          && status != "blocked"
-        );
-    }
-
-    match /users/{userId} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
-
-      match /devices/{deviceId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
-      }
-    }
-
-    match /publicProfiles/{userId} {
-      allow read: if signedIn() && canReadPublicProfile(userId);
-      allow write: if signedIn() && request.auth.uid == userId;
-    }
-
-    match /relationships/{relationshipId} {
+    match /users/{uid} {
+      allow read: if session() && request.auth.uid == uid;
+      // Onboarding and profile validation run on the server; auth state is never editable here.
       allow write: if false;
-
-      allow read: if signedIn()
-        && resource.data.users.hasAny([request.auth.uid])
-        && (
-          resource.data.status != "blocked"
-          || resource.data.blockedByUid == request.auth.uid
-        );
-
+      match /devices/{deviceId} { allow read, write: if false; }
     }
-
-    match /connectionRequests/{requestId} {
+    // Historical copies may contain hidden fields. No clients can download them.
+    match /publicProfiles/{uid} { allow read, write: if false; }
+    match /relationships/{id} {
+      allow read: if verified() && participant(resource.data) && historyAllowed(id);
       allow write: if false;
-
-      allow read: if signedIn()
-        && (
-          resource.data.fromUid == request.auth.uid
-          || resource.data.toUid == request.auth.uid
-        );
-
     }
-
-    match /connections/{connectionId} {
+    match /connectionRequests/{id} {
+      allow read: if verified() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
       allow write: if false;
-
-      allow read: if signedIn()
-        && resource.data.users.hasAny([request.auth.uid])
-        && canAccessConnection(resource.data.users[0], resource.data.users[1]);
-      allow update, delete: if false;
-
+    }
+    match /connections/{id} {
+      allow read: if verified() && participant(resource.data) && historyAllowed(id);
+      allow write: if false;
       match /messages/{messageId} {
-        allow read: if signedIn()
-          && get(/databases/$(database)/documents/connections/$(connectionId))
-            .data.users.hasAny([request.auth.uid])
-          && canAccessConnection(
-            get(/databases/$(database)/documents/connections/$(connectionId))
-              .data.users[0],
-            get(/databases/$(database)/documents/connections/$(connectionId))
-              .data.users[1],
-          );
-
-        allow create: if signedIn()
-          && get(/databases/$(database)/documents/connections/$(connectionId))
-            .data.users.hasAny([request.auth.uid])
-          && relationshipStatus(
-            get(/databases/$(database)/documents/connections/$(connectionId))
-              .data.users[0],
-            get(/databases/$(database)/documents/connections/$(connectionId))
-              .data.users[1],
-          ) != "blocked"
-          && request.resource.data.senderUid == request.auth.uid
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000;
-
-        allow update, delete: if false;
+        allow read: if verified()
+          && participant(get(/databases/$(database)/documents/connections/$(id)).data)
+          && historyAllowed(id);
+        // All creates go through sendChatMessage's transaction: membership, expiry,
+        // block state, bounded schema, server commit timestamp, quota, and idempotency.
+        // Denying SDK writes also denies forged/missing times and post-expiry writes.
+        allow create, update, delete: if false;
       }
     }
-
-    match /presence/{docId} {
-      allow read, write: if false;
-    }
-
-    match /notificationState/{docId} {
-      allow read, write: if false;
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
