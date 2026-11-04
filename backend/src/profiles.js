@@ -34,18 +34,33 @@ const profile_save = onCall(CALLABLE_OPTIONS, withAuth(async (uid, request) => {
   if (onboarding && (typeof onboarding.sharingEnabled !== "boolean" || !ALLOWED_PERMISSION_STATUS.has(onboarding.permissionStatus))) {
     throw new HttpsError("invalid-argument", "Invalid location preferences.");
   }
+  const { ownedPhotoPath, photoPaths, validatePhoto, deletePhotoIfUnused } = require("./photos");
+  if ("photoURL" in profile) ownedPhotoPath(profile.photoURL, uid);
+  for (const path of profile.photoUrls ?? []) ownedPhotoPath(path, uid);
+  const attaching = photoPaths(profile);
+  for (const path of attaching) await validatePhoto(path, uid);
   const db = getDb();
+  let replaced = [];
   await db.runTransaction(async (tx) => {
     await requireAccount(tx, uid);
     const ref = db.doc(`users/${uid}`);
     const previous = (await tx.get(ref)).data();
+    for (const path of attaching) {
+      const garbage = await tx.get(db.doc(`photoGarbage/${require("./security").digest(path)}`));
+      if (garbage.exists) throw new HttpsError("failed-precondition", "Photo is no longer available. Upload it again.");
+    }
+    const merged = { ...previous, ...profile };
+    if ("photoURL" in profile && !("photoUrls" in profile)) merged.photoUrls = profile.photoURL ? [profile.photoURL] : [];
+    replaced = photoPaths(previous).filter((path) => !photoPaths(merged).includes(path));
     await consumeQuota(tx, uid, "profileWrite");
-    tx.set(ref, { ...profile, email: request.auth.token.email ?? "", updatedAt: serverTimestamp(),
+    tx.set(ref, { ...profile, ...(merged.photoUrls ? { photoUrls: merged.photoUrls } : {}), email: request.auth.token.email ?? "", updatedAt: serverTimestamp(),
       ...(!previous ? { createdAt: serverTimestamp(), locationControl: { sharingEnabled: onboarding?.sharingEnabled === true,
         permissionStatus: onboarding?.permissionStatus ?? "unknown", generation: 0, updatedAt: serverTimestamp() } } : {}),
     }, { merge: true });
     tx.delete(db.doc(`publicProfiles/${uid}`));
   });
+  // Failed deletes remain discoverable by the scheduled orphan sweep.
+  await Promise.allSettled(replaced.map((path) => deletePhotoIfUnused(path)));
   return { ok: true };
 }, { verified: false }));
 module.exports = { profile_get, profile_save, profileForViewer };

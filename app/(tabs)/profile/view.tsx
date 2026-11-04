@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { doc, getDoc } from "firebase/firestore";
+import { fetchProfile } from "../../../src/profile/service";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,7 +12,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { db } from "../../../firebaseConfig";
 import { useAuth } from "../../../src/auth/AuthContext";
 import { getAvatarImageSource } from "../../../src/lib/avatarImages";
 import { normalizeHobbies } from "../../../src/lib/hobbies";
@@ -60,15 +59,7 @@ export default function ViewProfile() {
   const loadProfile = useCallback(async () => {
     if (!user) return;
 
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) {
-      setData(null);
-      return;
-    }
-
-    setData(snap.data() as UserDoc);
+    setData(await fetchProfile(user.uid) as UserDoc);
   }, [user]);
 
   useEffect(() => {

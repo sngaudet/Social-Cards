@@ -8,6 +8,7 @@ import { Platform } from "react-native";
 
 import { app, auth } from "../../firebaseConfig";
 import { shouldShowForegroundPushAlert } from "../notifications/runtime";
+import { resolveProfilePhoto } from "../lib/picture_upload";
 import { PreConnectionVisibility } from "../profile/visibility";
 
 export type LocationPermissionStatus =
@@ -610,7 +611,7 @@ export async function setLocationSharingEnabled(
 // this fetches nearby users list for home screen
 export async function fetchNearbyUsers(radiusFt = 50): Promise<NearbyResponse> {
   const result = await callWithRetry(() => getNearbyCallable({ radiusFt }));
-  return result.data;
+  return { ...result.data, users: await Promise.all(result.data.users.map(async (person) => ({ ...person, photoURL: await resolveProfilePhoto(person.uid, person.photoURL).catch(() => "") }))) };
 }
 
 // this bootstraps location services when a session starts

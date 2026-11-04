@@ -581,6 +581,7 @@ module.exports = {
   ...require("./connections"),
   ...require("./messages"),
   ...require("./profiles"),
+  ...require("./photos"),
   connection_requestCreated,
   connection_messageCreated,
 };

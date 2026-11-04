@@ -6,6 +6,7 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
+import { resolveProfilePhoto } from "../../../src/lib/picture_upload";
 import { saveProfile } from "../../../src/profile/service";
 import { CalendarDays, Check, Megaphone, Plus, X } from "lucide-react-native";
 import React, {
@@ -188,6 +189,7 @@ export default function EditProfile() {
     );
 
   const [photoURL, setPhotoURL] = useState<string>("");
+  const [photoPreview, setPhotoPreview] = useState("");
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [locationControl, setLocationControl] =
     useState<LocationControlStatus | null>(null);
@@ -322,6 +324,7 @@ export default function EditProfile() {
       const d = snap.data() as UserDoc;
 
       setPhotoURL(d.photoURL ?? "");
+      setPhotoPreview(await resolveProfilePhoto(userId, d.photoURL).catch(() => ""));
       setNewPhotoUri(null); // reset local selection when reloading
 
       setEmail(d.email ?? user?.email ?? "");
@@ -719,10 +722,10 @@ export default function EditProfile() {
             <View style={styles.userCard}>
               <Text style={styles.sectionTitle}>Profile Photo</Text>
               <View style={styles.photoRow}>
-                {newPhotoUri || photoURL ? (
+                {newPhotoUri || photoPreview ? (
                   <Image
                     accessibilityLabel="Your profile photo"
-                    source={{ uri: newPhotoUri ?? photoURL }}
+                    source={{ uri: newPhotoUri ?? photoPreview }}
                     style={styles.profileImage}
                   />
                 ) : (

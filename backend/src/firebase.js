@@ -38,6 +38,7 @@ function getAdminApp() {
     defaultApp
     || initializeApp({
       ...(projectId ? { projectId } : {}),
+      storageBucket: process.env.PROFILE_STORAGE_BUCKET || JSON.parse(process.env.FIREBASE_CONFIG || "{}").storageBucket || `${projectId}.firebasestorage.app`,
     });
   return cachedApp;
 }
